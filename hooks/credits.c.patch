@@ -1,0 +1,39 @@
+--- a/src/credits.c
++++ b/src/credits.c
+@@ -20,6 +20,7 @@
+ #include "frontend.h"
+ #include "object.h"
+ #include "present.h"
++#include "practice_hooks.h"
+ 
+ extern s32 space;
+ extern s32 aimBallX;
+@@ -541,22 +542,22 @@
+             }
+             break;
+         case 0:
+-            printHiscores(hsLevNames[0][gameInfo.language], 0);
++            PRACTICE_WRAP(printHiscores)(hsLevNames[0][gameInfo.language], 0);
+             break;
+         case 1:
+-            printHiscores(hsLevNames[1][gameInfo.language], 5);
++            PRACTICE_WRAP(printHiscores)(hsLevNames[1][gameInfo.language], 5);
+             break;
+         case 2:
+-            printHiscores(hsLevNames[2][gameInfo.language], 10);
++            PRACTICE_WRAP(printHiscores)(hsLevNames[2][gameInfo.language], 10);
+             break;
+         case 3:
+-            printHiscores(hsLevNames[3][gameInfo.language], 15);
++            PRACTICE_WRAP(printHiscores)(hsLevNames[3][gameInfo.language], 15);
+             break;
+         case 4:
+-            printHiscores(hsLevNames[4][gameInfo.language], 20);
++            PRACTICE_WRAP(printHiscores)(hsLevNames[4][gameInfo.language], 20);
+             break;
+         case 5:
+-            printHiscores(hsLevNames[5][gameInfo.language], 25);
++            PRACTICE_WRAP(printHiscores)(hsLevNames[5][gameInfo.language], 25);
+             break;
+     }
+     DefWait(act, me);

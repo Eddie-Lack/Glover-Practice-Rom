@@ -1,0 +1,110 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -45,6 +45,7 @@
+ #include "object.h"
+ #include "personal.h"
+ #include "shadow.h"
++#include "practice_hooks.h"
+ 
+ extern OSMesgQueue dmaMessageQ;
+ extern OSMesgQueue rspMessageQ;
+@@ -243,7 +244,7 @@
+     guPerspective(&dynamicp->projection, &perspNorm, fieldOfView, 4.0f / 3.0f, nearPlaneDist, farPlaneDist, 1.0f);
+     RotateVector2D(&camVect, &cameraUpVect, camera.rot.y);
+     if (ShadingMode == 2) {
+-        guLookAtHilite(&dynamicp->cameraView, &dynamicp->lookAt, &dynamicp->hilite, actualCamPos[draw_buffer].x,
++        PRACTICE_WRAP(guLookAtHilite)(&dynamicp->cameraView, &dynamicp->lookAt, &dynamicp->hilite, actualCamPos[draw_buffer].x,
+                        actualCamPos[draw_buffer].y, actualCamPos[draw_buffer].z, actualCamTargetPos[draw_buffer].x,
+                        actualCamTargetPos[draw_buffer].y, actualCamTargetPos[draw_buffer].z, camVect.x, camVect.y,
+                        camVect.z, 0, 0, 127.0f, 0, 0, 127.0f, 32, 32);
+@@ -622,12 +623,12 @@
+     gameInfo.mode = 1;
+     while (TRUE) {
+         osRecvMesg(&main_msgQ, (OSMesg *)&msg, OS_MESG_BLOCK);
+-        ClearText();
++        PRACTICE_WRAP(ClearText)();
+         if (*msg == 9) {
+             if (gameInfo.mode == 2) {
+                 LevelSelectScreen();
+             } else if (gameInfo.mode == 1) {
+-                DoMenu();
++                PRACTICE_WRAP(DoMenu)();
+             } else if (gameInfo.mode == 15) {
+                 TimeTrialScreen();
+             }
+@@ -712,9 +713,9 @@
+                 osRecvMesg(&controllerMsgQ, NULL, OS_MESG_BLOCK);
+                 osContGetReadData(controllerdata);
+                 if (autoPlayback == 2) {
+-                    ReadControllerFromData(ActiveController);
++                    PRACTICE_WRAP(ReadControllerFromData)(ActiveController);
+                 } else {
+-                    ReadController(ActiveController);
++                    PRACTICE_WRAP(ReadController)(ActiveController);
+                 }
+                 EndTimer(2);
+                 if (eepromMessageQueue[0]) {
+@@ -814,7 +815,7 @@
+                 }
+                 dispFrameCount++;
+                 StartTimer(1, "GRAPHICS");
+-                SendLastFrame();
++                PRACTICE_WRAP(SendLastFrame)();
+                 dynamicp = &dynamic[draw_buffer];
+                 tlistp = tlistPointers[draw_buffer];
+                 glistp = dynamicp->glist;
+@@ -855,7 +856,7 @@
+                         CleanupAndSendDisplayList(0, 0);
+                     }
+                 }
+-                PrintTimers();
++                PRACTICE_WRAP(PrintTimers)();
+                 CleanupAndSendDisplayList(0, 0x40);
+                 len = glistp - dynamicp->glist;
+                 UpdateFade();
+@@ -956,7 +957,7 @@
+     cfb_ptrs[0] = cfb0;
+     cfb_ptrs[1] = cfb1;
+     CreateMessageQueues();
+-    MeasureFrameTicks();
++    PRACTICE_WRAP(MeasureFrameTicks)();
+     InitCRCTable();
+     InitLinkedLists();
+     InitAtan();
+@@ -970,6 +971,10 @@
+     RunGame(arg);
+ }
+ 
++#ifdef PRACTICE
++// The practice ROM's boot hook takes the place of this function, which nothing calls.
++INCLUDE_ASM("../hooks/asm", PracticeMeasureFrameTicks);
++#else
+ void ClearStaticMemory(void) {
+     s32 i;
+ 
+@@ -977,6 +982,7 @@
+         staticMemory[i] = 0;
+     }
+ }
++#endif
+ 
+ void MainGameLoop(void) {
+     Vec3 tempVect;
+@@ -1058,7 +1064,7 @@
+     if (!gamePaused) {
+         if (GameBeingPlayed()) {
+             if (gameInfo.mode != 5) {
+-                ProcessInput();
++                PRACTICE_WRAP(ProcessInput)();
+                 UpdateActorPositionDependencies();
+                 MoveBall();
+                 MoveHand();
+@@ -1070,7 +1076,7 @@
+         }
+     }
+     if (!gamePaused) {
+-        MoveCam();
++        PRACTICE_WRAP(MoveCam)();
+         PlayerSpinCamera();
+         CalculateShadows();
+         UpdateLights();

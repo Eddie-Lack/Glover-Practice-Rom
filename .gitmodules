@@ -1,0 +1,3 @@
+[submodule "gloveworld"]
+	path = gloveworld
+	url = https://github.com/Eddie-Lack/gloveworld

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glover Practice Patcher</title>
+<style>
+/* Styled after a 1998 game web site: a tiled star background, a ridge-framed table in the middle, a
+   WordArt-style logo, red title bars, grey bevelled boxes and buttons, pixel bullets and system fonts only.
+   Everything is drawn here with CSS and SVG; nothing comes from the ROM. */
+:root {
+  --navy: #000080;
+  --deep: #000040;
+  --grey: #c0c0c0;
+  --grey-light: #ffffff;
+  --grey-dark: #808080;
+  --red: #cc0000;
+  --yellow: #ffff00;
+  --good: #00c000;
+  --bad: #ff3030;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  color: #ffffff; font: 13px/1.5 Verdana, Tahoma, Arial, Helvetica, sans-serif;
+  padding: 20px 12px 40px;
+  background-color: #0000a8;
+  /* A tiled background of little yellow stars, as many 1998 sites had. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72' shape-rendering='crispEdges'%3E%3Crect width='72' height='72' fill='%230000a8'/%3E%3Cpath d='M18 6l3 7h7l-6 4 2 8-6-5-6 5 2-8-6-4h7z' fill='%23ffff00' stroke='%23c08000'/%3E%3Cpath d='M54 42l2 5h5l-4 3 2 6-5-4-5 4 2-6-4-3h5z' fill='%23ffffff' opacity='.55'/%3E%3Crect x='44' y='12' width='2' height='2' fill='%23ffffff'/%3E%3Crect x='10' y='52' width='2' height='2' fill='%23ffffff'/%3E%3Crect x='64' y='26' width='2' height='2' fill='%23ffff80'/%3E%3C/svg%3E");
+}
+main {
+  max-width: 620px; margin: 0 auto; background: var(--navy);
+  border: 6px ridge var(--grey); padding: 0 0 14px;
+}
+/* The logo: thick yellow letters with a red and black hard shadow, as from a 1998 paint program. */
+h1 {
+  margin: 0; padding: 16px 8px 12px; text-align: center; background: var(--deep);
+  font: italic 900 clamp(26px, 7vw, 44px)/1 "Arial Black", "Arial Bold", Gadget, Impact, sans-serif;
+  color: var(--yellow); letter-spacing: 1px; text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #000000, -1px -1px 0 #ff8000;
+}
+h1 .glove { display: inline-block; width: 40px; height: 32px; vertical-align: -4px; margin: 0 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 16' shape-rendering='crispEdges'%3E%3Cpath d='M1 5h4V4h2V3h4v2h8v3h-8v2h-1v2h-1v2H4v-2H3v-2H1z' fill='%23ffffff' stroke='%23000000' stroke-width='1'/%3E%3C/svg%3E") no-repeat center / contain; }
+h1 .glove.left { transform: scaleX(1); }
+h1 .glove.right { transform: scaleX(-1); }
+/* A rainbow divider, a classic of the time. */
+.rainbow { height: 6px; border: 0; margin: 0;
+  background: linear-gradient(90deg, #ff0000, #ff8000, #ffff00, #00c000, #0080ff, #8000ff, #ff00ff); }
+h2 {
+  margin: 0; padding: 3px 8px; background: var(--red); border-top: 2px solid #ff6060; border-bottom: 2px solid #800000;
+  font: bold 15px/1.3 Arial, Helvetica, sans-serif; color: var(--yellow); text-transform: uppercase; letter-spacing: 1px;
+}
+.box { margin: 14px 14px 0; border: 2px solid #000000; background: #000060; }
+.box .inner { padding: 10px 12px; }
+p { margin: 0; }
+a { color: var(--yellow); text-decoration: underline; }
+a:visited { color: #ff99ff; }
+a:hover { color: #ffffff; }
+
+/* The drop box: grey and sunken, like a 1998 form. */
+.drop {
+  display: block; margin: 14px 14px 0; padding: 18px 12px; text-align: center; cursor: pointer;
+  background: var(--grey); color: #000000;
+  border: 3px inset var(--grey);
+}
+.drop:hover, .drop.over { background: #d8d8d8; border-style: outset; }
+.drop:focus-within { outline: 2px dotted var(--yellow); outline-offset: 2px; }
+.drop strong { display: block; font: bold 20px/1.2 Arial, Helvetica, sans-serif; color: #000080; text-transform: uppercase; }
+.drop span { display: block; margin-top: 4px; font-size: 12px; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.steps li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; }
+/* Pixel bullets: a grey ball, green with a tick when done, red with a cross when it failed. */
+.steps .dot { width: 14px; height: 14px; margin-top: 2px; background: var(--grey); border: 2px outset var(--grey); image-rendering: pixelated; }
+.steps li[data-state="ok"] .dot { background: var(--good); border-color: #80ff80 #006000 #006000 #80ff80; border-style: solid; }
+.steps li[data-state="ok"] .dot::after { content: ""; display: block; width: 4px; height: 7px; margin: 0 auto; border: solid #000000; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.steps li[data-state="fail"] .dot { background: var(--bad); border-color: #ff9090 #800000 #800000 #ff9090; border-style: solid; }
+.steps li[data-state="fail"] .dot::after { content: "x"; display: block; text-align: center; font: bold 10px/9px Arial, sans-serif; color: #000000; }
+.steps li[data-state="work"] .dot { background: var(--yellow); animation: blink 0.5s steps(1) infinite; }
+@keyframes blink { 50% { background: var(--grey); } }
+@media (prefers-reduced-motion: reduce) { .steps li[data-state="work"] .dot { animation: none; } }
+.steps .what { font-weight: bold; }
+.steps .detail { color: #c0c0ff; font: 12px/1.4 "Courier New", Courier, monospace; overflow-wrap: anywhere; }
+.steps li[data-state="fail"] .detail { color: var(--bad); font-family: Verdana, Arial, sans-serif; font-weight: bold; }
+
+.save { text-align: center; padding-top: 12px; }
+/* A Windows 98 style push button. */
+button {
+  font: bold 13px Arial, Helvetica, sans-serif; color: #000000; background: var(--grey); cursor: pointer;
+  border: 2px solid; border-color: var(--grey-light) #404040 #404040 var(--grey-light);
+  box-shadow: inset -1px -1px 0 var(--grey-dark), inset 1px 1px 0 #dfdfdf; padding: 6px 22px;
+}
+button:active:not(:disabled) { border-color: #404040 var(--grey-light) var(--grey-light) #404040; box-shadow: inset 1px 1px 0 var(--grey-dark); }
+button:disabled { color: var(--grey-dark); text-shadow: 1px 1px 0 var(--grey-light); cursor: default; }
+button:focus-visible { outline: 1px dotted #000000; outline-offset: -5px; }
+.note { margin-top: 8px; text-align: center; color: #c0c0ff; font-size: 12px; }
+.note.bad { color: var(--bad); font-weight: bold; }
+
+ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
+/* A little pixel star for each bullet. */
+.know li { padding-left: 18px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h2v3h3v2H7v2h1v3H6V8H4v2H2V7h1V5H1V3h3z' fill='%23ffff00'/%3E%3C/svg%3E") no-repeat 0 4px / 10px 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1><span class="glove left" aria-hidden="true"></span>Glover Practice Patcher<span class="glove right" aria-hidden="true"></span></h1>
+  <hr class="rainbow">
+
+  <label class="drop" id="drop">
+    <strong>Drop the Glover ROM here</strong>
+    <span>or click to choose a file: .z64, .v64 or .n64</span>
+    <input type="file" id="file" accept=".z64,.v64,.n64,.rom,.bin,.bps">
+  </label>
+
+  <section class="box" aria-labelledby="steps-h">
+    <h2 id="steps-h">Patch</h2>
+    <div class="inner">
+      <ol class="steps" id="steps">
+        <li id="s-patchfile"><span class="dot"></span><div><div class="what">Find the patch</div><div class="detail"></div></div></li>
+        <li id="s-read"><span class="dot"></span><div><div class="what">Read the ROM and put it in .z64 byte order</div><div class="detail">waiting for a file</div></div></li>
+        <li id="s-sha"><span class="dot"></span><div><div class="what">Check that it is Glover (USA)</div><div class="detail">SHA-1 270be17b3c8da9b88a7b99c2a545b0bce16837f4</div></div></li>
+        <li id="s-apply"><span class="dot"></span><div><div class="what">Apply the patch and check the result</div><div class="detail"></div></div></li>
+      </ol>
+      <div class="save">
+        <button class="primary" id="save-rom" disabled>Save practice ROM</button>
+      </div>
+      <p class="note" id="note" role="status"></p>
+    </div>
+  </section>
+
+  <section class="box" aria-labelledby="know-h">
+    <h2 id="know-h">Good to know</h2>
+    <div class="inner">
+      <ul class="know">
+        <li>The practice ROM needs the Expansion Pak</li>
+        <li>Features can be found in the <a href="https://github.com/Eddie-Lack/Glover-Practice-Rom/blob/main/wiki/Home.md">wiki</a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const ROM_SHA1 = "270be17b3c8da9b88a7b99c2a545b0bce16837f4";
+// PATCH BEGIN (written by tools/mkpage.py; do not edit by hand)
+const PATCH = null;
+const VERSION = "";
+// PATCH END
+
+const $ = (id) => document.getElementById(id);
+let result = null;
+let patch = PATCH ? Uint8Array.from(atob(PATCH), (c) => c.charCodeAt(0)) : null;
+
+function step(id, state, detail) {
+  const li = $(id);
+  li.dataset.state = state;
+  if (detail !== undefined) li.querySelector(".detail").textContent = detail;
+}
+// Each step's starting text, restored before the next file
+const STEP_TEXT = {};
+document.querySelectorAll("#steps li").forEach((li) => { STEP_TEXT[li.id] = li.querySelector(".detail").textContent; });
+function resetSteps() {
+  Object.keys(STEP_TEXT).forEach((id) => { if (id !== "s-patchfile") { $(id).dataset.state = ""; $(id).querySelector(".detail").textContent = STEP_TEXT[id]; } });
+  $("save-rom").disabled = true; note("");
+  result = null;
+}
+function note(text, bad) { $("note").textContent = text; $("note").className = bad ? "note bad" : "note"; }
+
+function showPatch(where) {
+  if (patch) step("s-patchfile", "ok", (patch.length / 1024).toFixed(1) + " KB BPS patch" + where);
+  else step("s-patchfile", "", "This page has no patch built in. Drop glover-practice.bps here first");
+}
+showPatch("");
+
+function toZ64(b) {
+  const m = ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0;
+  if (m === 0x80371240) return { rom: b.slice(), order: ".z64 (big-endian)" };
+  const out = new Uint8Array(b.length);
+  if (m === 0x37804012) {
+    for (let i = 0; i + 1 < b.length; i += 2) { out[i] = b[i + 1]; out[i + 1] = b[i]; }
+    return { rom: out, order: ".v64 (byte-swapped), converted" };
+  }
+  if (m === 0x40123780) {
+    for (let i = 0; i + 3 < b.length; i += 4) { out[i] = b[i + 3]; out[i + 1] = b[i + 2]; out[i + 2] = b[i + 1]; out[i + 3] = b[i]; }
+    return { rom: out, order: ".n64 (little-endian), converted" };
+  }
+  return null;
+}
+
+async function sha1(bytes) {
+  const h = await crypto.subtle.digest("SHA-1", bytes);
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+const u32le = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+
+// BPS: the patch format
+function applyBps(source, p) {
+  const magic = String.fromCharCode(p[0], p[1], p[2], p[3]);
+  if (magic !== "BPS1") throw new Error("The patch file is not a BPS patch");
+  if (crc32(p.subarray(0, p.length - 4)) !== u32le(p, p.length - 4)) throw new Error("The patch file is damaged");
+  if (crc32(source) !== u32le(p, p.length - 12)) throw new Error("The patch does not fit this ROM");
+  let pos = 4;
+  const num = () => {
+    let n = 0, shift = 1;
+    for (;;) {
+      const x = p[pos++];
+      n += (x & 0x7F) * shift;
+      if (x & 0x80) return n;
+      shift *= 128;
+      n += shift;
+    }
+  };
+  const sourceSize = num(), targetSize = num(), metaSize = num();
+  pos += metaSize;
+  if (sourceSize !== source.length) throw new Error("The ROM has the wrong size for this patch");
+  const target = new Uint8Array(targetSize);
+  let out = 0, sourceRel = 0, targetRel = 0;
+  const end = p.length - 12;
+  while (pos < end) {
+    const data = num(), kind = data % 4, length = Math.floor(data / 4) + 1;
+    if (kind === 0) { target.set(source.subarray(out, out + length), out); out += length; }
+    else if (kind === 1) { target.set(p.subarray(pos, pos + length), out); out += length; pos += length; }
+    else {
+      const raw = num(), offset = raw % 2 ? -Math.floor(raw / 2) : Math.floor(raw / 2);
+      if (kind === 2) { sourceRel += offset; target.set(source.subarray(sourceRel, sourceRel + length), out); out += length; sourceRel += length; }
+      else { targetRel += offset; for (let i = 0; i < length; i++) target[out++] = target[targetRel++]; }
+    }
+  }
+  if (out !== targetSize || crc32(target) !== u32le(p, p.length - 8)) throw new Error("The patched ROM is not right");
+  return target;
+}
+
+const pause = () => new Promise((r) => setTimeout(r, 30));
+
+async function patchRom(file) {
+  resetSteps();
+  if (!patch) { step("s-patchfile", "fail", "Drop glover-practice.bps first, then the ROM"); return; }
+  step("s-read", "work", "reading " + file.name);
+  await pause();
+  const raw = new Uint8Array(await file.arrayBuffer());
+  const conv = toZ64(raw);
+  if (!conv) { step("s-read", "fail", "This file is not an N64 ROM: its first bytes match no known byte order"); return; }
+  const rom = conv.rom;
+  step("s-read", "ok", (raw.length / 1048576).toFixed(0) + " MiB, " + conv.order);
+
+  step("s-sha", "work"); await pause();
+  let sum = "";
+  try { sum = await sha1(rom); } catch (e) { sum = ""; }
+  if (sum && sum !== ROM_SHA1) {
+    step("s-sha", "fail", "SHA-1 " + sum + ". This is not the original Glover ROM. The patch only works with that ROM");
+    return;
+  }
+  step("s-sha", "ok", sum ? "SHA-1 " + sum + ", the original ROM" : "This browser cannot compute SHA-1 here; the patch checks the ROM's CRC32 instead");
+
+  step("s-apply", "work"); await pause();
+  let target;
+  try { target = applyBps(rom, patch); } catch (e) { step("s-apply", "fail", e.message); return; }
+  step("s-apply", "ok", (target.length / 1048576).toFixed(0) + " MiB, CRC32 " + crc32(target).toString(16).toUpperCase().padStart(8, "0"));
+
+  result = { rom: target, base: file.name.replace(/\.(z64|v64|n64|rom|bin)$/i, "") };
+  $("save-rom").disabled = false;
+  note("Done. Save the practice ROM");
+}
+
+async function useFile(file) {
+  if (/\.bps$/i.test(file.name)) {
+    patch = new Uint8Array(await file.arrayBuffer());
+    showPatch(", from " + file.name);
+    resetSteps();
+    note("Now drop the ROM");
+    return;
+  }
+  patchRom(file);
+}
+
+function save() {
+  if (!result) return;
+  const name = result.base + "-practice.z64";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([result.rom]));
+  a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  note("Saved " + name + ".");
+}
+
+$("save-rom").addEventListener("click", save);
+$("file").addEventListener("change", (ev) => { const f = ev.target.files[0]; ev.target.value = ""; if (f) useFile(f); });
+const drop = $("drop");
+["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
+drop.addEventListener("drop", (ev) => { ev.preventDefault(); ev.stopPropagation(); const f = ev.dataTransfer.files[0]; if (f) useFile(f); });
+// A file dropped anywhere else on the page should not open in the browser instead
+window.addEventListener("dragover", (ev) => ev.preventDefault());
+window.addEventListener("drop", (ev) => { ev.preventDefault(); const f = ev.dataTransfer && ev.dataTransfer.files[0]; if (f) useFile(f); });
+</script>
+</body>
+</html>

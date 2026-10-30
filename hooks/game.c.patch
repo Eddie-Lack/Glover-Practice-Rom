@@ -1,0 +1,62 @@
+--- a/src/game.c
++++ b/src/game.c
+@@ -49,6 +49,7 @@
+ #include "present.h"
+ #include "shadow.h"
+ #include "spell.h"
++#include "practice_hooks.h"
+ void FlashScreen(u8 r, u8 g, u8 b, s16 fadeVal, s16 fadeStep);
+ 
+ extern s32 cheatActivated;
+@@ -1398,7 +1399,7 @@
+     numCyclingTextures = 0;
+     worldExitTimer = 0;
+     levelExitTimer = 0;
+-    SeedRandom();
++    PRACTICE_WRAP(SeedRandom)();
+     cameraInfo.focus = &hand.pos;
+     dispFrameCount = frameCount = frameCount2 = 0;
+     gravity = 1.2f;
+@@ -1601,7 +1602,7 @@
+     UpdatePause();
+     if (endOfLevelCount == 0) {
+         oldBestTime = bestTimes[levelInfo[gameInfo.prevLevel].bit].time;
+-        conquered = CheckForLevelCompleted();
++        conquered = PRACTICE_WRAP(CheckForLevelCompleted)();
+         newDesiredFrameRate = 2;
+         quitTimer = -1;
+         gameInfo.fade = 300;
+@@ -1837,7 +1838,7 @@
+     if (++newWorldCount == 1) {
+         StopDrawing("eowscn");
+         eowWait = 0;
+-        CheckForLevelCompleted();
++        PRACTICE_WRAP(CheckForLevelCompleted)();
+         wellDoneBB = 0;
+         wellDoneBX = 200.0f;
+         wellDoneBV = -1.0f;
+@@ -2281,7 +2282,7 @@
+                 }
+                 gameInfo.prevWorld = gameInfo.world;
+                 gameInfo.world = HUB;
+-                CheckForLevelCompleted();
++                PRACTICE_WRAP(CheckForLevelCompleted)();
+                 if (cameFromTitle) {
+                     gameInfo.mode = 1;
+                 }
+--- a/src/game.c
++++ b/src/game.c
+@@ -2386,11 +2387,11 @@
+                     currentAnim = 0;
+                     frameCount = 0;
+                     levelSelectCount = 0;
+-                    PrepareSong(TITLE_TRACK);
++                    PRACTICE_WRAP(PrepareSong)(TITLE_TRACK);
+                     return;
+                 }
+             }
+-            InitOverlayList();
++            PRACTICE_WRAP(InitOverlayList)();
+             InitBackgroundLightList();
+             InitHandLightList();
+             InitFootprintList();
