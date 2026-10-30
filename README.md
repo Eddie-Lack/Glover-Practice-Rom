@@ -1,8 +1,8 @@
 # Glover Practice ROM
 
-Tools for practicing Glover speedruns.
+Tools for practicing Glover speedruns!
 
-An Expansion Pak is required.
+Expansion Pak is required.
 
 ## Applying the patch
 
@@ -13,7 +13,7 @@ You can also apply the `.bps` file with any BPS patcher to the ROM in `.z64` byt
 
 ## Controls and features
 
-Hold all four C buttons to open or close the practice menu. The wiki describes the controls and each menu:
+Press all four C buttons to open or close the practice menu. The wiki describes the controls and each menu:
 
 - [Home](wiki/Home.md)
 - [Controls](wiki/Controls.md)
