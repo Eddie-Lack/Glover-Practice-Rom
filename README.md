@@ -24,7 +24,13 @@ Press all four C buttons to open or close the practice menu. The wiki describes 
 - The developers of N64 decompilation tools: [splat](https://github.com/ethteck/splat), [spimdisasm](https://github.com/Decompollaborate/spimdisasm), [asm-differ](https://github.com/simonlindholm/asm-differ) and [decomp-permuter](https://github.com/simonlindholm/decomp-permuter), [m2c](https://github.com/matt-kempster/m2c), and the [decompals build of GCC 2.7.2 for MIPS](https://github.com/decompals/mips-gcc-2.7.2)
 - Shoutouts to the true og's, gz and usamune
 
+## No Thanks
+
+- chosis my enemy
+
 ## Building
+
+This is what the robot says it prob works
 
 On Ubuntu 24.04:
 
