@@ -78,6 +78,7 @@ typedef struct Run {
     u8 warpPower;    /* the Warp menu's power-up: 0 none, then as pickup (the rubber ball first) */
     u8 collHoles;    /* 1: the collision view also marks the holes where a falling glove touches no face (moonaim.h) */
     u8 cameraSpeed;  /* 0 normal, 1 fast, 2 faster: how fast the camera follows (camspeed.h) */
+    u8 padDisplay;   /* the game's controller display: 0 off, 1 controller 1, 2 controller 2 (paddisplay.h) */
 } Run;
 
 extern Run run;

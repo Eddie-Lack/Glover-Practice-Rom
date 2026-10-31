@@ -68,6 +68,8 @@ from the retail ROM, each a single call:
 | `RunGame` | `DoMenu` becomes `PracticeDoMenu`: it calls `TitleScreen` (the early title menu) or `DoMenu` |
 | `MainGameLoop` | `ProcessInput` becomes `PracticeProcessInput`: the ball controls |
 | `StartNewLevel` | `SeedRandom` becomes `PracticeSeedRandom`: the start of each level (the in-game timer fix) |
+| `StartNewLevel` | `InitScreenDebris` (the first call after `LoadLevel`) becomes `PracticeInitScreenDebris`: the controller display's textures |
+| `PrintOverlays` | `PrintStats` becomes `PracticePrintStats`: the controller display, drawn after the game's HUD |
 | `EndOfLevelScreen`, `EndOfWorldScreen`, `CheckForExits` | `CheckForLevelCompleted` becomes `PracticeCheckForLevelCompleted` (one call in each): the practice best times |
 | `CheckForExits` | on the Hard path (Time Trials only) `PrepareSong(TITLE_TRACK)` (a record, to the name screen) and `InitOverlayList` (no record, to the title) become `PracticePrepareSong` and `PracticeInitOverlayList`: the best times on a path that never calls `CheckForLevelCompleted` |
 | `HiscoresRun` | each of its six `printHiscores` calls becomes `PracticeprintHiscores`: the Hi Scores screen |

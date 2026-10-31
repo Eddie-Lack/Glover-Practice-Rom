@@ -133,11 +133,14 @@ static const MenuItem counterItems[] = {
 };
 static MENU(counterMenu, "Counters", counterItems);
 
+static const char *const padDisplayNames[] = { "off", "controller 1", "controller 2" };
+
 static const MenuItem hudItems[] = {
     TOGGLE("Timer", &settings.hud[HUD_TIMER].on),
     TOGGLE("Timer in frames too", &settings.timerFrames),
     TOGGLE("Input display", &settings.hud[HUD_INPUT].on),
     TOGGLE("Input history", &settings.inputHistory),
+    WARN_CHOICE("Controller display", &run.padDisplay, padDisplayNames, 3, "From the next level start or reset"),
     TOGGLE("Glove position and speed", &settings.hud[HUD_GLOVE].on),
     TOGGLE("Ball position and speed", &settings.hud[HUD_BALL].on),
     TOGGLE("Glove action", &settings.hud[HUD_ACTION].on),

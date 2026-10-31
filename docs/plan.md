@@ -242,6 +242,9 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   done, with a split at each level or each crystal; the HUD shows the last split, and the menu lists them all.
   The best time per level: done in milestone 4 (practice best times).
 - Input display: done, with the last four presses: the game frame of each press and how long it was held.
+- The game's own controller display (the demos' picture) during play, for controller 1 or 2: done (HUD menu,
+  `practice/src/paddisplay.c`, `tests/paddisplay.py`). It loads texture bank 18 at the level start, so a change
+  takes effect at the next level start or reset.
 - Frame advance and slow motion (one game frame in 2, 3 or 4): done.
 - Cheats from `cheat.c` as switches: done. The game's debug controls of `pad[4]` on controller 2: done (a
   setting). Controller 2's L in them (it marks every level and garib of the save slot as done) has its own

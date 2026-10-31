@@ -10,6 +10,7 @@ The HUD is what the practice ROM draws over the game. Only the in-game timer is 
 | Timer in frames too | Adds the game frame count to the timer (on by default) |
 | Input display | The buttons and the stick that the game reads |
 | Input history | The last presses. Each shows the button, the level's game frame of the press and how many game frames it was held |
+| Controller display | The game's own controller picture from its demos: `off, controller 1, controller 2`. Shows from the next level start or reset |
 | Glove position and speed | Where the glove is and how fast it moves |
 | Ball position and speed | The same for the ball |
 | Glove action | The glove's current action |
@@ -20,6 +21,15 @@ The HUD is what the practice ROM draws over the game. Only the in-game timer is 
 | Hide HUD | Hide or show the HUD. Quick action |
 
 A "MODIFIED" line in red shows while a tool that changes the game is on. "free camera" shows while the free camera is on _(see [Game](Game.md))_
+
+## Controller display
+
+The game draws this controller in its demos. Turn it on and you get it while you play, above the hearts
+
+- A, B, Z, R and the C buttons light up when pressed, and the stick moves
+- The D-pad, L and Start don't light up
+
+Note: it doesn't show in the game's demos, which have their own
 
 ## Counters
 

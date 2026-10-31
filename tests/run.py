@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Runs every test: the ROM layout test, the boot test, the test without the Expansion Pak, the menu, the in-game
-timer fix, the HUD, the tools (warp, reset, frame advance, checkpoints, cheats), the settings save and load,
+timer fix, the HUD, the controller display, the tools (warp, reset, frame advance, checkpoints, cheats), the settings save and load,
 savestates (the compressor, one level, ten slots, the instant reset), input recordings, the Game menu's tools and switches, the full-game timer, the Inspect menu, the
 collision view, the frame log, the slap's Z cancel, noclip and moon jump, Set action, Spawn and move actors, the taps
 that the game missed, chaos inputs, memory corruption, the early title menu, the free camera, the ghost, the practice best times, the save file editor, the Controller Pak storage, the trick trainers (the L mash and MBZ-L, the line keeper, the Moon Pound aim, the boss windows, the metronome, the wall clip), the hole painter, the savestates, a recording and the best times on the SD card (the FAT code on the host, then the ROM with a test mailbox for a cart), and the faithfulness test.
@@ -37,6 +37,7 @@ TESTS = [
     ["harness.py", "gametools", "--gfx", "angrylion"],
     ["harness.py", "warpgive", "--gfx", "angrylion"],
     ["harness.py", "gameswitches", "--gfx", "angrylion"],
+    ["harness.py", "paddisplay", "--gfx", "angrylion"],
     ["harness.py", "gametimer"],
     ["harness.py", "inspectview", "--gfx", "angrylion"],
     ["harness.py", "collview", "--gfx", "angrylion"],

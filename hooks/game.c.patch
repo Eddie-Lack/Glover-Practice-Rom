@@ -8,7 +8,7 @@
  void FlashScreen(u8 r, u8 g, u8 b, s16 fadeVal, s16 fadeStep);
  
  extern s32 cheatActivated;
-@@ -1398,7 +1399,7 @@
+@@ -1395,7 +1396,7 @@
      numCyclingTextures = 0;
      worldExitTimer = 0;
      levelExitTimer = 0;
@@ -17,7 +17,16 @@
      cameraInfo.focus = &hand.pos;
      dispFrameCount = frameCount = frameCount2 = 0;
      gravity = 1.2f;
-@@ -1601,7 +1602,7 @@
+@@ -1448,7 +1449,7 @@
+     }
+     gameInfo.fade = 300;
+     gameInfo.exitFlags &= ~3;
+-    InitScreenDebris();
++    PRACTICE_WRAP(InitScreenDebris)();
+     rain.duration = 0;
+     FindAndSetupOverlay(&health1OL, "health01.bmp", 40, 210, 1, 0);
+     FindAndSetupOverlay(&health2OL, "health02.bmp", 40, 210, 1, 0);
+@@ -1599,7 +1600,7 @@
      UpdatePause();
      if (endOfLevelCount == 0) {
          oldBestTime = bestTimes[levelInfo[gameInfo.prevLevel].bit].time;
@@ -26,7 +35,7 @@
          newDesiredFrameRate = 2;
          quitTimer = -1;
          gameInfo.fade = 300;
-@@ -1837,7 +1838,7 @@
+@@ -1835,7 +1836,7 @@
      if (++newWorldCount == 1) {
          StopDrawing("eowscn");
          eowWait = 0;
@@ -35,7 +44,7 @@
          wellDoneBB = 0;
          wellDoneBX = 200.0f;
          wellDoneBV = -1.0f;
-@@ -2281,7 +2282,7 @@
+@@ -2279,7 +2280,7 @@
                  }
                  gameInfo.prevWorld = gameInfo.world;
                  gameInfo.world = HUB;
@@ -44,9 +53,7 @@
                  if (cameFromTitle) {
                      gameInfo.mode = 1;
                  }
---- a/src/game.c
-+++ b/src/game.c
-@@ -2386,11 +2387,11 @@
+@@ -2384,11 +2385,11 @@
                      currentAnim = 0;
                      frameCount = 0;
                      levelSelectCount = 0;

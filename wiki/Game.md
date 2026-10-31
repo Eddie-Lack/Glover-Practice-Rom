@@ -138,12 +138,14 @@ These are from the real game - some were modified to not need the dev cable. Tur
 
 - C-left and C-right move Glover to the previous or next platform
 - C-up lifts Glover or the ball, C-down pulls it down
-- R makes Glover's acceleration switch between 1/3 and 1/1
-- Start hurts the ball
+- R turns the game's inertia off and on. With it off, Glover has no momentum and no gravity, and 3 times the acceleration
+- Start hurts the ball: it gets a plaster each time, and bursts when it has too many
 - A + B goes back to the title menu
 - Z changes the timing bars
 - D-pad left and right change the music
-- The stick and A and B move an invisible helper object
+- D-pad up makes puffs of smoke around Glover
+- D-pad down, and D-pad right while held, turn the level's light
+- The stick and A and B move an invisible helper box. With Z held, they change its size
 - *off by default* L marks every level and garib as done in the current save slot
 
 The L button is not active, unless "Controller 2: L marks all done" is on. The menu warns "Edits your save!"

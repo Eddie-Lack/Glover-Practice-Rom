@@ -22,6 +22,12 @@ The hooks are patch files in `hooks/`, applied to a copy of gloveworld's source.
 
 ## Errors and gaps found
 
+- **The R debug control is described the wrong way round.** `docs/game.md` ("Debug code") says R divides the hand's
+  acceleration by 3, or multiplies it back. `inertia` is 1 when a level runs (read in the emulator in Atlantis 1), so
+  the first press turns it off and multiplies the acceleration by 3. With `inertia` 0, `actor.c` zeroes each actor's
+  speed and spin every frame and skips gravity, so Glover has no momentum and no gravity. The second press puts both
+  back. Needs the owner: no.
+
 - **The best times table is declared two ways, and the save covers 12 more bytes.** `eeprom.c` declares `bestTimes`
   as `u8[6][0x1E]` (180 bytes); the other files declare `BestTime[]`. `EepromSaveBestTimes`, `EepromLoadBestTimes`
   and the CRC cover 0xC0 bytes, the table and 12 bytes of padding up to `bestTimesCopy` (0x801E6850). Needs the

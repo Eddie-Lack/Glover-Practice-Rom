@@ -442,7 +442,9 @@ typedef struct Pad {
     /* 0x060 */ u8 latch[14]; /* 1: the game ignores the button until it is released */
     /* 0x06E */ PAD(6e)[0x02];
     /* 0x070 */ s32 holdTime[14];
-    /* 0x0A8 */ PAD(a8)[0xE8];
+    /* 0x0A8 */ PAD(a8)[0x38];
+    /* 0x0E0 */ s32 sincePress[14]; /* game frames since the last press */
+    /* 0x118 */ PAD(118)[0x78];
 } Pad; /* size 0x190 */
 
 /* The indices of pad[].button[] and the other per-button arrays. */
@@ -454,9 +456,12 @@ typedef struct Pad {
 #define PADB_R 5
 #define PADB_CLEFT 10
 #define PADB_CRIGHT 11
+#define PADB_CUP 12
+#define PADB_CDOWN 13
 
 _Static_assert(__builtin_offsetof(Pad, mag) == 0x04 && __builtin_offsetof(Pad, button) == 0x1A &&
-                   __builtin_offsetof(Pad, holdTime) == 0x70,
+                   __builtin_offsetof(Pad, holdTime) == 0x70 && __builtin_offsetof(Pad, sincePress) == 0xE0 &&
+                   sizeof(Pad) == 0x190,
                "Pad has the game's layout");
 
 extern Pad pad[5];
@@ -638,6 +643,37 @@ typedef struct AudioBanks {
 extern AudioBanks audioCtrl;
 void PrepareSong(u8 song);
 void InitOverlayList(void);
+
+/* A picture drawn over the scene (overlay.c). */
+typedef struct Overlay {
+    /* 0x00 */ PAD(00)[0x0C];
+    /* 0x0C */ f32 x;
+    /* 0x10 */ f32 y;
+    /* 0x14 */ PAD(14)[0x0C];
+    /* 0x20 */ u8 r;
+    /* 0x21 */ u8 g;
+    /* 0x22 */ u8 b;
+    /* 0x23 */ u8 alpha;
+    /* 0x24 */ void *bitmaps; /* NULL once DestroyOverlay has freed it */
+    /* 0x28 */ PAD(28)[0x4C];
+} Overlay; /* size 0x74 */
+_Static_assert(sizeof(Overlay) == 0x74, "Overlay has the game's size");
+
+/* The demos' controller display (LoadLevel, PrintStats). printController is 1 while it shows; the stick's
+ * picture follows the stick, divided by rcfac, around the pad's place plus rcxoff and rcyoff; a button is lit for
+ * rcdelay game frames after a press. */
+#define PAD_OVERLAYS 11
+extern Overlay controllerOL[PAD_OVERLAYS];
+extern u8 printController;
+extern s16 rcdelay;
+extern f32 rcfac;
+extern s16 rcxoff;
+extern s16 rcyoff;
+void LoadTextureBank(u32 num);
+void FindAndSetupOverlay(Overlay *overlay, char *name, s32 x, s32 y, s32 z, s32 attr);
+void PrintOverlay(Overlay *overlay);
+void PrintStats(void);
+void InitScreenDebris(void);
 
 /* Levels (game.c). */
 #define EXIT_QUIT 15 /* ExitLevel: leave for the title (mode 1), as the pause menu's Quit does */

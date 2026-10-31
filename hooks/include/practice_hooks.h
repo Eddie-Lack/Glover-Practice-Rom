@@ -24,6 +24,8 @@ void PracticeProcessInput(void);
 void PracticeSeedRandom(void);
 s32 PracticeCheckForLevelCompleted(void);
 void PracticeInitOverlayList(void);
+void PracticeInitScreenDebris(void);
+void PracticePrintStats(void);
 void PracticePrepareSong(u8 song);
 void PracticeMoveCam(void);
 void PracticeprintHiscores(char *name, s32 start);

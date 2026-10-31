@@ -1,0 +1,19 @@
+--- a/src/overlay.c
++++ b/src/overlay.c
+@@ -18,6 +18,7 @@
+ #include "controller.h"
+ #include "ball.h"
+ #include "object.h"
++#include "practice_hooks.h"
+ 
+ extern s32 backbodge;
+ 
+@@ -330,7 +331,7 @@
+     }
+     if (gameInfo.mode == 4 && gameInfo.level != PRESENT && gameInfo.level != SPACEBOSS_TWEEN && gameInfo.level != FLYTHRU
+         && gameInfo.level != FLYTHRU2) {
+-        PrintStats();
++        PRACTICE_WRAP(PrintStats)();
+     }
+     if (gameInfo.mode == 4 && gameInfo.level == FLYTHRU) {
+         if (startText != NULL) {
