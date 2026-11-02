@@ -84,8 +84,8 @@ def run(emu, sym, args):
         return moves() - m
 
     def picture(name):
-        emu.fb_png("freecam_" + name + "_1", sym("cfb1"))
-        emu.fb_png("freecam_" + name + "_0", sym("cfb0"))
+        emu.fb_png("freecam_" + name + "_1", sym("cfb_16_b"))
+        emu.fb_png("freecam_" + name + "_0", sym("cfb_16_a"))
 
     yield from wait_for(emu, lambda: level() == trace.PRESENT and fc() >= 200, 4000, "the logos")
     yield from press(emu, "START", frames=6)

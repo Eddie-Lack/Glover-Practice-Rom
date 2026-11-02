@@ -600,7 +600,7 @@ starts, it stays. The Warp menu's power-up waits for that (docs/build.md, "Warp 
 
 ## Sound
 
-`musicVolume` and `sfxVolume` are the option volumes (0 to 160). Every game frame, `UpdatePause` moves the live
+`curSoundMUSVol` and `curSoundFXVol` are the option volumes (0 to 160). Every game frame, `UpdatePause` moves the live
 volumes (`musVol`, `sfxVol`) a tenth of the way towards them and calls `MusSetMasterVolume`. So the practice
 ROM's mute sets the option volume to 0 and puts the old value back. `StartNewGame` copies the option volumes
 into the save slot.

@@ -84,7 +84,7 @@ A full copy of the lower 4 MB does not fit next to the practice code. What a sav
 | --- | --- |
 | the game's data and bss (0x801D51D0 to 0x802B0D10), with the thread stacks | 0xDBB40 (878 KB), of which the two display list buffers (`dynamic`) are 0x56460 |
 | the heap (0x802B0D10 to 0x80400000) | 0x14F2F0 (1.31 MB); in Atlantis 1 and 2 at most 0x12C920 in use by static blocks, which the game takes from the top |
-| the music driver's heap (`musicHeap`) and sound banks below 0x80100000 | 0x493E0 (293 KB) and more |
+| the music driver's heap (`audio_memory`) and sound banks below 0x80100000 | 0x493E0 (293 KB) and more |
 | the frame buffers and the Z buffer | 3 x 0x25800 (450 KB); probably not needed if a state loads at a frame boundary |
 
 That is about 2.3 MB without compression. One slot fits in the upper 4 MB next to the practice code. Two or

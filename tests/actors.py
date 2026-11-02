@@ -67,8 +67,8 @@ def run(emu, sym, args):
 
     def shot(name):
         if args.gfx == "angrylion":
-            emu.fb_png("actors_" + name, sym("cfb1"))
-            emu.fb_png("actors_" + name + "_0", sym("cfb0"))
+            emu.fb_png("actors_" + name, sym("cfb_16_b"))
+            emu.fb_png("actors_" + name + "_0", sym("cfb_16_a"))
 
     def alive(seconds, what):
         f0 = fc()
@@ -112,7 +112,7 @@ def run(emu, sym, args):
     kinds = [emu.r8(sym("spawnKinds") + i) for i in range(count)]
     print(f"actors: the view offers {count} kinds: {kinds}")
     if args.gfx == "angrylion":
-        emu.fb_png("actors_view", sym("cfb1"))
+        emu.fb_png("actors_view", sym("cfb_16_b"))
     if not kinds or kinds[0] != SPAWN_GARIB or SPAWN_LIFE not in kinds:
         emu.fail(f"the view does not offer the garibs first: {kinds}")
     yield from press(emu, "A")  # makes a garib
@@ -193,7 +193,7 @@ def run(emu, sym, args):
         yield from press(emu, b)
     shot_menu = args.gfx == "angrylion"
     if shot_menu:
-        emu.fb_png("actors_details", sym("cfb1"))
+        emu.fb_png("actors_details", sym("cfb_16_b"))
     yield from press(emu, "Z")
     seen = []
     for _ in range(12):

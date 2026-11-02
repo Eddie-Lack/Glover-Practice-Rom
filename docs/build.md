@@ -30,7 +30,7 @@ The practice build never runs gloveworld's `tools/regen.py`.
 3. It compiles that copy with gloveworld's compiler and flags, plus `-DPRACTICE`, which turns the hooks on.
 4. It compiles the practice code in `practice/src/` twice: once for the practice segment, and once more
    (`-DPRACTICE_LOADER`) for the loader, which needs its own copy of the text code.
-5. `tools/trimassets.py` cuts the zero padding off gloveworld's assets blob, and `objcopy` makes
+5. `tools/trimassets.py` cuts any zero padding off gloveworld's assets blob, and `objcopy` makes
    `build/assets.o` from the rest ([The free end of the ROM](#the-free-end-of-the-rom)).
 6. `tools/mkld.py` writes the linker script from gloveworld's `NGVE.ld`. It uses the cut assets blob and puts the
    loader and the practice segment into the free end of the retail ROM.
@@ -102,12 +102,13 @@ Nothing in the game reads the free end:
 - `tests/romlayout.py` checks on every run that the retail ROM is zero after its data and that no game symbol
   names a ROM address past it.
 
-gloveworld's assets blob (`bin/assets.bin`) runs from the end of the main segment to the end of the 8 MiB. It
-holds the zero padding. A linker script cannot cut an input section. The Makefile cuts the blob first:
-`tools/trimassets.py` writes `build/trim/bin/assets.bin` up to `recordKeyFilesRomEnd` and fails if a byte it
-drops is not zero; `objcopy` makes `build/assets.o` from it. Three labels at the end of the blob move up by the
-length of the cut: `assets_DATA_END`, `assets_VRAM_END` and `_binary_bin_assets_bin_end`. Nothing reads them, and
-`checklayout.py` expects exactly that move.
+gloveworld's assets blob (`bin/assets.bin`) runs from the end of the main segment to `recordKeyFilesRomEnd`. An
+older gloveworld's blob ran to the end of the 8 MiB and held the zero padding. A linker script cannot cut an input
+section, so the Makefile passes the blob through `tools/trimassets.py` first. It writes `build/trim/bin/assets.bin`
+up to `recordKeyFilesRomEnd`, copies a blob that already ends there as it is, and fails if a byte it drops is not
+zero. `objcopy` makes `build/assets.o` from it. `checklayout.py` reads the blob's padding from `assets_ROM_END`.
+With an older gloveworld, three labels at the end of the blob move up by that padding: `assets_DATA_END`,
+`assets_VRAM_END` and `_binary_bin_assets_bin_end`. Nothing reads them.
 
 The free end holds 512 KB from 0x780000. The practice segment's RAM is also limited to 512 KB
 (0x80400000 to 0x80480000, code, data and bss). The ROM space is enough as long as that limit stands. The link
@@ -169,10 +170,10 @@ stays 5. `tests/settingsold.py` loads a block with the three bytes zeroed.
 A savestate is a copy of the game's own memory. `tools/mkstate.py` lists what it holds, from gloveworld's symbols,
 into `build/state_ranges.h`:
 
-- the game's data, from `main_DATA_START` to the music driver's data (`D_801F40C0`);
+- the game's data, from `main_DATA_START` to the music driver's data (`jumptable`);
 - the game's bss, from `main_BSS_START` to the music driver's bss (`D_802AB010`);
 - the heap, from `jallocHeapStart` to 0x80400000;
-- the texture bank buffers, from `fontTexBankBuffer` to 0x80100000.
+- the texture bank buffers, from `sysfont` to 0x80100000.
 
 It leaves out what keeps running across a load: the threads' contexts and stacks, the scheduler and its message
 queues, the display list buffers (`dynamic`), the controller read (`controllerdata`), the music driver and its

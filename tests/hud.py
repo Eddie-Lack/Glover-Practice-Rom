@@ -54,9 +54,9 @@ def run(emu, sym, args):
         emu.fail("the in-game timer does not count")
     if args.gfx == "angrylion":
         x, y = emu.r8(settings + layout.SETTINGS_HUD + 1) * 2, emu.r8(settings + layout.SETTINGS_HUD + 2) * 2
-        counts = [white_pixels(emu, sym(fb), x, y, 100, 8) for fb in ("cfb0", "cfb1")]
+        counts = [white_pixels(emu, sym(fb), x, y, 100, 8) for fb in ("cfb_16_a", "cfb_16_b")]
         print("white timer pixels in the two frame buffers:", counts)
         if max(counts) < 40:
             emu.fail("the timer is not in the frame buffer")
-        emu.fb_png("hud", sym("cfb0"))
-        emu.fb_png("hud1", sym("cfb1"))
+        emu.fb_png("hud", sym("cfb_16_a"))
+        emu.fb_png("hud1", sym("cfb_16_b"))

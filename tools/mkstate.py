@@ -13,10 +13,10 @@ import subprocess
 
 # The regions that hold game state.
 REGIONS = [
-    ("main_DATA_START", "D_801F40C0"),       # the game's data; the music driver's and libultra's data follow
+    ("main_DATA_START", "jumptable"),       # the game's data; the music driver's and libultra's data follow
     ("main_BSS_START", "D_802AB010"),        # the game's bss; the music driver's and libultra's bss follow
     ("jallocHeapStart", 0x80400000),          # the heap
-    ("fontTexBankBuffer", 0x80100000),        # the texture bank buffers below the code
+    ("sysfont", 0x80100000),        # the texture bank buffers below the code
 ]
 
 # OS objects inside the game's regions, left out from their label to the next named label (not a D_ label).

@@ -31,13 +31,13 @@ def run(emu, sym, args):
         yield from press(emu, b)
     yield 10
     if args.gfx == "angrylion":
-        emu.fb_png("actors", sym("cfb0"))
+        emu.fb_png("actors", sym("cfb_16_a"))
     yield from press(emu, "DOWN")
     yield from press(emu, "A")
     yield 10
     if args.gfx == "angrylion":
-        emu.fb_png("actor0", sym("cfb0"))
-        emu.fb_png("actor1", sym("cfb1"))
+        emu.fb_png("actor0", sym("cfb_16_a"))
+        emu.fb_png("actor1", sym("cfb_16_b"))
     second = emu.r32(emu.r32(sym("actorList")))  # actorList.head.next->next
     target = [emu.rf(second + 0x34 + 4 * i) for i in range(3)]
     yield from press(emu, "A")
@@ -62,15 +62,15 @@ def run(emu, sym, args):
     if emu.r32(sym("menuView")) != sym("stateView"):
         emu.fail("Glove and ball did not open")
     if args.gfx == "angrylion":
-        emu.fb_png("glove0", sym("cfb0"))
-        emu.fb_png("glove1", sym("cfb1"))
+        emu.fb_png("glove0", sym("cfb_16_a"))
+        emu.fb_png("glove1", sym("cfb_16_b"))
     yield from press(emu, "RIGHT")
     yield 10
     if emu.r8(sym("statePage")) != 1:
         emu.fail("Glove and ball did not turn to its second page")
     if args.gfx == "angrylion":
-        emu.fb_png("ball0", sym("cfb0"))
-        emu.fb_png("ball1", sym("cfb1"))
+        emu.fb_png("ball0", sym("cfb_16_a"))
+        emu.fb_png("ball1", sym("cfb_16_b"))
     yield from press(emu, "B")
     yield from press(emu, *C_ALL)
     yield 10

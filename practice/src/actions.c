@@ -188,18 +188,18 @@ static void Respawn(Platform *gate, int taint) {
 void ActionsToggleMute(int arg) {
     if (arg == 0) {
         if (!run.musicMuted) {
-            run.musicVolume = musicVolume;
-            musicVolume = 0;
+            run.musicVolume = curSoundMUSVol;
+            curSoundMUSVol = 0;
         } else {
-            musicVolume = run.musicVolume;
+            curSoundMUSVol = run.musicVolume;
         }
         run.musicMuted ^= 1;
     } else {
         if (!run.sfxMuted) {
-            run.sfxVolume = sfxVolume;
-            sfxVolume = 0;
+            run.sfxVolume = curSoundFXVol;
+            curSoundFXVol = 0;
         } else {
-            sfxVolume = run.sfxVolume;
+            curSoundFXVol = run.sfxVolume;
         }
         run.sfxMuted ^= 1;
     }

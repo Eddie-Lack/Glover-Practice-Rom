@@ -290,8 +290,8 @@ extern PlatformList platformList;
 extern s32 cheatActivated;
 void ActivateCheat(u8 num, u8 show);
 /* The option volumes, 0 to 160. */
-extern s32 musicVolume;
-extern s32 sfxVolume;
+extern s32 curSoundMUSVol;
+extern s32 curSoundFXVol;
 
 typedef struct BallControl {
     /* 0x00 */ s32 loseTimer;
@@ -477,8 +477,8 @@ extern s16 nextKeyFrame;
 extern s16 exitCount;
 extern u16 playbackButtons;
 extern s32 cheatCount;
-extern u8 cfb0[];
-extern u8 cfb1[];
+extern u8 cfb_16_a[];
+extern u8 cfb_16_b[];
 void StopDrawing(char *name);
 extern f32 globalFontScale;
 extern s32 doFades;

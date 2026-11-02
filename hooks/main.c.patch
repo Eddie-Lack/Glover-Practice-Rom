@@ -63,8 +63,8 @@
                  len = glistp - dynamicp->glist;
                  UpdateFade();
 @@ -956,7 +957,7 @@
-     cfb_ptrs[0] = cfb0;
-     cfb_ptrs[1] = cfb1;
+     cfb_ptrs[0] = cfb_16_a;
+     cfb_ptrs[1] = cfb_16_b;
      CreateMessageQueues();
 -    MeasureFrameTicks();
 +    PRACTICE_WRAP(MeasureFrameTicks)();

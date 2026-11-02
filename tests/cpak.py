@@ -30,8 +30,8 @@ def run(emu, sym, args):
     c = sym("cpak")
     def shot(name):
         if args.gfx == "angrylion":
-            emu.fb_png(name, sym("cfb1"))
-            emu.fb_png(name + "_0", sym("cfb0"))
+            emu.fb_png(name, sym("cfb_16_b"))
+            emu.fb_png(name + "_0", sym("cfb_16_a"))
     yield from open_view(emu, sym)
     yield from wait_idle(emu, sym)
     if status(emu, sym) != layout.CPAK_EMPTY:

@@ -21,8 +21,9 @@ import sys
 
 # Functions that nothing calls, whose place the hooks take (see hooks/).
 REPLACED = {"ClearStaticMemory": "PracticeMeasureFrameTicks"}
-# The assets blob of the practice build stops at the end of the data, without the zero padding that follows it
-# in the retail ROM. Its end labels move up by the size of that padding. Nothing reads them.
+# The assets blob of the practice build stops at the end of the data. An older gloveworld's blob also holds the
+# zero padding that follows the data in the retail ROM; with it, these end labels move up by the size of that
+# padding. Nothing reads them.
 TRIMMED = {"_binary_bin_assets_bin_end", "assets_DATA_END", "assets_VRAM_END"}
 VRAM_TO_ROM = 0x800FF000  # vram minus ROM offset in the main segment
 MAIN_ROM = (0x1040, 0xF6680)
@@ -65,6 +66,7 @@ def main():
     # The size of the free end, and the labels that move because of it.
     data_end = old_abs["recordKeyFilesRomEnd"] - PI_BASE
     cut = len(retail) - data_end
+    padding = old_abs["assets_ROM_END"] - data_end  # the zero padding in gloveworld's assets blob, if any
     if len(practice) != len(retail):
         fail(f"the practice ROM is {len(practice):#x} bytes; the retail ROM is {len(retail):#x}")
     if any(retail[data_end:]):
@@ -73,7 +75,7 @@ def main():
     bad = []
     for name, addr in sorted(old.items(), key=lambda x: x[1]):
         name_new = REPLACED.get(name, name)
-        want = addr - cut if name in TRIMMED else addr
+        want = addr - padding if name in TRIMMED else addr
         if new.get(name_new) != want:
             bad.append(f"{name} is at {new.get(name_new, 0):#010x}, not {want:#010x}")
     if bad:

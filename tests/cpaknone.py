@@ -27,4 +27,4 @@ def run(emu, sym, args):
         emu.fail(f"{emu.r32(c + layout.CPAK_TRANSFERS)} blocks moved with no pak")
     if emu.r32(c + layout.CPAK_COMMANDS) != 2:
         emu.fail(f"{emu.r32(c + layout.CPAK_COMMANDS)} commands for the check and the save, not 2 status commands")
-    emu.fb_png("cpaknone", sym("cfb0")) if args.gfx == "angrylion" else None
+    emu.fb_png("cpaknone", sym("cfb_16_a")) if args.gfx == "angrylion" else None

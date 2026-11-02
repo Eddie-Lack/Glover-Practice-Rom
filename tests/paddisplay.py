@@ -65,7 +65,7 @@ def run(emu, sym, args):
     if bitmaps(0):
         emu.fail("the display's overlays are set up with the option off")
     emu.shot("off")
-    plain = bytes(emu.raw(sym("cfb0"), 320 * 240 * 2))
+    plain = bytes(emu.raw(sym("cfb_16_a"), 320 * 240 * 2))
 
     # 2. Controller 1.
     yield from choose(1)
@@ -78,7 +78,7 @@ def run(emu, sym, args):
         emu.fail("the game's own display (printController) is on")
     yield 20
     emu.shot("controller1")
-    if bytes(emu.raw(sym("cfb0"), 320 * 240 * 2)) == plain:
+    if bytes(emu.raw(sym("cfb_16_a"), 320 * 240 * 2)) == plain:
         emu.fail("the picture did not change")
     emu.hold("A")
     yield 15

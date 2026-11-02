@@ -42,8 +42,8 @@ void DemoAbort(void) {
  * title that follows the demo stops while it loads. */
 static void Begin(void) {
     StopDrawing("dkr");
-    memclear(cfb0, 0x25800);
-    memclear(cfb1, 0x25800);
+    memclear(cfb_16_a, 0x25800);
+    memclear(cfb_16_b, 0x25800);
     LeaveTitle();
     globalFontScale = 1.0f;
     StopDrawing("dkr");

@@ -71,8 +71,8 @@ def run(emu, sym, args):
 
     def shot(name):
         if args.gfx == "angrylion":
-            emu.fb_png(name, sym("cfb1"))
-            emu.fb_png(name + "_0", sym("cfb0"))
+            emu.fb_png(name, sym("cfb_16_b"))
+            emu.fb_png(name + "_0", sym("cfb_16_a"))
 
     while not (emu.r8(gi + 1) == trace.PRESENT and emu.r32(sym("frameCount")) >= 200):
         yield 1
