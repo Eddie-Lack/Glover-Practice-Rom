@@ -85,8 +85,8 @@ def run(emu, sym, args):
 
     def shot(name):
         """Both frame buffers: one of them is the frame being drawn."""
-        emu.fb_png(name, sym("cfb1"))
-        emu.fb_png(name + "_0", sym("cfb0"))
+        emu.fb_png(name, sym("cfb_16_b"))
+        emu.fb_png(name + "_0", sym("cfb_16_a"))
 
     def marker_drawn(frames=30):
         before = text_frames()

@@ -39,11 +39,11 @@ def run(emu, sym, args):
     if emu.r32(count) != before:
         emu.fail(f"the game's frames went on while the menu was open ({before} to {emu.r32(count)})")
     if args.gfx == "angrylion":
-        counts = [yellow_pixels(emu, sym(fb), 38, 31, 100, 8) for fb in ("cfb0", "cfb1")]
+        counts = [yellow_pixels(emu, sym(fb), 38, 31, 100, 8) for fb in ("cfb_16_a", "cfb_16_b")]
         print("menu title pixels in the two frame buffers:", counts)
         if max(counts) < 50:
             emu.fail("the menu is not in the frame buffer")
-        emu.fb_png("menu", sym("cfb0"))
+        emu.fb_png("menu", sym("cfb_16_a"))
     emu.hold("DOWN")
     yield 8
     emu.release()

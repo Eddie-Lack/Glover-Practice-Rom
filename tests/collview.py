@@ -47,8 +47,8 @@ def run(emu, sym, args):
         if fc() < start + 30:
             emu.fail(f"the game did not go on with the collision view ({start} to {fc()})")
         if args.gfx == "angrylion":
-            emu.fb_png(f"{name}0", sym("cfb0"))
-            emu.fb_png(f"{name}1", sym("cfb1"))
+            emu.fb_png(f"{name}0", sym("cfb_16_a"))
+            emu.fb_png(f"{name}1", sym("cfb_16_b"))
     emu.w8(run_addr + RUN_COLL_VIEW, 0)
     start = fc()
     yield 60

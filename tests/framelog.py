@@ -72,7 +72,7 @@ def run(emu, sym, args):
     if emu.r32(sym("menuView")) != sym("frameLogView"):
         emu.fail("the frame log view did not open")
     if args.gfx == "angrylion":
-        emu.fb_png("log0", sym("cfb0"))
-        emu.fb_png("log1", sym("cfb1"))
+        emu.fb_png("log0", sym("cfb_16_a"))
+        emu.fb_png("log1", sym("cfb_16_b"))
     yield from press(emu, "B")
     yield from press(emu, *C_ALL)

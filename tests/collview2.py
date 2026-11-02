@@ -56,8 +56,8 @@ def run(emu, sym, args):
 
     def shot(name):
         if args.gfx == "angrylion":
-            emu.fb_png(name + "0", sym("cfb0"))
-            emu.fb_png(name + "1", sym("cfb1"))
+            emu.fb_png(name + "0", sym("cfb_16_a"))
+            emu.fb_png(name + "1", sym("cfb_16_b"))
 
     def platforms():
         head = sym("platformList") + 4

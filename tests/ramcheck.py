@@ -17,7 +17,7 @@ BLOCK = 0x1000
 # (first label, label after the last byte). None: up to the next label.
 MASKED = [
     ("main_TEXT_START", "main_DATA_START"),  # code: the hooks change two calls and replace ClearStaticMemory
-    ("musicHeap", "pbankBuffer"),  # the music driver's heap
+    ("audio_memory", "pbankBuffer"),  # the music driver's heap
     ("sched", "frameCount"),  # the scheduler and its message queues
     ("printTimer", "tipShadTex"),  # the debug timing bars (StartTimer, EndTimer) store CPU counts
     ("frameStart", None),  # osGetCount at the start of the frame
@@ -25,18 +25,18 @@ MASKED = [
     ("D_802AB010", None),  # music driver (libmus) state, set up by MusInitialize
     ("D_801F4170", None),  # music driver counters, used by the audio code at 0x801C3040
     ("D_801F4174", None),
-    ("_objBank9_data_objend", None),  # music driver DMA buffer pointers into musicHeap
     ("__osCurrentTime", "__osSiAccessQueue"),  # the OS's time and timers
     ("__osBaseCounter", None),
     ("__osEepPifRam", None),  # the EEPROM command buffer
-    ("D_802AE990", None),  # the PI manager's thread and stack (osCreatePiManager)
+    ("piMgrThread", None),  # the PI manager's thread (osCreatePiManager)
+    ("piMgrStack", None),  # its stack, which holds pointers into audio_memory during play
     ("piMessageQ", None),
     ("piMessageBuf", None),
     ("__osThreadSave", None),
 ]
 # The picture: the Z buffer and the frame buffers (320 by 240, 16 bits a pixel), and the RSP's output for the RDP
-# (rdp_output, up to musicHeap). The faithfulness test compares the picture on its own (faithful.py).
-PICTURE = [("zbuffer", 0x25800), ("rdp_output", "musicHeap"), ("cfb0", 0x25800), ("cfb1", 0x25800)]
+# (rdp_output, up to audio_memory). The faithfulness test compares the picture on its own (faithful.py).
+PICTURE = [("zbuffer", 0x25800), ("rdp_output", "audio_memory"), ("cfb_16_a", 0x25800), ("cfb_16_b", 0x25800)]
 
 
 def masked_ranges(sym):

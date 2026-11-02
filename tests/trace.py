@@ -56,11 +56,11 @@ FIELDS = ["frameCount", "mode", "level", "exitFlags", "rseed", "levelFrames"] + 
     f"{a}.{p}.{c}" for a in ("hand", "ball") for p in ("pos", "vel") for c in "xyz"]
 
 
-# The two frame buffers (cfb0, cfb1: 320 by 240, 16 bits a pixel). Each video frame's sample also holds a coarse
+# The two frame buffers (cfb_16_a, cfb_16_b: 320 by 240, 16 bits a pixel). Each video frame's sample also holds a coarse
 # picture of each: the mean red, green and blue of 8 by 6 blocks of 40 by 40 pixels, in 1/8ths of a 5-bit level.
 # Text, a missing object or a moved camera change some blocks by several levels. The draw thread's timing can move
 # a texture by a fraction of a texel (docs/testing.md), which changes a block by much less than a level.
-FRAME_BUFFERS = ("cfb0", "cfb1")
+FRAME_BUFFERS = ("cfb_16_a", "cfb_16_b")
 FRAME_BUFFER_SIZE = 320 * 240 * 2
 BLOCK = 40
 

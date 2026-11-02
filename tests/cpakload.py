@@ -52,8 +52,8 @@ def run(emu, sym, args):
             emu.fail(f"frame {i} of the recording differs")
     yield 10
     if args.gfx == "angrylion":
-        emu.fb_png("cpakload_loaded", sym("cfb1"))
-        emu.fb_png("cpakload_loaded_0", sym("cfb0"))
+        emu.fb_png("cpakload_loaded", sym("cfb_16_b"))
+        emu.fb_png("cpakload_loaded_0", sym("cfb_16_a"))
     yield 60
     if open(mpk(args), "rb").read() != before:
         emu.fail("a load changed the pak file")

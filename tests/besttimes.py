@@ -74,8 +74,8 @@ def run(emu, sym, args):
 
     def shot(name):
         if args.gfx == "angrylion":
-            emu.fb_png(name, sym("cfb1"))
-            emu.fb_png(name + "_0", sym("cfb0"))
+            emu.fb_png(name, sym("cfb_16_b"))
+            emu.fb_png(name + "_0", sym("cfb_16_a"))
 
     def request(action):
         emu.w16(requests, emu.r16(requests) | 1 << action)

@@ -153,7 +153,7 @@ HUD item off, the retail ball controls), then checks for each level:
 - **logic:** the state on every game frame is the same;
 - **lag in play:** every game frame falls on the same video frame, counted from the level's first game frame. A
   shift would be input lag or a stutter;
-- **the picture:** a coarse picture of each frame buffer (`cfb0`, `cfb1`) on every video frame: the mean red,
+- **the picture:** a coarse picture of each frame buffer (`cfb_16_a`, `cfb_16_b`) on every video frame: the mean red,
   green and blue of 8 by 6 blocks of 40 by 40 pixels. A block may differ by half a 5-bit level at most, by the same
   rule as the logic. Only with the features off: the features draw on the screen;
 - **RAM:** the same outside the areas that record time and the picture's buffers (`tests/ramcheck.py`). A word
@@ -172,12 +172,12 @@ record time, and they differ. These areas are masked:
 | Area | Why it differs |
 | --- | --- |
 | the code from `main_TEXT_START` to `main_DATA_START` | the hooks (see [build.md](build.md)) |
-| every thread's context and stack, the scheduler, `__osThreadSave`, the PI manager's thread (`D_802AE990`) | saved registers, which include return addresses and counts |
+| every thread's context and stack, the scheduler, `__osThreadSave`, the PI manager's thread and stack (`piMgrThread`, `piMgrStack`) | saved registers, which include return addresses and counts |
 | `printTimer` to `timers` | the debug timing bars (`StartTimer`, `EndTimer`) store CPU counts |
 | `frameStart`, `__osBaseCounter`, `__osCurrentTime` to `__osBaseTimer` | the CPU counter and the OS's timers |
-| `musicHeap`, `__am`, `D_802AB010`, `D_801F4170`, `D_801F4174`, the music driver's DMA pointers | the audio thread's progress at the moment of the check |
+| `audio_memory`, `__am`, `D_802AB010`, `D_801F4170`, `D_801F4174` | the audio thread's progress at the moment of the check |
 | `__osEepPifRam`, `piMessageQ`, `piMessageBuf` | the state of the EEPROM and PI requests at that moment |
-| `zbuffer`, `rdp_output` (to `musicHeap`), `cfb0`, `cfb1` | the drawing: the picture check covers it |
+| `zbuffer`, `rdp_output` (to `audio_memory`), `cfb_16_a`, `cfb_16_b` | the drawing: the picture check covers it |
 
 The draw thread runs beside the game thread. The practice code's few cycles move the point where one interrupts
 the other, and the draw thread's vertex data can then differ by 1: some texture coordinates in `objectsVtx` and

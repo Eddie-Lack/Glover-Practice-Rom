@@ -37,7 +37,7 @@ class Shot:
     """Both frame buffers, whichever is shown."""
 
     def __init__(self, emu, sym):
-        self.bufs = [emu.read(sym(n), W * H * 2) for n in ("cfb0", "cfb1")]
+        self.bufs = [emu.read(sym(n), W * H * 2) for n in ("cfb_16_a", "cfb_16_b")]
         self.best = 0
 
     def px(self, b, x, y):
@@ -205,7 +205,7 @@ def run(emu, sym, args):
             emu.fail(f"{name} should have {rows} rows")
         check_page(emu, sym, name + " at the lowest place", [])
         yield from press(emu, "B")
-    emu.fb_png("menupages_low", sym("cfb0"))
+    emu.fb_png("menupages_low", sym("cfb_16_a"))
 
 
 def setb(shot, b):

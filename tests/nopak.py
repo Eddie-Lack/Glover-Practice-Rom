@@ -23,8 +23,8 @@ def check(emu, sym, args):
     if emu.r32(sym("frameCount")) != 0 or emu.r32(sym("dispFrameCount")) != 0:
         emu.fail("the game's logic or graphics thread ran")
     if args.gfx == "angrylion":
-        emu.fb_png("nopak", sym("cfb0"))
-        counts = [white_pixels(emu, sym(fb), 84, 100) for fb in ("cfb0", "cfb1")]
+        emu.fb_png("nopak", sym("cfb_16_a"))
+        counts = [white_pixels(emu, sym(fb), 84, 100) for fb in ("cfb_16_a", "cfb_16_b")]
         print("white pixels in the message's first line, in the two frame buffers:", counts)
         if min(counts) < 300:
             emu.fail("the message is not in the frame buffers")

@@ -196,7 +196,7 @@ def scenario(emu, sym, args, box, image):
     bars = []
 
     def look(e, sectors):
-        for name in ("cfb0", "cfb1"):
+        for name in ("cfb_16_a", "cfb_16_b"):
             row = e.read(sym(name) + ((214 + 3) * 320 + 40) * 2, 240 * 2)
             filled = sum(1 for i in range(0, 480, 2) if row[i] << 8 | row[i + 1] == 0xFFC1)
             empty = sum(1 for i in range(0, 480, 2) if row[i] << 8 | row[i + 1] == 0x39CF)
@@ -248,7 +248,7 @@ def scenario(emu, sym, args, box, image):
     if have[0] != trace.ATLANTIS1 + 1 or have[99] != SECOND_LEVEL + 1:
         emu.fail(f"the levels in the list: {have[0]}, {have[99]}")
     # A shot of the menu with the list.
-    emu.fb_png("sdcard_menu", sym("cfb1"))
+    emu.fb_png("sdcard_menu", sym("cfb_16_b"))
     yield from close_menu()
     emu.hold(**STICK)
 
