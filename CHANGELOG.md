@@ -1,6 +1,6 @@
 # Changelog
 
-## Not yet released
+## 0.9.9 (2026-11-01)
 
 - HUD menu: "Controller display" shows the game's own controller picture from its demos while you play, for
   controller 1 or 2.
