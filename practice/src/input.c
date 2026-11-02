@@ -15,6 +15,7 @@
 #include "menu.h"
 #include "missedtaps.h"
 #include "noclip.h"
+#include "paddisplay.h"
 #include "practice.h"
 #include "recording.h"
 #include "saveedit.h"
@@ -148,6 +149,9 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
     }
     if (settings.debugPad) {
         DebugPad();
+    }
+    if (run.padDisplay == 2) {
+        PadDisplayRead(input.held2, controllerdata[1].stickX, controllerdata[1].stickY);
     }
     SettingsService();
     SaveEditService();

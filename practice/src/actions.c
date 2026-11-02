@@ -118,6 +118,9 @@ int ActionsRestart(int level) {
         DemoAbort();
         warpTarget = level;
         ExitLevel(EXIT_TIMETRIAL_RESTART, 1, 0);
+        /* The level's loader counts its garibs into numGaribs. The pause menu's Time Trial restart sets it to 0 after
+         * this exit; without that, each reset added the level's garibs again (0/50, then 0/100). */
+        numGaribs = 0;
         return 1;
     } else if (ActionsOnTitle()) {
         DemoAbort();

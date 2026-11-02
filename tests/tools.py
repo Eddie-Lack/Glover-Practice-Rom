@@ -1,7 +1,7 @@
 """The practice tools, through the menu and the default bindings:
 
 1. On the title flythrough (a demo playback), the menu opens; Warp, Go starts Atlantis 1 from the title.
-2. Stick up + D-pad up resets the level: it starts again.
+2. Stick up + D-pad up resets the level: it starts again, twice. The level's garib total (numGaribs) stays the same.
 3. Stick down + D-pad up stops the game (frame advance); stick down + D-pad right runs one game frame; stick
    down + D-pad up lets it go on.
 4. Stick up + D-pad right brings Glover back to the last checkpoint (its restart timer starts).
@@ -49,11 +49,17 @@ def run(emu, sym, args):
     yield from wait_for(emu, lambda: level() == trace.ATLANTIS1 and mode() == 4 and emu.r32(fc) >= 100, 3000,
                         "Atlantis 1 after the warp")
 
-    # 2. Reset: the level starts again.
-    yield from press(emu, "UP", x=0, y=80)
-    yield from wait_for(emu, lambda: emu.r32(fc) < 20, 2000, "the level to restart")
-    yield from wait_for(emu, lambda: level() == trace.ATLANTIS1 and mode() == 4 and emu.r32(fc) >= 60, 3000,
-                        "Atlantis 1 after the reset")
+    # 2. Reset: the level starts again, with the same garib total each time.
+    garibs = emu.r32(sym("numGaribs"))
+    if garibs == 0:
+        emu.fail("Atlantis 1 has no garibs counted")
+    for n in range(2):
+        yield from press(emu, "UP", x=0, y=80)
+        yield from wait_for(emu, lambda: emu.r32(fc) < 20, 2000, "the level to restart")
+        yield from wait_for(emu, lambda: level() == trace.ATLANTIS1 and mode() == 4 and emu.r32(fc) >= 60, 3000,
+                            "Atlantis 1 after the reset")
+        if emu.r32(sym("numGaribs")) != garibs:
+            emu.fail(f"after reset {n + 1} the level counts {emu.r32(sym('numGaribs'))} garibs, not {garibs}")
 
     # 3. Frame advance.
     yield from press(emu, "UP", x=0, y=-80)

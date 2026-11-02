@@ -13,6 +13,7 @@
 #include "input.h"
 #include "menu.h"
 #include "moonaim.h"
+#include "paddisplay.h"
 #include "practice.h"
 #include "saveedit.h"
 #include "settings.h"
@@ -199,4 +200,10 @@ void PracticePrepareSong(u8 song) {
 void PracticeInitOverlayList(void) {
     BestTimesLevelDone();
     InitOverlayList();
+}
+
+/* StartNewLevel calls this in place of InitScreenDebris, after LoadLevel. */
+void PracticeInitScreenDebris(void) {
+    InitScreenDebris();
+    PadDisplayLevelStart();
 }

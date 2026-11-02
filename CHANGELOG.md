@@ -2,7 +2,10 @@
 
 ## Not yet released
 
-Nothing yet.
+- HUD menu: "Controller display" shows the game's own controller picture from its demos while you play, for
+  controller 1 or 2.
+- Fixed: each Reset level or Warp from a level added the level's garibs to the garib total again (0/50, then 0/100).
+- The wiki's list of controller 2's debug controls now covers R (inertia), D-pad up and down, and Z with the stick.
 
 ## 0.9.0 (2026-10-28)
 
