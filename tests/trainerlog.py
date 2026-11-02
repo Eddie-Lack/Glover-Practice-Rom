@@ -39,8 +39,8 @@ def log_state(emu, sym):
 
 def green_lines(emu, sym, rows=10, x0=158, y0=48):
     """How many of the 9 pixel rows of the log's place hold a pixel of the lines' green (the newest are the first)."""
-    colours = [len(set(bytes(emu.read(sym(f"cfb{b}"), 320 * 240 * 2))[::2])) for b in (0, 1)]
-    raw = bytes(emu.read(sym(f"cfb{colours.index(max(colours))}"), 320 * 240 * 2))
+    colours = [len(set(bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[b]), 320 * 240 * 2))[::2])) for b in (0, 1)]
+    raw = bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[colours.index(max(colours))]), 320 * 240 * 2))
     shown = 0
     for k in range(rows):
         found = False
