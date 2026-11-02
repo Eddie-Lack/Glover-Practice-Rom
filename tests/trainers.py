@@ -118,8 +118,8 @@ class Rig:
 
     def picture(self, name):
         """The frame buffer that holds a drawn picture: the one with more colours (the other is still being drawn)."""
-        colours = [len(set(bytes(self.emu.read(self.sym(f"cfb{b}"), 320 * 240 * 2))[::2])) for b in (0, 1)]
-        self.emu.fb_png(name, self.sym(f"cfb{colours.index(max(colours))}"))
+        colours = [len(set(bytes(self.emu.read(self.sym(("cfb_16_a", "cfb_16_b")[b]), 320 * 240 * 2))[::2])) for b in (0, 1)]
+        self.emu.fb_png(name, self.sym(("cfb_16_a", "cfb_16_b")[colours.index(max(colours))]))
 
 
 def boot_to_atlantis(emu, sym):

@@ -81,8 +81,8 @@ def run(emu, sym, args):
 
     def picture(name):
         """The frame buffer that holds a drawn picture: the one with more colours (the other is still being drawn)."""
-        colours = [len(set(bytes(emu.read(sym(f"cfb{b}"), 320 * 240 * 2))[::2])) for b in (0, 1)]
-        emu.fb_png("ghost_" + name, sym(f"cfb{colours.index(max(colours))}"))
+        colours = [len(set(bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[b]), 320 * 240 * 2))[::2])) for b in (0, 1)]
+        emu.fb_png("ghost_" + name, sym(("cfb_16_a", "cfb_16_b")[colours.index(max(colours))]))
 
     def ghost_menu():
         """The Game menu's second last item, Ghost, A. The menu opens on the item where it was left."""

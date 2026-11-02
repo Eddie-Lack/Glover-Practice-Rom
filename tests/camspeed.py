@@ -43,8 +43,8 @@ MODIFIED_BOX = (180, 14, 279, 23)   # the MODIFIED text is right aligned to x 31
 def icon_pixels(emu, sym):
     """(pixels of the icon's glass in the icon's place, pixels of the MODIFIED text's red left of it) in the frame buffer
     that holds the newer picture."""
-    colours = [len(set(bytes(emu.read(sym(f"cfb{b}"), 320 * 240 * 2))[::2])) for b in (0, 1)]
-    raw = bytes(emu.read(sym(f"cfb{colours.index(max(colours))}"), 320 * 240 * 2))
+    colours = [len(set(bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[b]), 320 * 240 * 2))[::2])) for b in (0, 1)]
+    raw = bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[colours.index(max(colours))]), 320 * 240 * 2))
 
     def count(box, want):
         n = 0
