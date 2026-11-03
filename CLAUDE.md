@@ -19,9 +19,6 @@ handed out as a patch that players apply to their own ROM. Read this file first,
   Test this (docs/plan.md, "Faithfulness"). Two
   exceptions: the in-game timer bug after a Time Trial is always fixed (docs/plan.md, "Timers"), and the ball
   controls are Easy by default (docs/plan.md, "Ball controls").
-- **Treat gloveworld as a separate project, made by someone else.** Use it as it is. Everything the practice build
-  needs lives in this repository. When a change to gloveworld would help the practice ROM, or you find an error in
-  gloveworld, note it in [docs/gloveworld.md](docs/gloveworld.md) and tell the owner if entries need a decision.
 - **Keep every game address as in retail.** A hook replaces a call with `PRACTICE_WRAP(fn)()`; it never adds code
   to a game function. `tools/checklayout.py` fails the build if a game symbol moves (docs/build.md, "Hooks").
 - **Write all prose (docs, comments, commits, PR text) in plain language** (ISO 24495-1): short sentences, one
@@ -33,9 +30,6 @@ handed out as a patch that players apply to their own ROM. Read this file first,
   described in `wiki/`, one page per menu. Do not state the obvious, compare the project
   with other projects, or repeat rules from this file there. Agent-facing rules and process go in this file and in
   `docs/`.
-- **The README has a Thanks section.** The owner keeps it short, with a link for each project. Ask the owner
-  before adding an entry.
-- **Write docs for players in the owner's style** (see "Writing style for docs" below).
 - Comment code where the reason is not obvious. Follow the style of the code around it.
 
 ## Be creative
@@ -48,29 +42,6 @@ Ideas that are absurd or questionable need the owner's decision. Do not drop the
 of them for demonstration is ok. Add each one to [docs/decisions.md](docs/decisions.md) with a short description,
 the cost, the risks and your recommendation. Keep that file sorted by its sections and update an entry when you
 learn more.
-
-## Writing style for docs
-
-The owner rewrote the README and the wiki in this style. Write every page for players (the README, `wiki/`, the
-patch page) like it. Copy the pages the owner edited when unsure.
-
-- Talk to the player as "you", in a friendly, casual voice. Contractions are fine ("don't", "can't").
-- Say what the player can do, and cut the rest: no "off at start, not saved", no reasons why a combination does
-  not happen in play, no glossary, nothing obvious.
-- One fact per line. Break a long paragraph into short lines with blank lines between them, or into a bullet list.
-- No full stop at the end of a table cell, a bullet or a one-line paragraph.
-- Table headers say "Option", not "Item". A sub menu's row says `_Sub menu_`.
-- Links to other pages are in italics: `_Back to the [Home page](Home.md)_` at the top, and
-  `_see [Warp](Warp.md)_` or `_(see [Game](Game.md))_` in the text.
-- A list of choices or names goes in backticks: `` `off, rare, sometimes, often` ``.
-- Put an important warning in a heading or with "!" ("## The Expansion Pak is required!!").
-- A side fact starts with "Note:". Unfinished features are marked "WIP".
-- Common player words are fine: rng, free cam, hotkeys, KBs.
-- Keep the README short: one line on what the ROM is, the Expansion Pak, how to apply the patch, links to the
-  wiki, Thanks, and how to build.
-
-The plain-language rules above (no em dashes, no purpose clauses) still apply. Docs for agents (`docs/`, this file)
-stay as they are.
 
 ## Controller facts
 
