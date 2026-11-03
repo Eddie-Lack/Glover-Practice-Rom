@@ -229,7 +229,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 - The in-game timer fix (see Timers), always on: its cause is `timer321` (docs/game.md).
 - The bindings: done in milestone 2.
 
-### 2. Practice basics (mostly done)
+### 2. Practice basics (done)
 
 - Level select and warps: done. Any of the 42 levels of the game's level select, from a level (through the Time
   Trial's restart exit) or from the title (as LevelSelectScreen does, with a chosen difficulty). Any
@@ -275,7 +275,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   seven items on the Savestate menu's SD card page. Not built: a stronger compressor (about 4.4 times is within reach, the
   files are 3.1 times) and an EverDrive 64 driver (docs/decisions.md).
 
-### 4. Game science and glitch hunting (started)
+### 4. Game science and glitch hunting (done)
 
 - Collision view: faces of the landscape and the platforms near the glove, coloured by kind; the collision
   spheres of the glove and the ball. Done ([build.md](build.md#the-collision-view)).
@@ -461,7 +461,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 
 ## The owner's answers
 
-- Repository: `Glover-Practice-Rom` under Eddie-Lack, private for now. No licence for now.
+- Repository: `Glover-Practice-Rom` under Eddie-Lack, public. No licence for now.
 - Timing: see Timers, above. Individual levels matter most.
 - Hardware and emulators used by runners: EverDrive 64 and SummerCart64; Project64 and Rosalie's Mupen GUI
   (RMG); ares is possible but unlikely. Test these first.
