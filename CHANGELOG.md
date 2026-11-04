@@ -1,6 +1,6 @@
 # Changelog
 
-## Not yet released
+## 0.9.10 (2026-11-04)
 
 - Removed the L mash metronome trainer.
 
