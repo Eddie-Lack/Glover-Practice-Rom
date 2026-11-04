@@ -83,7 +83,7 @@ typedef struct Snap {
 
 static Snap snap;
 static u32 seenStarts, seenLoads;
-static u8 dirty;             /* the four trick trainers hold state or a view */
+static u8 dirty;             /* the trick trainers hold state or a view */
 static u8 bossDirty;         /* the boss trainer holds state or a view */
 static u8 bossFresh;         /* BossRead found a fight at the hook of the game frame that snap.frame2 names */
 static u8 clearRequest;      /* trainer bits to clear on the next game frame (the menu sets them) */

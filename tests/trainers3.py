@@ -1,11 +1,11 @@
 """The wall-clip indicator (practice/include/trainers.h) in Atlantis 1.
 
-In Atlantis 1 one face of the start floor's actor is rewritten in RAM as a large wall (the plane x = 100, turned
-towards the ball). With the ball bearing in the glove, A held to the windup and Z on a chosen frame, then R on the
-next, the trainer's cancel distance is the ball's real distance to the wall at the start of the cancel frame, its
-verdict (inside the window or not) is checked against whether the glove really went through the wall, the window edge
-is compared with the real edge found by trials at 0.5 units steps, and the live line follows the ball. The indicator
-is quiet with another ball and when the switch is off.
+One face of the start floor's actor is rewritten in RAM as a large wall (the plane x = 100, turned towards the ball).
+With the ball bearing in the glove, A held to the windup and Z on a chosen frame, then R on the next, the trainer's
+cancel distance is the ball's real distance to the wall at the start of the cancel frame, its verdict (inside the
+window or not) is checked against whether the glove really went through the wall, the window edge is compared with
+the real edge found by trials at 0.5 units steps, and the live line follows the ball. The indicator is quiet with
+another ball and when the switch is off.
 
 Picture: trainers3_clip.png (needs --gfx angrylion)."""
 import os
@@ -25,7 +25,6 @@ def run(emu, sym, args):
     r = Rig(emu, sym)
     yield from boot_to_atlantis(emu, sym)
     yield 60
-    yield from get_joined(r)
     yield from clip_check(r)
 
 

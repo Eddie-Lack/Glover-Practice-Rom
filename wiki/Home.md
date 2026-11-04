@@ -19,7 +19,7 @@ The practice menu:
 | [HUD](HUD.md) | Timers, the input display and the other on-screen values |
 | [Frame advance](Frame-advance.md) | Frame advance, slow motion |
 | [Game](Game.md) | Cheats, power-ups, rng, free cam, ghost |
-| [Trainers](Trainers.md) | WIP - five trick/timing trainers (in the Game menu) |
+| [Trainers](Trainers.md) | WIP - six trick/timing trainers (in the Game menu) |
 | [Inspect](Inspect.md) | Actors, memory, frame log, collision view, memory corruption |
 | [Ball controls](Ball-controls.md) | Easy or Normal ball controls |
 | [Bindings](Bindings.md) | Change the button combination of each quick action |

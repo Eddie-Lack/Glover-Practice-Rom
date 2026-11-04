@@ -1119,9 +1119,10 @@ facts about `TitleScreen` are in [game.md](game.md#the-early-title-menu).
 ## The trick trainers
 
 The Game menu's "Trainers" sub menu (`Run.trainers`, one bit for each trainer: 1 L mash, 2 line keeper, 4 MBZ-L, 8
-Moon Pound aim, 16 boss windows, 64 wall clip; 32 is not used, and an older Controller Pak note can have it set; `practice/src/trainers.c`, `practice/src/moonaim.c`, `practice/src/bosswin.c`,
-`practice/include/trainers.h`, `practice/include/moonaim.h`, `practice/include/bosswin.h`). All six are built. They read the game and draw. They write no game state, call no
-`Random` and change no input.
+Moon Pound aim, 16 boss windows, 64 wall clip; `practice/src/trainers.c`, `practice/src/moonaim.c`,
+`practice/src/bosswin.c`, `practice/include/trainers.h`, `practice/include/moonaim.h`, `practice/include/bosswin.h`).
+Bit 32 is not used. An older Controller Pak note can have it set, and loading the note ignores it. All six trainers are
+built. They read the game and draw. They write no game state, call no `Random` and change no input.
 
 - **Hook and logic.** `TrainersGameFrame` runs from `PracticeClearText`, after `ActionsGameFrame`, on every message
   that `RunGame` gets. It takes a snapshot of the state that the last game frame left (the glove's mode, the ball's
@@ -1227,7 +1228,7 @@ Moon Pound aim, 16 boss windows, 64 wall clip; 32 is not used, and an older Cont
   garib counter), (c) MBZ-L at the right (x 156, y 92) and (d) the Moon Pound aim in the lower middle (x 80, y 164). Text that would run past x 320
   is cut. The MBZ panel holds 27 characters; its list rows use short verdicts. Colours: green on time, yellow
   slightly off, red lost, grey nothing to say.
-- **Boss windows** (`practice/src/bosswin.c`). It has its own conditions (the four tricks need `Quiet()`, which fails in
+- **Boss windows** (`practice/src/bosswin.c`). It has its own conditions (the trick trainers need `Quiet()`, which fails in
   the Space fight where Glover is fixed): the switch, level 13, 28 or 40 with the matching type in `enemies[0]`, no
   pause, no exit, no noclip and no cameo. `TrainersGameFrame` calls `BossRead` at the hook, which copies what the fight
   shows into a snapshot (`SafePointer` and `ReadFloat` guard each read). `TrainersProcessInput` calls `BossStep` once a
@@ -1239,8 +1240,7 @@ Moon Pound aim, 16 boss windows, 64 wall clip; 32 is not used, and an older Cont
   Draw: the panel at x 164, y 44 (right of the screen, under the game's counter), the history in two rows at x 8, y 3.
   A line is cut at x 320. It reads the game and writes nothing. With the switch off it costs one test per game frame.
   The draw code is shared by helpers (`WindowText` makes the text of a window for the big line and for a Space row).
-  The practice RAM area had 4.6 KB left after it; with the wall clip and the hole painter it had 10 KB
-  (`make` prints it: code and data 0x2d200, bss 0x50610, together 0x7d810 of 0x80000 bytes). `bosswin.o` has 8.6 KB of code.
+  The practice RAM area had 4.6 KB left after it. `make` prints what is left now. `bosswin.o` has 8.6 KB of code.
 - **Wall clip** (bit 0x40, `TRAINER_CLIP`; `ClipStep`, `ClipView` at `TrainerView.clip`, 0x20C). `ReadClip` takes the
   ball's position and horizontal velocity and the glove's position at the hook. With the glove in JOINED or PREWHACK and
   `ballControl.type` 3 (bearing), `MoonWallScan` (moonaim.c) walks the landscape actors and static platforms near the
@@ -1271,14 +1271,14 @@ Moon Pound aim, 16 boss windows, 64 wall clip; 32 is not used, and an older Cont
   - Boss windows: each event pushed into the ring (`bosswin.c`, `Push`), with the text of `LastText`.
   - Wall clip: 8 game frames after the cancel (`CLIP_WATCH`), with the R and the outcome known.
 
-  The hold: `ApplyHold`, at the end of `BuildView`, copies the part of the view of each trainer in `ended` into `held` (the
-  Moon Pound aim's part is `held.moon`, set by its own step) and sets `holdUntil[bit]` to `frameCount2` plus the hold (20,
-  40 or 60 game frames). While `holdUntil` is ahead, the view that is published takes that trainer's part from `held`. The
-  trainer's logic goes on unseen. A later `ended` writes `held` again and moves `holdUntil`, so a hold never queues. The
-  MBZ-L part has its newest attempt's `doneFrame` set to the
-  view's frame, so the full result stays. A level start, a savestate load, going quiet (a pause) and turning the trainer on
-  or off end the holds. The log stays through a level start and a savestate load (they are how a trick is tried again). It
-  clears when `gameInfo.level` changes, and `LogDrop` takes a trainer's lines out when it is turned on or off.
+  The hold: `ApplyHold`, at the end of `BuildView`, copies the part of the view of each trainer in `ended` into `held`
+  (the Moon Pound aim's part is `held.moon`, set by its own step) and sets `holdUntil[bit]` to `frameCount2` plus the
+  hold (20, 40 or 60 game frames). While `holdUntil` is ahead, the view that is published takes that trainer's part from
+  `held`. The trainer's logic goes on unseen. A later `ended` writes `held` again and moves `holdUntil`, so a hold never
+  queues. The MBZ-L part has its newest attempt's `doneFrame` set to the view's frame, so the full result stays. A level
+  start, a savestate load, going quiet (a pause) and turning the trainer on or off end the holds. The log stays through
+  a level start and a savestate load (they are how a trick is tried again). It clears when `gameInfo.level` changes, and
+  `LogDrop` takes a trainer's lines out when it is turned on or off.
 
   The settings are `trainerLog` (0x4E) and `trainerHold` (0x4F) in `Settings`, stored from 1 (off, 5, 6, 8, 10; off, 1 s,
   2 s, 3 s) with the defaults 5 lines and 1 s. They take two of the three unused bytes at 0x4E, so `sizeof(Settings)` and
