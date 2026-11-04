@@ -1,17 +1,13 @@
-"""The metronome for the L mash and the wall-clip indicator (practice/include/trainers.h) in Atlantis 1.
+"""The wall-clip indicator (practice/include/trainers.h) in Atlantis 1.
 
-1. Metronome: from the first hold press of a mash the view shows a beat on that game frame and on every 2nd game frame
-   after it, and a running mark in between; before the first hold press and 30 game frames after the last press it
-   shows nothing. A late press does not move the beats. It is quiet in noclip, and turning it off clears it.
+One face of the start floor's actor is rewritten in RAM as a large wall (the plane x = 100, turned towards the ball).
+With the ball bearing in the glove, A held to the windup and Z on a chosen frame, then R on the next, the trainer's
+cancel distance is the ball's real distance to the wall at the start of the cancel frame, its verdict (inside the
+window or not) is checked against whether the glove really went through the wall, the window edge is compared with
+the real edge found by trials at 0.5 units steps, and the live line follows the ball. The indicator is quiet with
+another ball and when the switch is off.
 
-2. Wall clip: in Atlantis 1 one face of the start floor's actor is rewritten in RAM as a large wall (the plane x = 100,
-   turned towards the ball). With the ball bearing in the glove, A held to the windup and Z on a chosen frame, then R on
-   the next, the trainer's cancel distance is the ball's real distance to the wall at the start of the cancel frame, its
-   verdict (inside the window or not) is checked against whether the glove really went through the wall, the window
-   edge is compared with the real edge found by trials at 0.5 units steps, and the live line follows the ball. The
-   indicator is quiet with another ball and when the switch is off.
-
-Pictures: trainers3_metro.png and trainers3_clip.png (needs --gfx angrylion)."""
+Picture: trainers3_clip.png (needs --gfx angrylion)."""
 import os
 import sys
 
@@ -22,73 +18,15 @@ from trainers import (ACTOR_POS, ACTOR_PREV_POS, ACTOR_VEL, RUN_NOCLIP, RUN_TRAI
                       get_joined, step)
 from trainerlog import log_state  # noqa: E402
 
-TR_METRO, TR_CLIP, TR_LMASH = 0x20, 0x40, 0x01
+TR_CLIP = 0x40
 
 
 def run(emu, sym, args):
     r = Rig(emu, sym)
     yield from boot_to_atlantis(emu, sym)
     yield 60
-    yield from get_joined(r)
-    only = os.environ.get("TRAINERS_ONLY")
-    for name, check in (("metro", metro_check), ("clip", clip_check)):
-        if not only or name in only.split(","):
-            yield from check(r)
+    yield from clip_check(r)
 
-
-def metro_check(r):
-    emu = r.emu
-    emu.w8(r.run + RUN_TRAINERS, TR_METRO)
-    yield from r.next_frame()
-    yield from r.next_frame()
-    presses = set(range(10, 41, 2))     # a stand press on frame 10, the first hold press on frame 12
-    seen = []
-    for i in range(0, 84):
-        v = yield from step(r, ("L",) if i in presses else ())
-        seen.append(v["lmash"]["metro"])
-        if i == 21 and v["lmash"]["metro"] == 2:
-            r.picture("trainers3_metro")
-    # The view that step() returns is the one of the game frame that reads the pad set before the step: one step later.
-    want = []
-    for i in range(0, 84):
-        if i < 13 or i >= 72:
-            want.append(0)
-        else:
-            want.append(2 if (i - 13) % 2 == 0 else 1)
-    if seen != want:
-        emu.fail(f"metronome states differ:\n got {seen}\nwant {want}")
-    print("trainers3: the metronome beats on the frame of the first hold press and every 2nd frame after it, and stops 31 frames after the last press")
-    # A mash with a late press: the beats stay on the grid.
-    yield from get_joined(r)
-    emu.w8(r.run + RUN_TRAINERS, TR_METRO)
-    yield from r.next_frame()
-    presses = {5, 7, 9, 12, 13}
-    seen = []
-    for i in range(0, 24):
-        v = yield from step(r, ("L",) if i in presses else ())
-        seen.append(v["lmash"]["metro"])
-    want = [0] * 8 + [2 if (i - 8) % 2 == 0 else 1 for i in range(8, 24)]
-    if seen != want:
-        emu.fail(f"the beats moved with a late press:\n got {seen}\nwant {want}")
-    print("trainers3: a late press does not move the beats")
-    if not any(l[1].startswith("MT ") and "ON THE BEAT" in l[1] for l in log_state(emu, r.sym)[3]):
-        emu.fail(f"a metronome run left no line in the trainer log: {log_state(emu, r.sym)[3]}")
-    # Quiet in noclip, and off clears it.
-    emu.w8(r.run + RUN_NOCLIP, 1)
-    for _ in range(3):
-        yield from r.next_frame()
-    if r.view()["valid"]:
-        emu.fail("the metronome is not quiet in noclip")
-    emu.w8(r.run + RUN_NOCLIP, 0)
-    emu.w8(r.run + RUN_TRAINERS, 0)
-    for _ in range(3):
-        yield from r.next_frame()
-    if r.view()["valid"]:
-        emu.fail(f"turning the metronome off left its view: {r.view()['on']}, {r.view()['valid']}")
-    print("trainers3: the metronome is quiet in noclip and is cleared when turned off")
-
-
-# ---- Wall clip ---------------------------------------------------------------------------------------------------
 
 WALL_X = 100.0
 FLOOR_ACTOR, WALL_FACE = 0x80335110, 2   # the actor of the start floor (Atlantis 1) and the face that becomes the wall

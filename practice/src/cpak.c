@@ -591,7 +591,7 @@ static void ApplyNote(void) {
     p += BEST_LEVELS * 2;
     bestTimesState.showGame = noteBuf[0x0E] & 1;
     for (int bit = 1; bit <= TRAINER_CLIP; bit <<= 1) {
-        if ((run.trainers ^ noteBuf[0x0F]) & bit) {
+        if ((run.trainers ^ noteBuf[0x0F]) & bit & TRAINER_ALL) {
             TrainersToggle(bit);
         }
     }

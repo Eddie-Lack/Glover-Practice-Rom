@@ -1,5 +1,9 @@
 # Changelog
 
+## Not yet released
+
+- Removed the L mash metronome trainer.
+
 ## 0.9.9 (2026-11-01)
 
 - HUD menu: "Controller display" shows the game's own controller picture from its demos while you play, for

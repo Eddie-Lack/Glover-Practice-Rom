@@ -83,7 +83,7 @@ typedef struct Snap {
 
 static Snap snap;
 static u32 seenStarts, seenLoads;
-static u8 dirty;             /* the four trick trainers hold state or a view */
+static u8 dirty;             /* the trick trainers hold state or a view */
 static u8 bossDirty;         /* the boss trainer holds state or a view */
 static u8 bossFresh;         /* BossRead found a fight at the hook of the game frame that snap.frame2 names */
 static u8 clearRequest;      /* trainer bits to clear on the next game frame (the menu sets them) */
@@ -119,7 +119,7 @@ static void LogEnd(void) {
 }
 
 void TrainerResult(int bit, u32 color, const char *fmt, ...) {
-    static const char tags[7][3] = { "LM", "LK", "MB", "MP", "BW", "MT", "WC" };
+    static const char tags[7][3] = { "LM", "LK", "MB", "MP", "BW", "", "WC" };
     TrainerLogLine *l;
     const char *tag = tags[BitIndex(bit)];
     char *t;
@@ -169,13 +169,9 @@ static int HoldFrames(void) {
 /* Copies the part of a view that belongs to trainer BIT. */
 static void CopyPart(TrainerView *d, const TrainerView *src, int bit) {
     switch (bit) {
-        case TRAINER_LMASH: {
-            u8 metro = d->lmash.metro; /* the metronome's box is not held */
-
+        case TRAINER_LMASH:
             d->lmash = src->lmash;
-            d->lmash.metro = metro;
             break;
-        }
         case TRAINER_LINE:
             d->line = src->line;
             break;
@@ -389,11 +385,8 @@ static struct {
     u8 keyAir;
     f32 keyFriction, keyAccel, keyMass, keyMax, keyMin;
     u8 keyValid;
-    u8 metro;              /* the metronome runs: the first hold press of an attempt started it */
-    s32 metroTick;         /* the game frame of that press: the beats fall on it and on every 2nd frame after it */
     s32 lastPress;         /* the game frame of the newest L press */
     u8 runPresses, runOn;  /* the presses of the mash run that goes on (0: none) and those on time, for the log */
-    u8 beatPresses, beatOn; /* the presses of the metronome's run, and those on the beat */
 } lm;
 
 static void LMashReset(void) {
@@ -501,7 +494,7 @@ static f32 WrapAngle(f32 a) {
     return a - (f32)whole * 6.28318531f;
 }
 
-/* The trainer log's lines for the end of an L mash run and of a metronome run. */
+/* The trainer log's line for the end of an L mash run. */
 static void LMashEndRun(void) {
     int gaps = lm.runPresses - 1;
     int good = lm.runOn * 10 >= gaps * 9;
@@ -512,16 +505,6 @@ static void LMashEndRun(void) {
                       (double)lm.peak, good ? "GOOD" : fair ? "OK" : "SLOPPY");
     }
     lm.runPresses = lm.runOn = 0;
-}
-
-static void MetroEndRun(void) {
-    if ((run.trainers & TRAINER_METRO) && lm.beatPresses >= LM_RUN_MIN) {
-        int good = lm.beatOn * 10 >= lm.beatPresses * 9;
-        int fair = lm.beatOn * 10 >= lm.beatPresses * 7;
-
-        TrainerResult(TRAINER_METRO, good ? GREEN : fair ? YELLOW : RED, "%d OF %d ON THE BEAT", lm.beatOn, lm.beatPresses);
-    }
-    lm.beatPresses = lm.beatOn = 0;
 }
 
 static void LMashStep(const Snap *s, const TPad *p) {
@@ -535,10 +518,6 @@ static void LMashStep(const Snap *s, const TPad *p) {
     lm.tick++;
     if (lm.runPresses && lm.tick - lm.lastPress >= LM_RUN_GAP) {
         LMashEndRun();
-    }
-    if (lm.metro && lm.tick - lm.lastPress > LM_ATTEMPT_GAP) {
-        lm.metro = 0;
-        MetroEndRun();
     }
     if (lm.haveYaw) {
         yawStep = WrapAngle(s->camYaw - lm.lastYaw);
@@ -562,9 +541,6 @@ static void LMashStep(const Snap *s, const TPad *p) {
         if (++lm.other >= LM_OTHER_FRAMES) {
             u8 cells = lm.cells;
 
-            if (lm.metro) {
-                MetroEndRun();
-            }
             u8 strip[LM_STRIP];
 
             for (int i = 0; i < LM_STRIP; i++) {
@@ -628,15 +604,6 @@ static void LMashStep(const Snap *s, const TPad *p) {
         lm.lastPress = lm.tick;
         lm.runPresses++;
         lm.runOn += lm.verdict == LMV_ON_TIME;
-        if (!lm.metro && kind == LM_HOLD) {
-            lm.metro = 1;
-            lm.metroTick = lm.tick;
-            lm.beatPresses = lm.beatOn = 0;
-        }
-        if (lm.metro) {
-            lm.beatPresses++;
-            lm.beatOn += ((lm.tick - lm.metroTick) & 1) == 0;
-        }
     }
 
     /* The target, for the pad that is held now. */
@@ -687,7 +654,6 @@ static void LMashFillView(LMashView *v) {
     v->over = lm.over;
     v->warn = lm.warn;
     v->cells = lm.cells;
-    v->metro = lm.metro ? (((lm.tick - lm.metroTick) & 1) == 0 ? 2 : 1) : 0;
     for (int i = 0; i < LM_STRIP; i++) {
         v->strip[i] = lm.strip[i];
     }
@@ -1348,7 +1314,7 @@ static void BuildView(int on, int valid) {
 
 /* Clears the state of the trainers, or of some of them, and the view. */
 static void ResetBits(int bits) {
-    if (bits & (TRAINER_LMASH | TRAINER_METRO)) {
+    if (bits & TRAINER_LMASH) {
         LMashReset();
     }
     if (bits & TRAINER_LINE) {
@@ -1512,7 +1478,7 @@ void TrainersProcessInput(void) {
     trainerDiag.steps++;
     ReadPad(&p);
     tick++;
-    if (run.trainers & (TRAINER_LMASH | TRAINER_METRO)) {
+    if (run.trainers & TRAINER_LMASH) {
         LMashStep(s, &p);
     }
     if (run.trainers & TRAINER_LINE) {
@@ -1873,15 +1839,6 @@ static void DrawLine(Gfx **dl, const LineView *v) {
          v->cross < 0.0f ? "L" : "R", (double)v->tap);
 }
 
-/* The metronome: a box that lights up on every 2nd game frame. */
-#define METRO_X 8
-#define METRO_Y 94
-static void DrawMetronome(Gfx **dl, int state) {
-    if (state) {
-        TextRect(dl, METRO_X, METRO_Y, METRO_X + 48, METRO_Y + 16, state == 2 ? 0xFFFFFFFF : 0x303848FF);
-    }
-}
-
 /* The wall clip: the numbers of a cancel on this frame, the bar of the window, and the last cancel. */
 #define CL_X 156
 #define CL_Y 150
@@ -2029,9 +1986,6 @@ void TrainersDraw(Gfx **dl, Gfx *end) {
     }
     if (local.on & TRAINER_LMASH) {
         DrawLMash(dl, &local.lmash);
-    }
-    if (local.on & TRAINER_METRO) {
-        DrawMetronome(dl, local.lmash.metro);
     }
     if (local.on & TRAINER_LINE) {
         DrawLine(dl, &local.line);

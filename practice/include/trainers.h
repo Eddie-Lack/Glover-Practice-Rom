@@ -27,10 +27,10 @@
 #define TRAINER_MBZL 0x04  /* MBZ-L timing */
 #define TRAINER_MOON 0x08  /* Moon Pound aim */
 #define TRAINER_BOSS 0x10  /* boss windows (bosswin.c) */
-#define TRAINER_METRO 0x20 /* the metronome for the L mash (trainers.c) */
+/* Bit 0x20 is not used. It was a removed trainer, and an older Controller Pak note can have it set. */
 #define TRAINER_CLIP 0x40  /* the wall-clip indicator for MAZ-R (trainers.c) */
-#define TRAINER_ALL 0x7F
-#define TRAINER_TRICKS 0x6F /* the ones that need the glove under the player's control (Quiet) */
+#define TRAINER_ALL 0x5F
+#define TRAINER_TRICKS 0x4F /* the ones that need the glove under the player's control (Quiet) */
 
 /* L mash (trainers.c): one line for the last press, the last 24 game frames, and the speed. */
 enum LMashKind { LM_NONE, LM_STAND, LM_HOLD };
@@ -52,7 +52,7 @@ typedef struct LMashView {
     /* 0x04 */ u8 warn;       /* LMW_ bits */
     /* 0x05 */ u8 cells;      /* valid cells of strip */
     /* 0x06 */ u8 mode;       /* the glove's mode in the newest cell: HAND_JOINED, HAND_BALLWALK or 0 */
-    /* 0x07 */ u8 metro;     /* the metronome: 0 not running, 1 running, 2 a beat on this game frame */
+    /* 0x07 */ u8 pad07;
     /* 0x08 */ u8 strip[LM_STRIP]; /* oldest first: 1 holding (J), 2 stood on (B), 0 other; bit 0x80 an L press */
     /* 0x20 */ f32 move;      /* the ball's move in the last game frame */
     /* 0x24 */ f32 peak;      /* the largest move since the attempt began */
@@ -224,13 +224,13 @@ _Static_assert(sizeof(LMashView) == 0x30 && sizeof(MbzAttempt) == 0x2C && sizeof
 
 /* The trainer log: the result of each trainer's last attempts, newest first, drawn at the side of the screen (the
  * Settings menu's "Trainer log length" says how many lines show). An attempt is one L mash run (LM), one MBZ-L (MB), one
- * diagonal walk of the line keeper (LK), one slam of the Moon Pound aim (MP), one boss event (BW), one metronome run (MT)
+ * diagonal walk of the line keeper (LK), one slam of the Moon Pound aim (MP), one boss event (BW)
  * or one wall-clip cancel (WC). The game thread writes a line when the attempt ends. The draw thread copies the log
  * and keeps the copy only if no line was written meanwhile (begin and seq, as for the views).
  *
  * The result hold: when an attempt ends, the trainer's panel keeps the view of that moment for the Settings menu's
  * "Trainer result hold" (1 to 3 s, in game frames) and the trainer goes on running unseen. Another attempt that ends
- * during the hold puts its view in place and starts the time again. Nothing is queued. The metronome's box has no hold. */
+ * during the hold puts its view in place and starts the time again. Nothing is queued. */
 #define TLOG_MAX 10
 #define TLOG_TEXT 32 /* characters of a line with its end (27 are drawn: from x 158 to the screen's edge) */
 
