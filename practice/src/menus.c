@@ -425,7 +425,6 @@ static const MenuItem trainerItems[] = {
     STATE("Line keeper", TrainersToggle, TrainersText, TRAINER_LINE),
     WARN_STATE("Moon Pound aim", TrainersToggle, TrainersText, TRAINER_MOON, "Can add lag: up to 4 ms a game frame"),
     STATE("Boss windows", TrainersToggle, TrainersText, TRAINER_BOSS),
-    STATE("L mash metronome", TrainersToggle, TrainersText, TRAINER_METRO),
     WARN_STATE("Wall clip", TrainersToggle, TrainersText, TRAINER_CLIP, "Can add lag: up to 3 ms a game frame"),
 };
 static MENU(trainerMenu, "Trainers", trainerItems);

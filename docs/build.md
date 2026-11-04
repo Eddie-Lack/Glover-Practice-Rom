@@ -1119,8 +1119,8 @@ facts about `TitleScreen` are in [game.md](game.md#the-early-title-menu).
 ## The trick trainers
 
 The Game menu's "Trainers" sub menu (`Run.trainers`, one bit for each trainer: 1 L mash, 2 line keeper, 4 MBZ-L, 8
-Moon Pound aim, 16 boss windows, 32 L mash metronome, 64 wall clip; `practice/src/trainers.c`, `practice/src/moonaim.c`, `practice/src/bosswin.c`,
-`practice/include/trainers.h`, `practice/include/moonaim.h`, `practice/include/bosswin.h`). All seven are built. They read the game and draw. They write no game state, call no
+Moon Pound aim, 16 boss windows, 64 wall clip; 32 is not used, and an older Controller Pak note can have it set; `practice/src/trainers.c`, `practice/src/moonaim.c`, `practice/src/bosswin.c`,
+`practice/include/trainers.h`, `practice/include/moonaim.h`, `practice/include/bosswin.h`). All six are built. They read the game and draw. They write no game state, call no
 `Random` and change no input.
 
 - **Hook and logic.** `TrainersGameFrame` runs from `PracticeClearText`, after `ActionsGameFrame`, on every message
@@ -1239,13 +1239,8 @@ Moon Pound aim, 16 boss windows, 32 L mash metronome, 64 wall clip; `practice/sr
   Draw: the panel at x 164, y 44 (right of the screen, under the game's counter), the history in two rows at x 8, y 3.
   A line is cut at x 320. It reads the game and writes nothing. With the switch off it costs one test per game frame.
   The draw code is shared by helpers (`WindowText` makes the text of a window for the big line and for a Space row).
-  The practice RAM area had 4.6 KB left after it; with the metronome, the wall clip and the hole painter it has 10 KB
+  The practice RAM area had 4.6 KB left after it; with the wall clip and the hole painter it had 10 KB
   (`make` prints it: code and data 0x2d200, bss 0x50610, together 0x7d810 of 0x80000 bytes). `bosswin.o` has 8.6 KB of code.
-- **Metronome** (bit 0x20, `TRAINER_METRO`). It runs on the L mash state (`lm`): `LMashStep` runs when either bit is on.
-  The first hold press of an attempt (a press in BALLWALK) sets `lm.metro` and `lm.metroTick`; `LMashFillView` gives
-  `LMashView.metro` 2 on that frame and every 2nd frame after it, 1 between, 0 when off. It stops 30 frames after the
-  last press (`lm.lastPress`), and when the glove leaves the ball for 20 frames. `DrawMetronome` draws a 48 by 16 box at
-  x 8, y 94.
 - **Wall clip** (bit 0x40, `TRAINER_CLIP`; `ClipStep`, `ClipView` at `TrainerView.clip`, 0x20C). `ReadClip` takes the
   ball's position and horizontal velocity and the glove's position at the hook. With the glove in JOINED or PREWHACK and
   `ballControl.type` 3 (bearing), `MoonWallScan` (moonaim.c) walks the landscape actors and static platforms near the
@@ -1266,8 +1261,6 @@ Moon Pound aim, 16 boss windows, 32 L mash metronome, 64 wall clip; `practice/sr
   `begin` equals `seq` after the copy. What ends an attempt:
   - L mash: 12 game frames after the last press (`LM_RUN_GAP`), when the run had 3 or more presses (`LMashEndRun`). The line
     counts the presses and the gaps of 2 frames (`lm.runPresses`, `lm.runOn`; GOOD is 90 percent or more, OK 70 percent).
-  - Metronome: the frame on which the box goes away (`MetroEndRun`; also when the glove has left the ball for 20 frames). It
-    counts the presses and those on the beat (`(tick - metroTick)` even).
   - MBZ-L: `MbzPush`, when the verdict is final and the speeds are in (7 game frames after the L), or when the next
     attempt starts during that collecting.
   - Line keeper: `LineWatch`, the frame on which `lk.live` ends after 20 game frames or more, unless the reason is JUMPED.
@@ -1282,7 +1275,7 @@ Moon Pound aim, 16 boss windows, 32 L mash metronome, 64 wall clip; `practice/sr
   Moon Pound aim's part is `held.moon`, set by its own step) and sets `holdUntil[bit]` to `frameCount2` plus the hold (20,
   40 or 60 game frames). While `holdUntil` is ahead, the view that is published takes that trainer's part from `held`. The
   trainer's logic goes on unseen. A later `ended` writes `held` again and moves `holdUntil`, so a hold never queues. The
-  L mash part keeps the live metronome state (`lmash.metro`). The MBZ-L part has its newest attempt's `doneFrame` set to the
+  MBZ-L part has its newest attempt's `doneFrame` set to the
   view's frame, so the full result stays. A level start, a savestate load, going quiet (a pause) and turning the trainer on
   or off end the holds. The log stays through a level start and a savestate load (they are how a trick is tried again). It
   clears when `gameInfo.level` changes, and `LogDrop` takes a trainer's lines out when it is turned on or off.
@@ -1294,7 +1287,7 @@ Moon Pound aim, 16 boss windows, 32 L mash metronome, 64 wall clip; `practice/sr
   zero or a value out of range, so older blocks and notes load. `tests/settings.py`, `settingsload.py`, `settingsold.py` and the
   Controller Pak tests check them. Place of the feed: x 158, y 48, 9 pixels a line (x 8, y 28 in a boss fight, which has
   the right side; 5 lines at most while the MBZ-L panel, at y 92, is on). With 5 lines it ends at y 93.
-- **Tests.** `tests/trainers.py`, `tests/trainers2.py`, `tests/trainers3.py` (the metronome and the wall clip),
+- **Tests.** `tests/trainers.py`, `tests/trainers2.py`, `tests/trainers3.py` (the wall clip),
   `tests/trainers_moon.py`, `tests/trainers_moon_cost.py`, `tests/bosstrainer.py` and `tests/trainerlog.py` (the log and
   the hold) ([testing.md](testing.md)).
 

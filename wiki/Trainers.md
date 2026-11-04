@@ -2,7 +2,7 @@
 
 _Back to the [Home page](Home.md) or the [Game](Game.md) page_
 
-WIP - seven trainers for tricks, in the Game menu under "Trainers"
+WIP - six trainers for tricks, in the Game menu under "Trainers"
 
 Trainers only read the game and draw on the screen. They don't change anything
 
@@ -14,7 +14,7 @@ You can keep them on a Controller Pak _(see [Settings](Settings.md))_
 
 A list of your last attempts, newest first, at the right of the screen. In the boss fights it's at the left
 
-Each line starts with the trainer: `LM, MB, LK, MP, BW, MT, WC`
+Each line starts with the trainer: `LM, MB, LK, MP, BW, WC`
 
 How many lines show is set in _Settings_ ("Trainer log length", `off, 5, 6, 8, 10`, default 5)
 
@@ -25,7 +25,6 @@ An attempt is:
 | Trainer | One attempt | The line |
 | --- | --- | --- |
 | L mash timing | A run of 3 or more L presses. It ends 12 game frames after the last | `LM 14P 11 ON TIME 9.8 GOOD`: presses, how many were on time, the peak speed, and `GOOD, OK` or `SLOPPY` |
-| L mash metronome | A run from the first hold press. It ends when the box goes away | `MT 12 OF 16 ON THE BEAT` |
 | MBZ-L timing | One B or A start, once the speeds are in | `MB B 7.0>10.4 PERFECT`: the start button, the speed before and after, the verdict |
 | Line keeper | One walk on a diagonal of 20 game frames or more | `LK 87F DRIFT 3.1 RIGHT`: the frames and how far you drifted |
 | Moon Pound aim | One slam. The line is what the aim said about the Z you pressed | `LAND 2.4 FROM A HOLE`, `CLIP`, `NO Z` or `NOT CHECKED` |
@@ -44,8 +43,6 @@ How long is set in _Settings_ ("Trainer result hold", `off, 1 s, 2 s, 3 s`, defa
 
 If another attempt ends during the hold, its result takes the panel and the time starts again. Holds don't queue
 
-Note: the metronome's box isn't held. It's a pulse, not a result
-
 ## L mash timing
 
 Shows how well you mash L on the ball:
@@ -55,16 +52,6 @@ Shows how well you mash L on the ball:
 - The ball's speed, its peak, the average of the last 20, and the target for a perfect mash
 
 It warns you when the stick is too weak, the camera turns, you let go of the stick, the ball is in the air, or it's not the rubber ball
-
-## L mash metronome
-
-A box flashes on every 2nd game frame, starting with your first hold press
-
-Press L with the flashes
-
-The box stays dim between flashes, and goes away 30 game frames after your last press
-
-You can use it with or without L mash timing
 
 ## MBZ-L timing
 

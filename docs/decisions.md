@@ -107,7 +107,7 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
 
 - **A metronome for the L mash.** A flash on every 2nd game frame from the first hold press. The player presses in
   step with it. It only draws. Cost: small. Risk: none for the game. Recommendation: yes, after the four trainers.
-  **Built.** Game menu, Trainers, "L mash metronome" (`tests/trainers3.py`).
+  **Built, then removed** at the owner's request (2026-11-04).
 - **A dead-cell painter in the collision view (Moon Pound).** Marks the places where a falling glove touches no
   face (the holes at mesh vertices) in the collision view's colours. Read only. Cost: a day. Risk: draw time, as for
   the collision view. Recommendation: yes.

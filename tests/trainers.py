@@ -99,11 +99,10 @@ class Rig:
         frame2, on, valid, mbz_count = struct.unpack_from(">IBBB", raw, 0)
         kind, verdict, gap, over, warn, cells, lmode = struct.unpack_from(">7B", raw, 8)
         strip = list(raw[0x10:0x28])
-        metro = raw[0x0F]
         move, peak, avg20, target = struct.unpack_from(">4f", raw, 0x28)
         v = dict(seq=seq, frame2=frame2, on=on, valid=valid, mbz_count=mbz_count,
                  lmash=dict(kind=kind, verdict=verdict, gap=gap, over=over, warn=warn, cells=cells, mode=lmode,
-                            strip=strip, move=move, peak=peak, avg20=avg20, target=target, metro=metro), mbz=[])
+                            strip=strip, move=move, peak=peak, avg20=avg20, target=target), mbz=[])
         for i in range(mbz_count):
             o = 0x38 + i * 0x2C
             (k, ver, zkind, n, zf, aim, cancel, lf, lt, sflags, air, done, bmask, zmask, lmask,

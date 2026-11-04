@@ -335,9 +335,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
     reload, the lasers left, the time away). It does not need the glove under control. `tests/bosstrainer.py`.
     Not done: the crab's kill window and the fish's stun were measured with the game's
     flag written, not with a real slam; the Prehistoric hit with a ball of radius 9 or speed 3 was not run.
-  - (f) L mash metronome: done. A box (x 8, y 94) lights on every 2nd game frame from the first hold press of a
-    mash, dim in between, gone 30 game frames after the last L press. Draw only; it runs on the L mash state, with or
-    without the L mash panel. `tests/trainers3.py`.
+  - (f) L mash metronome: built, then removed at the owner's request. Its bit (0x20) stays unused.
   - (g) Wall clip (MAZ-R with the ball bearing): done. While the glove holds the ball (JOINED or PREWHACK), the nearest
     wall in front of the ball (`MoonWallScan` in `practice/src/moonaim.c`) gives the distance to its plane and the speed
     along its normal. The window is 6 up to `2.95 * speed + 2.99` (the glove in the air; `2.6 * speed + 2.99` on the
