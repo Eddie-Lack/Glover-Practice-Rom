@@ -1,9 +1,8 @@
 # Notes on gloveworld
 
-gloveworld is a separate project. The practice ROM uses it as it is (CLAUDE.md). This file
-lists changes to gloveworld that would help the practice ROM, and errors or gaps found in it. Each entry says
-what was found, the evidence, and whether it needs the owner's decision. Agents tell the owner when an
-entry needs one.
+The practice ROM builds on gloveworld. This file lists changes to gloveworld that would help the practice ROM,
+and errors or gaps found in it. Each entry says what was found, the evidence, and whether it needs the owner's
+decision. Agents tell the owner when an entry needs one.
 
 ## Changes that would help the practice ROM
 
