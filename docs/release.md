@@ -81,6 +81,10 @@ The version is `X.Y.Z` (major, minor, patch). The tag `vX.Y.Z` on HEAD sets it. 
    It checks that HEAD has a version tag, that the tag is on GitHub at the same commit and that the files exist. It
    shows the `gh release create` command and asks. `--yes` skips the question. It attaches the patch, the patch page
    and `SHA1SUMS`, with the notes as the body. The ROM is never attached.
+
+   Publishing the release starts `.github/workflows/site.yml`. It downloads the release's patch page and publishes it
+   at glover.love as `index.html` (GitHub Pages, source "GitHub Actions"). Beta releases count too. Check the run on the
+   Actions tab. "Run workflow" there publishes the page of the newest release again, or of a tag that you give.
 8. After the release, start the next changelog section and commit:
 
    ```sh
