@@ -1,0 +1,57 @@
+# Publishes the patch page of a release at glover.love (GitHub Pages, source "GitHub Actions").
+# It runs when a release is published, beta releases too. "Run workflow" on the Actions tab publishes the page
+# of the newest release, or of the tag given.
+name: Patch page site
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, such as v0.9.10 (empty: the newest release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Get the patch page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -eu
+          if [ -z "$TAG" ]; then
+            TAG=$(gh api "repos/$REPO/releases?per_page=30" --jq 'map(select(.draft | not))[0].tag_name')
+          fi
+          echo "Release: $TAG"
+          urls=$(gh api "repos/$REPO/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name | test("^glover-practice-v.*\\.html$")) | .url')
+          if [ "$(printf '%s' "$urls" | grep -c .)" -ne 1 ]; then
+            echo "The release $TAG needs exactly one patch page (glover-practice-vX.Y.Z.html)" >&2
+            exit 1
+          fi
+          mkdir -p site
+          gh api -H "Accept: application/octet-stream" "$urls" > site/index.html
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
