@@ -351,7 +351,7 @@ void GhostDraw(void) {
     *g++ = GfxCmd(CMD_SETGEOMETRYMODE << 24, GEOM_SHADE | GEOM_SHADING_SMOOTH);
     *g++ = GfxSync(CMD_PIPESYNC);
     *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_H, 4, 20, 0xCF0);
-    *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 0, 32, 0x00504240);
+    *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 3, 29, 0x00504240);
     *g++ = GfxCmd(0xFCFFFFFF, 0xFFFE793C);
 
     if (hasHand) {
