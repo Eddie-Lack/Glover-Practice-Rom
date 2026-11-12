@@ -93,6 +93,7 @@ the other tests run on `build/glover-practice.z64`.
 | `harness.py setaction --gfx angrylion` | Set action in Atlantis 1: duck and cartwheel from the menu; the glove's action mode in RAM becomes each one, the game goes on for three seconds, the MODIFIED marker is drawn and goes out; the ball state burst sets `ballControl.state` to 2; no text is drawn before the first use |
 | `harness.py timerfix --gfx angrylion` | with `timer321` at 0, as after a bonus level, the in-game timer of Atlantis 1 still starts on game frame 81 |
 | `faithful.py [--with-features] [--reuse-retail]` | the retail ROM and the practice ROM give the same game, frame by frame (below) |
+| `perf.py [--quick]` | the practice code's time and the game's pace in the heaviest levels (below); `--quick` is part of `make test` and fails over fixed limits |
 | `node tests/patchpage.js` | the patch page turns a `.v64` copy of the ROM into the same 8 MiB practice ROM as `make`, and says "8 MiB" |
 
 The page test needs Playwright (`npm install playwright`, or `NODE_PATH` set to a folder that has it) and
@@ -209,6 +210,25 @@ Run with mupen64plus 2.5.9 and angrylion with one thread.
 Not yet tested: lag on hardware, and runs with other video plugins. mupen64plus does not trap on FPU faults and
 does not model the data cache, so the checks for those (safe floats, cache write-back) are checked by review
 only.
+
+## Performance
+
+`tests/perf.py` runs `tests/perflevel.py` in the emulator once for each of Atlantis 3, Carnival 1, Pirates 3, Out of this
+World 3 and the hub, and once for each on the retail ROM, then writes a Markdown report (`build/perf/baseline.md`).
+Run it under `flock /tmp/emu.lock`; it takes about 50 minutes (Rice, `--gfx rice`, is much faster than angrylion here).
+Each scenario writes a switch in RAM, waits 30 interrupts and measures 120 (40 game frames).
+
+- **Time.** `practice/src/perf.c` and `perf.h` count ticks of the CPU counter (46.875 MHz) for five stages: the game
+  thread at the start of a message and around `ProcessInput`, the draw thread after the game's `PrintTimers` and for the
+  whole list, and the controller thread without the game's own read. They only record. A thread that runs above another
+  adds its time to the other's maximum.
+- **Pace.** A histogram of the video interrupts between game frames (3 when nothing is late), and the same from
+  `frameCount` and `__osViIntrCount` on the retail ROM.
+- **Input lag.** C-up is held and the trial counts the interrupts and game frames until `pad[0]` shows it. The harness's
+  callbacks are phase-locked to the game frame, so only whole frames of lag show.
+- **Others.** Savestate save and load ticks, the collision cache's build after a restart, and the views' own counters.
+
+The emulator counts instructions and does not model the RSP, the RDP or memory waits. A console is not measured.
 
 ## Pulses: taps shorter than a game frame
 

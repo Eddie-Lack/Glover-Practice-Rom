@@ -3,7 +3,7 @@
 timer fix, the HUD, the controller display, the tools (warp, reset, frame advance, checkpoints, cheats), the settings save and load,
 savestates (the compressor, one level, ten slots, the instant reset), input recordings, the Game menu's tools and switches, the full-game timer, the Inspect menu, the
 collision view (its cache, its switches, face info and the wireframe), the overlay list's peak use, hiding objects, the frame log, the slap's Z cancel, noclip and moon jump, Set action, Spawn and move actors, the taps
-that the game missed, chaos inputs, memory corruption, the early title menu, the free camera, the ghost, the practice best times, the save file editor, the Controller Pak storage, the trick trainers (the L mash and MBZ-L, the line keeper, the Moon Pound aim, the boss windows, the wall clip), the hole painter, the savestates, a recording and the best times on the SD card (the FAT code on the host, then the ROM with a test mailbox for a cart), and the faithfulness test.
+that the game missed, chaos inputs, memory corruption, the early title menu, the free camera, the ghost, the practice best times, the save file editor, the Controller Pak storage, the trick trainers (the L mash and MBZ-L, the line keeper, the Moon Pound aim, the boss windows, the wall clip), the hole painter, the savestates, a recording and the best times on the SD card (the FAT code on the host, then the ROM with a test mailbox for a cart), the practice code's time limits (perf.py --quick), and the faithfulness test.
 
     run.py [--quick]
 
@@ -91,6 +91,7 @@ TESTS = [
     ["harness.py", "sdcardbig", "--gfx", "angrylion"],
     ["harness.py", "sdrecording", "--gfx", "angrylion"],
     ["harness.py", "sdrecordingload", "--gfx", "angrylion"],
+    ["perf.py", "--quick"],
     ["faithful.py", "--with-features"],
 ]
 

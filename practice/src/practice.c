@@ -14,6 +14,7 @@
 #include "menu.h"
 #include "moonaim.h"
 #include "paddisplay.h"
+#include "perf.h"
 #include "practice.h"
 #include "saveedit.h"
 #include "settings.h"
@@ -51,6 +52,7 @@ static u8 fogForced;
 
 /* The start of each frame's display list: DrawGraphics calls this in place of SendLastFrame. */
 void PracticeSendLastFrame(void) {
+    perf.drawStart = osGetCount();
     SendLastFrame();
     if (run.fogOff && fog.on) {
         fogSaved = fog.on;
@@ -58,6 +60,14 @@ void PracticeSendLastFrame(void) {
         fog.on = 0;
         practice.fogFrames++;
     }
+}
+
+/* The end of the draw thread's measuring: T0 is the start of the practice work after the game's PrintTimers. */
+static void PerfEnd(u32 t0) {
+    u32 t = osGetCount();
+
+    PerfAdd(PERF_DRAW, t - t0);
+    PerfAdd(PERF_DRAW_ALL, t - perf.drawStart);
 }
 
 /* The end of each frame's display list: DrawGraphics calls this in place of PrintTimers. The game's list grows
@@ -75,6 +85,7 @@ void PracticePrintTimers(void) {
         fogForced = 0;
     }
     PrintTimers();
+    u32 t0 = osGetCount();
     practice.drawFrames++;
     if (run.collInfo) {
         CollInfoUpdate();
@@ -96,6 +107,7 @@ void PracticePrintTimers(void) {
     if (!menuOpen && !hud && !run.frameAdvance && !run.slowMotion && !(run.moonJump | run.noclip | run.chaos | run.freeCam | run.cameraSpeed) &&
         !run.trainers && !run.collInfo &&
         !(run.setMarker | run.actorsMod) && !CorruptMarker() && !HudMessageShown()) {
+        PerfEnd(t0);
         return;
     }
     textShadow = settings.hudShadow;
@@ -122,12 +134,14 @@ void PracticePrintTimers(void) {
         practice.overlayFull++; /* the text stops at end, so the list was cut */
     }
     if (g - start <= 12) {
+        PerfEnd(t0);
         return; /* only the set-up commands: nothing to draw */
     }
     *g++ = GfxEndDisplayList();
     osWritebackDCache(start, (g - start) * sizeof(Gfx));
     *glistp++ = GfxDisplayList(start);
     practice.textFrames++;
+    PerfEnd(t0);
 }
 
 /* The start of each game frame's logic: RunGame calls this in place of ClearText. While the practice menu is
@@ -146,6 +160,7 @@ void PracticeClearText(void) {
         GameTimerExclude(__osViIntrCount - start);
         HudResetLag();
     }
+    u32 t0 = osGetCount();
     ActionsGameFrame();
     TrainersGameFrame();
     if (run.collHoles && run.collView) {
@@ -153,6 +168,7 @@ void PracticeClearText(void) {
     }
     GhostGameFrame();
     HudTick();
+    PerfAdd(PERF_CLEAR, osGetCount() - t0);
     ClearText();
 }
 
@@ -165,7 +181,9 @@ volatile u8 difficultySwapped;
 void PracticeProcessInput(void) {
     SaveSlot *slot = &saveSlot[currentSaveSlot];
     u8 difficulty = slot->difficultyLevel;
+    u32 t0 = osGetCount();
 
+    PerfGameFrame();
     if (run.frameLog) {
         FrameLogTick();
     }
@@ -177,9 +195,11 @@ void PracticeProcessInput(void) {
         difficultySwapped = 1;
         slot->difficultyLevel = DIFFICULTY_EASY;
     }
+    u32 t1 = osGetCount(); /* the game's own work is not counted */
     ProcessInput();
     slot->difficultyLevel = difficulty;
     difficultySwapped = 0;
+    PerfAdd(PERF_INPUT, t1 - t0);
 }
 
 /* The start of each level: StartNewLevel calls this in place of SeedRandom. */
