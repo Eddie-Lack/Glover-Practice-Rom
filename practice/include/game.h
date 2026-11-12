@@ -120,7 +120,8 @@ typedef struct Terrain {
     /* 0x04 */ f32 bounce;
     /* 0x08 */ PAD(08)[0x08];
     /* 0x10 */ f32 gravityScale;
-    /* 0x14 */ PAD(14)[0x08];
+    /* 0x14 */ PAD(14)[0x04];
+    /* 0x18 */ f32 handSlideScale; /* CheckPlaneForSliding: Glover slides on a face with a normal's y up to 1 - 0.25 / this */
 } Terrain;
 #define TERRAIN_COUNT 14
 #define TERRAIN_WATER 12

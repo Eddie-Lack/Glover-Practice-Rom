@@ -19,7 +19,7 @@ from trainers_moon import TIP, boot_to_hub, put_hand, read_faces, step_len  # no
 
 RUN_COLL_VIEW = 0x2C
 RUN_COLL_HOLES = 0x4C        # Run.collHoles (practice/include/actions.h), after warpPower
-STATS_HOLES = 0x18           # CollStats.holes (practice/include/collview.h)
+STATS_HOLES = 0x0A           # CollStats.holes (practice/include/collview.h)
 HOLE_VIEW_SIZE = 4 + 64 * 12
 
 

@@ -48,6 +48,7 @@ typedef struct Gfx {
 #define CMD_SETTILESIZE 0xF2
 #define CMD_SETTILE 0xF5
 #define CMD_SETPRIMCOLOR 0xFA
+#define CMD_SETENVCOLOR 0xFB
 #define CMD_SETCOMBINE 0xFC
 #define CMD_SETTIMG 0xFD
 
@@ -61,6 +62,8 @@ typedef struct Gfx {
 #define GEOM_ZBUFFER 0x1
 #define GEOM_SHADE 0x4
 #define GEOM_SHADING_SMOOTH 0x200
+#define GEOM_CULL_FRONT 0x1000
+#define GEOM_CULL_BACK 0x2000
 /* Every geometry mode bit that the game uses: Z, shade, smooth shading, culling, fog, lighting, texture
  * coordinate generation and LOD. */
 #define GEOM_ALL 0x1F3205
@@ -139,6 +142,10 @@ static inline Gfx GfxSetOtherMode(u32 cmd, int shift, int len, u32 data) {
 
 static inline Gfx GfxSetPrimColor(u32 rgba) {
     return GfxCmd(CMD_SETPRIMCOLOR << 24, rgba);
+}
+
+static inline Gfx GfxSetEnvColor(u32 rgba) {
+    return GfxCmd(CMD_SETENVCOLOR << 24, rgba);
 }
 
 static inline Gfx GfxSetTextureImage(int fmt, int siz, int width, const void *addr) {

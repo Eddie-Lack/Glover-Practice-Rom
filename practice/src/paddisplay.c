@@ -4,6 +4,7 @@
  * start, so a change takes effect at the next level start or reset. */
 #include "actions.h"
 #include "game.h"
+#include "hide.h"
 #include "input.h"
 #include "paddisplay.h"
 
@@ -73,7 +74,7 @@ void PracticePrintStats(void) {
     const s32 *since;
     s16 sx, sy;
 
-    PrintStats();
+    HidePrintStats();
     /* FreeLevel2 frees the overlays' bitmaps at each level's end: a level started without the display (or a state
      * saved in one) has none. The first overlay tells; the game never frees the last one's bitmaps. */
     if (!run.padDisplay || run.hudHidden || printController || frameCount <= 0 || ol[0].bitmaps == NULL) {

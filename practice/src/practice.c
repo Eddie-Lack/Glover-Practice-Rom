@@ -24,8 +24,10 @@ Practice practice;
 
 static u8 atlas[TEXT_ATLAS_SIZE] __attribute__((aligned(8)));
 
-/* The overlay's display lists, one for each of the game's two frame buffers, like the game's own lists. */
-#define OVERLAY_SIZE 6000
+/* The overlay's display lists, one for each of the game's two frame buffers, like the game's own lists. They hold
+ * only text. The most one frame used was 3,811 commands (tests/overlay.py); the size keeps a quarter more. When a
+ * list fills, the text stops and Practice.overlayFull counts the frame. */
+#define OVERLAY_SIZE 4800
 static Gfx overlayList[2][OVERLAY_SIZE] __attribute__((aligned(8)));
 
 /* Called by the boot hook after the loader has copied the practice segment. */
@@ -74,6 +76,9 @@ void PracticePrintTimers(void) {
     }
     PrintTimers();
     practice.drawFrames++;
+    if (run.collInfo) {
+        CollInfoUpdate();
+    }
     if (run.collView) {
         CollViewDraw();
     }
@@ -89,7 +94,7 @@ void PracticePrintTimers(void) {
                                  settings.hud[HUD_LAST].on | settings.hud[HUD_GAME].on |
                                  settings.hud[HUD_WATCH].on);
     if (!menuOpen && !hud && !run.frameAdvance && !run.slowMotion && !(run.moonJump | run.noclip | run.chaos | run.freeCam | run.cameraSpeed) &&
-        !run.trainers &&
+        !run.trainers && !run.collInfo &&
         !(run.setMarker | run.actorsMod) && !CorruptMarker() && !HudMessageShown()) {
         return;
     }
@@ -103,8 +108,18 @@ void PracticePrintTimers(void) {
     if (run.trainers) {
         TrainersDraw(&g, end - 200);
     }
+    if (run.collInfo) {
+        CollInfoDraw(&g);
+    }
     if (menuOpen) {
         MenuDraw(&g);
+    }
+    u32 used = g - start;
+    if (used > practice.overlayPeak) {
+        practice.overlayPeak = used;
+    }
+    if (end - g < 6) {
+        practice.overlayFull++; /* the text stops at end, so the list was cut */
     }
     if (g - start <= 12) {
         return; /* only the set-up commands: nothing to draw */

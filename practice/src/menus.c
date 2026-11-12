@@ -11,6 +11,7 @@
 #include "game.h"
 #include "gametimer.h"
 #include "ghost.h"
+#include "hide.h"
 #include "hud.h"
 #include "memview.h"
 #include "menu.h"
@@ -535,16 +536,30 @@ extern const View frameLogView;
 extern const View spawnView;
 
 static const char *const collViewNames[] = { "off", "see-through", "on surfaces" };
-static const char *const collRadiusNames[] = { "500", "250", "1000" };
+static const char *const collRadiusNames[COLL_RADIUSES] = { "whole level", "1000", "500", "250" };
+static const char *const collColourNames[COLL_COLOURS] = { "by terrain", "by kind", "by object" };
+static const char *const collBackNames[COLL_BACKS] = { "faint", "hide", "same" };
+static const char *const collWireNames[COLL_WIRES] = { "off", "over faces", "alone" };
 
 static void CollStatsText(char *buf, int size, int arg) {
     (void)arg;
     if (!run.collView) {
         buf[0] = '\0';
+    } else if (collStats.state != COLL_CACHE_READY) {
+        Format(buf, size, "building");
     } else {
-        Format(buf, size, "%d faces, radius %d%s", collStats.faces, collStats.radius,
-               collStats.full || collStats.slow ? " (full)" : "");
+        /* Bit 1 (open edges that did not fit) is usual in the largest levels and is not shown. */
+        Format(buf, size, "%d%s", collStats.faces, collStats.full & 5 ? " (full)" : "");
     }
+}
+
+/* The face filter: A shows or hides one kind of face (a bit of Run.collFaces). */
+static void CollFaceToggle(int bit) {
+    run.collFaces ^= 1 << bit;
+}
+
+static void CollFaceText(char *buf, int size, int bit) {
+    Format(buf, size, "%s", run.collFaces & (1 << bit) ? "hidden" : "shown");
 }
 
 static const char *const regionNames[REGION_COUNT] = { "Glove actor", "Ball actor", "Level's actors", "Memory view range" };
@@ -592,17 +607,61 @@ static const MenuItem corruptItems[] = {
 };
 static MENU(corruptMenu, "Memory corruption", corruptItems);
 
+static const MenuItem collFaceItems[] = {
+    STATE("Floors", CollFaceToggle, CollFaceText, 0),
+    STATE("Walls", CollFaceToggle, CollFaceText, 1),
+    STATE("Ceilings", CollFaceToggle, CollFaceText, 2),
+    STATE("Water", CollFaceToggle, CollFaceText, 3),
+    STATE("Slippery", CollFaceToggle, CollFaceText, 4),
+    STATE("Low gravity", CollFaceToggle, CollFaceText, 5),
+    STATE("Landscape", CollFaceToggle, CollFaceText, 6),
+    STATE("Platforms", CollFaceToggle, CollFaceText, 7),
+};
+static MENU(collFaceMenu, "Faces shown", collFaceItems);
+
 static const MenuItem collItems[] = {
     CHOICE("Collision view", &run.collView, collViewNames, COLLVIEW_MODES),
-    CHOICE("Collision radius", &run.collRadius, collRadiusNames, 3),
+    CHOICE("Radius", &run.collRadius, collRadiusNames, COLL_RADIUSES),
+    CHOICE("Colours", &run.collColour, collColourNames, COLL_COLOURS),
+    CHOICE("Back faces", &run.collBack, collBackNames, COLL_BACKS),
+    SUBMENU("Faces shown", collFaceMenu),
+    WARN_CHOICE("Wireframe", &run.collWire, collWireNames, COLL_WIRES, "Draws every face again: more lag"),
+    TOGGLE("Face info", &run.collInfo),
+    INFO("Faces drawn", CollStatsText),
     TOGGLE("Collision spheres", &run.collSpheres),
-    INFO("Collision shown", CollStatsText),
     TOGGLE("Enemy collision spheres", &run.collEnemies),
-    TOGGLE("Up-to-date platforms", &run.collFresh),
     TOGGLE("Open collision edges", &run.collEdges),
     WARN("Moon Pound holes", &run.collHoles, "Can add lag: up to 3 ms a game frame"),
 };
 static MENU(collMenu, "Collision view", collItems);
+
+static void HideShowAll(int arg) {
+    (void)arg;
+    run.hide = 0;
+}
+
+#define HIDE(label, kind) STATE(label, HideToggle, HideText, kind)
+
+static const MenuItem hideItems[] = {
+    HIDE("Landscape", HIDE_LANDSCAPE),
+    HIDE("Scenery", HIDE_SCENERY),
+    HIDE("Water", HIDE_WATER),
+    HIDE("Platforms", HIDE_PLATFORMS),
+    HIDE("Glove", HIDE_GLOVE),
+    HIDE("Ball", HIDE_BALL),
+    HIDE("Enemies and shots", HIDE_ENEMIES),
+    HIDE("Pick-ups and garibs", HIDE_COLLECT),
+    HIDE("Debris", HIDE_DEBRIS),
+    HIDE("Sky", HIDE_SKY),
+    HIDE("HUD", HIDE_HUD),
+    HIDE("Shadows", HIDE_SHADOWS),
+    HIDE("Footprints", HIDE_FOOTPRINTS),
+    HIDE("Trails", HIDE_TRAILS),
+    HIDE("Lightning", HIDE_LIGHTNING),
+    ACTION("Show everything", HideShowAll, 0),
+};
+static MENU(hideMenu, "Hide objects", hideItems);
+_Static_assert(ARRAY_COUNT(hideItems) == HIDE_KINDS + 1, "one item for each kind");
 
 static const MenuItem inspectItems[] = {
     VIEW("Actors", actorView),
@@ -612,6 +671,7 @@ static const MenuItem inspectItems[] = {
     TOGGLE("Frame log records", &run.frameLog),
     TOGGLE("Show the watch list", &settings.hud[HUD_WATCH].on),
     SUBMENU("Collision view", collMenu),
+    SUBMENU("Hide objects", hideMenu),
     WARN_VIEW("Spawn actor", spawnView, "Modified game! May crash. Edits your save"),
     WARN("Show missed taps", &run.missedTaps, "Timing changes! Needs the input display"),
     SUBMENU("Memory corruption", corruptMenu),

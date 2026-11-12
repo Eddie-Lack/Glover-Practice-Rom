@@ -82,7 +82,7 @@ void BestTimesTick(void) {
     if (autoPlayback == 2) {
         t |= BT_OTHER; /* a demo */
     }
-    if ((cheatActivated & ~ignored) | run.rngFrozen | settings.debugPad | run.cameraSpeed) {
+    if ((cheatActivated & ~ignored) | run.rngFrozen | settings.debugPad | run.cameraSpeed | run.hide) {
         t |= BT_OTHER;
     }
     bestTimesState.taint |= t;

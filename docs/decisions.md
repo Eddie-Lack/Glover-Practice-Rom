@@ -81,9 +81,10 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
   Glover; edges drawn as lines (the game has no line microcode loaded); open edges that Glover could fall
   through. Cost: a day or two each. Risk: draw-thread time, which can add lag. Recommendation: the enemy spheres
   and the platform update first, if glitch hunters want them. **Yes: enemy spheres, up-to-date platforms and open edges, each with its own switch.**
-  **Built.** The last three items of the Inspect menu: "Enemy collision spheres", "Up-to-date platforms" and "Open
-  collision edges" (`practice/src/collview.c`, `tests/collview2.py`; details in docs/build.md, "The collision
-  view"). Drawing every edge as a line was not part of the approval and is not built.
+  **Built.** Items of the Inspect menu's Collision view page: "Enemy collision spheres" and "Open collision edges"
+  (`practice/src/collview.c`, `tests/collview2.py`; details in docs/build.md, "The collision view"). "Up-to-date
+  platforms" was built too and is gone again: the view now draws every platform where it is, from a cache of its
+  mesh. Drawing every edge as a line is planned as the wireframe.
 - **Ghost of a recorded run.** Draw a see-through glove and ball from a recorded best run, in step with the live
   run. Cost: recording positions every frame, drawing a second glove model. Risk: RDP time. Recommendation: yes,
   **Yes.**
