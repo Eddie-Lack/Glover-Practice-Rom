@@ -18,6 +18,7 @@
 #include "paddisplay.h"
 #include "practice.h"
 #include "recording.h"
+#include "sweep.h"
 #include "saveedit.h"
 #include "settings.h"
 
@@ -143,6 +144,9 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
         demo.all = 0;
     }
     RecordingFrame(cntlr);
+    if (sweep.stage) {
+        SweepRead(cntlr);
+    }
     read(cntlr);
     if (run.freeCam | freeCam.active) {
         FreeCamRead();

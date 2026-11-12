@@ -14,6 +14,7 @@
 #include "hud.h"
 #include "memview.h"
 #include "menu.h"
+#include "sweep.h"
 #include "recording.h"
 #include "saveedit.h"
 #include "savestate.h"
@@ -532,6 +533,7 @@ static void VersionText(char *buf, int size, int arg) {
 extern const View actorView;
 extern const View stateView;
 extern const View frameLogView;
+extern const View sweepView;
 extern const View spawnView;
 
 static const char *const collViewNames[] = { "off", "see-through", "on surfaces" };
@@ -615,6 +617,9 @@ static const MenuItem inspectItems[] = {
     WARN_VIEW("Spawn actor", spawnView, "Modified game! May crash. Edits your save"),
     WARN("Show missed taps", &run.missedTaps, "Timing changes! Needs the input display"),
     SUBMENU("Memory corruption", corruptMenu),
+    WARN_ACTION("Fear sweep: start", SweepStart, 0, "Over 1 hour"),
+    ACTION("Fear sweep: stop", SweepStop, 0),
+    VIEW("Fear sweep results", sweepView),
 };
 static MENU(inspectMenu, "Inspect", inspectItems);
 

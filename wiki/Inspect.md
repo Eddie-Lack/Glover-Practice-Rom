@@ -16,6 +16,9 @@ Views of the game's state
 | Spawn actor | Spawn an actor, see below |
 | Show missed taps | Show taps that the game does not read, see below |
 | Memory corruption | _Sub menu_ |
+| Fear sweep: start | Run the Fear boss sweep, see below |
+| Fear sweep: stop | Stop the sweep |
+| Fear sweep results | The sweep's results, see below |
 
 ## Actors
 
@@ -145,3 +148,30 @@ Each poke has a mode:
 - flip: one random bit of the low bits is flipped
 
 C left and right set the poke's size. C up and down set the bits. L and R set how often it acts. Writes only go to RAM, never to the practice code and its data. The game will probably crash
+
+## Fear boss sweep
+
+Tests whether the burst ball in the Fear boss's opening can hit the ball switch. It plays 88 runs by itself, one after another
+
+Each run:
+- warps to Fear 3 and puts Glover and the ball on the level's exit
+- sets the thunder flashes that are left, `0` to `10`, and skips the exit spin with A
+- presses A through the end of level screen: Glover then lobs the ball in the boss's opening cutscene
+- sets the frames the ball has spent in Frankie's aura (`ballPain`), `0` to `7`
+- watches both bursts of the ball, then the second flight until the ball hits the switch or the life is lost
+
+Don't touch the controller while it runs. It takes over an hour. Lives are set to 9 in each run
+
+The results stay until you turn the console off. "Fear sweep results" shows 16 runs a page, `Left` and `Right` turn the page
+
+| Column | What it shows |
+| --- | --- |
+| `rn` | Thunder flashes set at the exit |
+| `p` | `ballPain` set at the boss's start |
+| `c` | Thunder flashes that reached the boss |
+| `b1 seed1` | The first burst's frame and the RNG seed then |
+| `b2 seed2` | The second burst's frame and the seed |
+| `aur` | The frame Frankie's aura started, after frame 400 |
+| `end` | The frame the life was lost, or the switch was hit |
+
+A run that hits the switch shows in green. The title line counts the runs and the hits

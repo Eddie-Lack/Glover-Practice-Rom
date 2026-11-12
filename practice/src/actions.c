@@ -1,5 +1,6 @@
 /* The quick actions that change the game: reset, warp, frame advance and slow motion. */
 #include "actions.h"
+#include "sweep.h"
 #include "besttimes.h"
 #include "chaos.h"
 #include "collview.h"
@@ -248,6 +249,9 @@ void ActionsGameFrame(void) {
 
     requests = 0;
     StateGameFrame();
+    if (sweep.stage) {
+        SweepGameFrame();
+    }
     if (CardPending()) {
         CardGameFrame();
     }
