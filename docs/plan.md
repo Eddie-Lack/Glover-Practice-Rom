@@ -282,6 +282,8 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 - Three more collision view switches (on the Inspect menu's Collision view page), each off by default: the enemies'
   collision spheres, platforms drawn up to date from their mesh, position and rotation also when far from Glover,
   and the open edges (edges of one face only, drawn as thin pink quads). Done, with `tests/collview2.py`.
+- Hide objects (Inspect, "Hide objects"): done. Fifteen kinds, one bit each in `Run.hide`. The game's drawing
+  functions still run; their drawing commands become no-ops ([build.md](build.md#hiding-objects)). `tests/hide.py`.
 - Spawn and move actors: done (Inspect, "Spawn actor", and Z on an actor's page in the actor list). The spawn
   list holds a garib, a garib that gives a life, the power-ups whose models the level has loaded, and the enemy
   types that the level has. Platforms are not spawned. Facts and reasons in [game.md](game.md#actors-made-and-moved-at-run-time);

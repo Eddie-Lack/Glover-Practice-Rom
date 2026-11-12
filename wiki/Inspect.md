@@ -13,6 +13,7 @@ Views of the game's state
 | Frame log records | Record the frame log |
 | Show the watch list | Show the memory watch list on the HUD |
 | Collision view | _Sub menu_ |
+| Hide objects | _Sub menu_, see below |
 | Spawn actor | Spawn an actor, see below |
 | Show missed taps | Show taps that the game does not read, see below |
 | Memory corruption | _Sub menu_ |
@@ -111,6 +112,36 @@ It can add lag (up to 3 ms a game frame)!
 Note: the hole itself is about 0.4 units wide, so aim at the post's base 
 
 ## **The collision view can add lag!**
+
+## Hide objects
+
+Leave kinds of objects out of the picture, one at a time. Each item shows `shown` or `hidden`; A switches it
+
+| Option | What it hides |
+| --- | --- |
+| Landscape | The ground and walls that Glover collides with |
+| Scenery | Landscape that Glover doesn't collide with, background pieces and cameos |
+| Water | Water surfaces |
+| Platforms | Platforms, moving or not |
+| Glove | Glover |
+| Ball | The ball, its plasters and its extra copies |
+| Enemies and shots | Enemies and the things they shoot |
+| Pick-ups and garibs | Power-ups, the power-up that circles the glove or ball, garibs (also the garib that the Locate cheat shows) |
+| Debris | Debris and particles |
+| Sky | The sky behind the level |
+| HUD | The game's counters: garibs, lives, health. Text and the pause screen stay |
+| Shadows | Every shadow |
+| Footprints | Footprints and blast rings |
+| Trails | The trails behind fast things |
+| Lightning | Lightning |
+| Show everything | Show every kind again |
+
+- The game still runs exactly as before. Only the picture changes
+- Hidden objects still collide. Use the collision view to see what Glover touches _(see above)_
+- With the landscape hidden, "On surfaces" in the collision view also shows faces that the landscape would block
+- The game has less to draw, so it can lag less. That can change some random numbers. A run with anything hidden doesn't count for a practice best time
+
+Hidden kinds are not saved: they come back when the console restarts
 
 ## Show missed taps
 

@@ -11,6 +11,7 @@
 #include "game.h"
 #include "gametimer.h"
 #include "ghost.h"
+#include "hide.h"
 #include "hud.h"
 #include "memview.h"
 #include "menu.h"
@@ -604,6 +605,34 @@ static const MenuItem collItems[] = {
 };
 static MENU(collMenu, "Collision view", collItems);
 
+static void HideShowAll(int arg) {
+    (void)arg;
+    run.hide = 0;
+}
+
+#define HIDE(label, kind) STATE(label, HideToggle, HideText, kind)
+
+static const MenuItem hideItems[] = {
+    HIDE("Landscape", HIDE_LANDSCAPE),
+    HIDE("Scenery", HIDE_SCENERY),
+    HIDE("Water", HIDE_WATER),
+    HIDE("Platforms", HIDE_PLATFORMS),
+    HIDE("Glove", HIDE_GLOVE),
+    HIDE("Ball", HIDE_BALL),
+    HIDE("Enemies and shots", HIDE_ENEMIES),
+    HIDE("Pick-ups and garibs", HIDE_COLLECT),
+    HIDE("Debris", HIDE_DEBRIS),
+    HIDE("Sky", HIDE_SKY),
+    HIDE("HUD", HIDE_HUD),
+    HIDE("Shadows", HIDE_SHADOWS),
+    HIDE("Footprints", HIDE_FOOTPRINTS),
+    HIDE("Trails", HIDE_TRAILS),
+    HIDE("Lightning", HIDE_LIGHTNING),
+    ACTION("Show everything", HideShowAll, 0),
+};
+static MENU(hideMenu, "Hide objects", hideItems);
+_Static_assert(ARRAY_COUNT(hideItems) == HIDE_KINDS + 1, "one item for each kind");
+
 static const MenuItem inspectItems[] = {
     VIEW("Actors", actorView),
     VIEW("Memory", memoryView),
@@ -612,6 +641,7 @@ static const MenuItem inspectItems[] = {
     TOGGLE("Frame log records", &run.frameLog),
     TOGGLE("Show the watch list", &settings.hud[HUD_WATCH].on),
     SUBMENU("Collision view", collMenu),
+    SUBMENU("Hide objects", hideMenu),
     WARN_VIEW("Spawn actor", spawnView, "Modified game! May crash. Edits your save"),
     WARN("Show missed taps", &run.missedTaps, "Timing changes! Needs the input display"),
     SUBMENU("Memory corruption", corruptMenu),

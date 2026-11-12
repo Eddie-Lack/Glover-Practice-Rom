@@ -25,7 +25,7 @@ Practice practice;
 static u8 atlas[TEXT_ATLAS_SIZE] __attribute__((aligned(8)));
 
 /* The overlay's display lists, one for each of the game's two frame buffers, like the game's own lists. */
-#define OVERLAY_SIZE 6000
+#define OVERLAY_SIZE 5960
 static Gfx overlayList[2][OVERLAY_SIZE] __attribute__((aligned(8)));
 
 /* Called by the boot hook after the loader has copied the practice segment. */

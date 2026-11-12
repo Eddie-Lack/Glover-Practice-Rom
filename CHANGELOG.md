@@ -1,5 +1,12 @@
 # Changelog
 
+## Not yet released
+
+- Inspect menu: "Hide objects" hides one kind of object at a time: the landscape, scenery, water, platforms, the
+  glove, the ball, enemies and their shots, pick-ups and garibs, debris, the sky, the HUD's counters, shadows,
+  footprints, trails and lightning. "Show everything" brings them all back. A run with anything hidden doesn't count
+  for a practice best time.
+
 ## 0.9.10 (2026-11-04)
 
 - Removed the L mash metronome trainer.
