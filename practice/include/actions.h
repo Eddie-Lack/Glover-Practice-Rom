@@ -79,6 +79,12 @@ typedef struct Run {
     u8 collHoles;    /* 1: the collision view also marks the holes where a falling glove touches no face (moonaim.h) */
     u8 cameraSpeed;  /* 0 normal, 1 fast, 2 faster: how fast the camera follows (camspeed.h) */
     u8 padDisplay;   /* the game's controller display: 0 off, 1 controller 1, 2 controller 2 (paddisplay.h) */
+    u16 hide;        /* the kinds of objects that are not drawn, one bit each (hide.h) */
+    u8 collFaces;    /* the collision view's face filter: the kinds of faces left out, one bit each (collview.h) */
+    u8 collColour;   /* its colour mode (collview.h) */
+    u8 collBack;     /* how it draws back faces (collview.h) */
+    u8 collWire;     /* 1: it outlines every face (collview.h) */
+    u8 collInfo;     /* 1: it shows the face under Glover and the face at the screen's centre (collview.h) */
 } Run;
 
 extern Run run;
