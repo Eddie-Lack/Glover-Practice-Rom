@@ -6,7 +6,9 @@ Expansion Pak is required.
 
 ## Applying the patch
 
-Get the patch from the [releases page](https://github.com/Eddie-Lack/Glover-Practice-Rom/releases)
+Patch your ROM in your browser at [glover.love](https://glover.love)
+
+Or get the patch from the [releases page](https://github.com/Eddie-Lack/Glover-Practice-Rom/releases)
 
 Open the `.html` file in a browser and follow the instructions.
 You can also apply the `.bps` file with any BPS patcher to the ROM in `.z64` byte order.
