@@ -238,6 +238,14 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
 
 ## Unusual ideas
 
+- **The Fear boss sweep in the practice ROM.** Inspect, "Fear sweep: start" plays 88 runs of the Fear boss's
+  opening by itself and keeps the bursts of the ball (`practice/src/sweep.c`, `wiki/Inspect.md`). It answers one
+  question: whether a console gives other seeds than mupen64plus for the burst ball and the ball switch. Cost: about
+  2.8 KB of the practice RAM area, which leaves 16 bytes; the view leaves out the result word and the nearest pass,
+  and the results do not go to the SD card. Risk: no room for the next feature until something is cut. With the
+  sweep off, the faithfulness test passes. Recommendation: use it as a one-off build; merge it only if the RAM limit
+  is raised or a larger feature moves out.
+
 - **The team's early title menu.** `TitleScreen` (game.c) is an early title menu with continue, new game and a
   level select. Nothing calls it. A practice menu entry could open it, as a piece of the game's history. Cost:
   small; the code is in the ROM. Risk: it may expect state the retail menus no longer set up. Recommendation:
