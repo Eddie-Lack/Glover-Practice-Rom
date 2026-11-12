@@ -538,6 +538,7 @@ static const char *const collViewNames[] = { "off", "see-through", "on surfaces"
 static const char *const collRadiusNames[COLL_RADIUSES] = { "whole level", "1000", "500", "250" };
 static const char *const collColourNames[COLL_COLOURS] = { "by terrain", "by kind", "by object" };
 static const char *const collBackNames[COLL_BACKS] = { "faint", "hide", "same" };
+static const char *const collWireNames[COLL_WIRES] = { "off", "over faces", "alone" };
 
 static void CollStatsText(char *buf, int size, int arg) {
     (void)arg;
@@ -623,6 +624,8 @@ static const MenuItem collItems[] = {
     CHOICE("Colours", &run.collColour, collColourNames, COLL_COLOURS),
     CHOICE("Back faces", &run.collBack, collBackNames, COLL_BACKS),
     SUBMENU("Faces shown", collFaceMenu),
+    WARN_CHOICE("Wireframe", &run.collWire, collWireNames, COLL_WIRES, "Draws every face again: more lag"),
+    TOGGLE("Face info", &run.collInfo),
     INFO("Faces drawn", CollStatsText),
     TOGGLE("Collision spheres", &run.collSpheres),
     TOGGLE("Enemy collision spheres", &run.collEnemies),

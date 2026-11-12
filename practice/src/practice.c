@@ -74,6 +74,9 @@ void PracticePrintTimers(void) {
     }
     PrintTimers();
     practice.drawFrames++;
+    if (run.collInfo) {
+        CollInfoUpdate();
+    }
     if (run.collView) {
         CollViewDraw();
     }
@@ -89,7 +92,7 @@ void PracticePrintTimers(void) {
                                  settings.hud[HUD_LAST].on | settings.hud[HUD_GAME].on |
                                  settings.hud[HUD_WATCH].on);
     if (!menuOpen && !hud && !run.frameAdvance && !run.slowMotion && !(run.moonJump | run.noclip | run.chaos | run.freeCam | run.cameraSpeed) &&
-        !run.trainers &&
+        !run.trainers && !run.collInfo &&
         !(run.setMarker | run.actorsMod) && !CorruptMarker() && !HudMessageShown()) {
         return;
     }
@@ -102,6 +105,9 @@ void PracticePrintTimers(void) {
     HudDrawStatus(&g);
     if (run.trainers) {
         TrainersDraw(&g, end - 200);
+    }
+    if (run.collInfo) {
+        CollInfoDraw(&g);
     }
     if (menuOpen) {
         MenuDraw(&g);

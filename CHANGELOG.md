@@ -10,6 +10,10 @@
   platforms.
 - Collision view: open edges are bands inside their face. In the biggest levels the ones nearest to Glover are
   drawn.
+- Collision view: "Wireframe" outlines every face, over the faces or alone. It draws every face again: it can
+  add lag.
+- Collision view: "Face info" shows the face under the glove and the face in the middle of the screen: its kind,
+  slope, terrain and object. The face in the middle is drawn yellow.
 - Removed "Up-to-date platforms": every platform is up to date now.
 - Fixed: the number of faces in the Collision view menu ran into its label.
 

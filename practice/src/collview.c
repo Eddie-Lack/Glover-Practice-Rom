@@ -15,19 +15,22 @@
  * floats are read with ReadFloat, which also flushes numbers too small to multiply safely. */
 #include "actions.h"
 #include "collview.h"
+#include "fmt.h"
 #include "freecam.h"
 #include "game.h"
+#include "menu.h"
 #include "moonaim.h"
 #include "practice.h"
 #include "rdp.h"
 #include "safe.h"
+#include "text.h"
 
 /* The cache. A shape is one mesh as some actors use it; a record is one actor. */
 #define MAX_SHAPES 128
 #define MAX_RECORDS 160
 #define MAX_STATIC 96 /* matrices of landscape actors, which never move */
 #define CACHE_VTX 2688
-#define CACHE_GFX 2048
+#define CACHE_GFX 1920
 #define MAX_MESH_FACES 1024
 #define ACTOR_SLOTS 512 /* the hash table from an actor's address to its record */
 /* The game's collision lists are walked at most this far. */
@@ -43,7 +46,7 @@
 /* The kinds of faces, by the normal's y. A floor is above 0.3 (the game lets such a face carry Glover,
  * collision.c, CheckCollisions). It is steep from 1 - 0.25 / handSlideScale down (CheckPlaneForSliding: Glover
  * slides on it). A ceiling is below -0.3. Each kind has its own list in a shape. */
-enum Group { GROUP_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING, GROUPS };
+enum Group { GROUP_FLAT = COLL_KIND_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING, GROUPS };
 #define FLOOR_Y 0.3f
 #define CEILING_Y -0.3f
 #define NO_LIST 0xFFFF
@@ -56,11 +59,11 @@ enum Group { GROUP_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING, GROUPS };
 /* Each frame. */
 #define MAX_MOVING 64  /* platforms drawn */
 #define SCENE_SIZE 896
-#define MAX_SPHERES 40 /* the glove's and the ball's first, then the enemies' */
+#define MAX_SPHERES 32 /* the glove's and the ball's first, then the enemies' */
 #define SPHERE_VERTS 12
 #define SPHERE_FACES 20
-#define MAX_CONTACTS 8
-#define EXTRA_SIZE 224 /* the longest list: set-up 23, spheres 92, touched faces 12, holes 80, end */
+#define MAX_CONTACTS 9 /* 8 touched faces and the face at the screen's centre */
+#define EXTRA_SIZE 232 /* the longest list: set-up 23, outlines 7, spheres 74, touched faces 14, holes 80, end */
 #define MAX_ENEMY_ACTORS 400
 /* The enemy types of the game's ActorType: SNEEZY (5) to NME_FROG (58), without the unused 6. */
 #define SNEEZY_TYPE 5
@@ -86,6 +89,7 @@ enum Group { GROUP_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING, GROUPS };
 #define FACE_ALPHA 0x60
 #define BACK_ENV 0x6B /* 0x60 * 0x6B / 255 is about 0x28 */
 #define CONTACT_ALPHA 0xA0
+#define CENTRE_RGBA 0xFFE040A0 /* the face at the screen's centre, with face info on: yellow */
 #define ENEMY_RGBA 0xFF603000
 
 /* Vertices that are made each frame (the touched faces, the holes) are in half units around Glover, as s16. */
@@ -103,6 +107,12 @@ enum Group { GROUP_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING, GROUPS };
  * compare in the translucent Z mode. */
 #define RENDER_XLU 0x00504240
 #define RENDER_XLU_Z 0x00504A50
+/* The outlines: the coverage is the alpha (ALPHA_CVG_SEL), every pixel that a face touches is drawn (AA_EN), and the
+ * blend is turned round: memory times the alpha plus the colour times 1 - alpha. A pixel inside a face is fully
+ * covered and keeps the frame's colour. A pixel that an edge crosses is covered in part and takes some of the
+ * face's colour. This draws every edge about a pixel wide with no line microcode and no data of its own. */
+#define RENDER_WIRE 0x50006248
+#define RENDER_WIRE_Z 0x50006A58
 
 /* The viewport of the game's InitViewport: 320 by 240, the whole Z range. */
 #define VP_X 640
@@ -181,11 +191,17 @@ static Mtx projection[2] __attribute__((aligned(16)));
 static Vp viewport[2] __attribute__((aligned(16)));
 
 /* The build's work space for one mesh. */
-static u8 faceGroup[MAX_MESH_FACES]; /* GROUPS: degenerate */
-static u8 openBits[MAX_MESH_FACES];  /* bit j: the edge from corner j to corner j + 1 is open */
+/* One byte for each face of the mesh. A build of faces keeps each face's group there (GROUPS: degenerate), and a
+ * build of open edges its open edges (bit j: the edge from corner j to corner j + 1). Only one build runs. */
+static u8 faceBytes[MAX_MESH_FACES];
+
+
+
+static volatile u8 infoReset;
 
 void CollViewReset(void) {
     resetRequest = 1;
+    infoReset = 1;
 }
 
 static f32 Dot(const f32 *a, const f32 *b) {
@@ -325,7 +341,7 @@ static void PutRecord(Record *r) {
     }
 }
 
-/* Marks the open edges of the mesh in openBits: an edge is open when only one face uses it. Faces share an edge
+/* Marks the open edges of the mesh in faceBytes: an edge is open when only one face uses it. Faces share an edge
  * when they share its two vertex numbers. EDGESLOTS is a table of 2^BITS slots, at least 4 for each face: each
  * holds an edge's two vertex numbers, and in the top bits how often it was seen. */
 static void FindOpenEdges(const s16 (*f)[3], int nf, u32 *edgeSlots, int bits) {
@@ -357,7 +373,7 @@ static void FindOpenEdges(const s16 (*f)[3], int nf, u32 *edgeSlots, int bits) {
                 }
             }
             if (pass == 1) {
-                openBits[i] = open;
+                faceBytes[i] = open;
             }
         }
     }
@@ -517,7 +533,7 @@ static void AddFace(Builder *b, Batch *t, int i) {
  * width. A band turns the same way as its face, so it is culled with it. */
 static void AddEdges(Builder *b, Batch *t, int i) {
     const s16 *f = b->f[i];
-    u8 open = openBits[i], corners = 0;
+    u8 open = faceBytes[i], corners = 0;
     f32 c[3][3], e[3][3], len[3], n[3], inner[3][3], perimeter, inradius, k;
     int need = 0, bands = 0, slot[3], in[3];
 
@@ -756,7 +772,7 @@ static void FacesStep(void) {
     Shape *s = &shapes[shapeCount];
 
     for (int n = 0; n < JOB_FACES_A_STEP && job.face < b->nf; n++, job.face++) {
-        if (faceGroup[job.face] == job.group) {
+        if (faceBytes[job.face] == job.group) {
             AddFace(b, &batch, job.face);
             job.count++;
         }
@@ -822,7 +838,7 @@ static void RunJob(u32 start, u32 counts) {
         if (job.step == JOB_GROUPS) {
             for (int n = 0; n < JOB_FACES_A_STEP && job.face < b->nf; n++, job.face++) {
                 int g = FaceGroup(b, job.rot, job.flatY, job.face);
-                faceGroup[job.face] = g;
+                faceBytes[job.face] = g;
                 job.key = job.key * 31 + g + 1;
             }
             if (job.face == b->nf) {
@@ -1327,15 +1343,18 @@ static int NearGlover(const Frame *fr, const f32 *p) {
     return 1;
 }
 
-/* The faces that the glove and the ball touched on the last game frame, white, as the game has them. */
+/* The faces that the glove and the ball touched on the last game frame, white, as the game has them. With face
+ * info on, also the face at the screen's centre, yellow. */
 static int AddContacts(Frame *fr, Vtx *out) {
     const void *seen[MAX_CONTACTS];
     int n = 0;
 
-    for (int a = 0; a < 2; a++) {
-        const ActorObject *o = (a == 0 ? &hand : &ball)->obj;
-        for (int k = 0; SafePointer(o) && k < 4 && n < MAX_CONTACTS; k++) {
-            const CollFace *f = o->planes[k];
+    for (int a = 0; a < 3; a++) {
+        const ActorObject *o = a == 0 ? hand.obj : a == 1 ? ball.obj : NULL;
+        int count = a < 2 ? 4 : run.collInfo && collInfo[1].state == 1;
+        for (int k = 0; (a == 2 || SafePointer(o)) && k < count && n < MAX_CONTACTS; k++) {
+            const CollFace *f = a < 2 ? o->planes[k] : collInfo[1].face;
+            u32 rgba = a < 2 ? 0xFFFFFF00 | CONTACT_ALPHA : CENTRE_RGBA;
             f32 p[3][3];
             int dup = 0, ok = 1;
 
@@ -1352,7 +1371,7 @@ static int AddContacts(Frame *fr, Vtx *out) {
                 continue;
             }
             for (int j = 0; j < 3; j++) {
-                PutVertex(&out[n * 3 + j], p[j], fr->c, 0xFFFFFF00 | CONTACT_ALPHA);
+                PutVertex(&out[n * 3 + j], p[j], fr->c, rgba);
             }
             seen[n++] = f;
         }
@@ -1426,6 +1445,410 @@ static int AddHoles(const Frame *fr, Vtx *out) {
     return n;
 }
 
+/* Whether this frame shows the level: a frame of a level in which the game drew the world, so its camera matrix is
+ * this frame's. Gives Glover's place C and the eye CAM (the free camera's, when it is on). */
+static int FrameReady(int b, f32 *c, f32 *cam) {
+    if (gameInfo.mode != GAME_MODE_LEVEL || gameInfo.level >= LEVEL_PRESENT || !gfxIsDrawing ||
+        onlyDrawBackdrops || (gameInfo.fade >= 276 && gameInfo.fade2 >= 276) || !ReadVec(&hand.pos.x, c) ||
+        !ReadVec(&actualCamPos[b].x, cam) || fieldOfView <= 0 || nearPlaneDist <= 0 ||
+        farPlaneDist <= nearPlaneDist || !(c[0] < MAX_CENTRE && c[0] > -MAX_CENTRE) ||
+        !(c[1] < MAX_CENTRE && c[1] > -MAX_CENTRE) || !(c[2] < MAX_CENTRE && c[2] > -MAX_CENTRE)) {
+        return 0;
+    }
+    FreeCamEye(cam);
+    return 1;
+}
+
+/* ---- Face info --------------------------------------------------------------------------------------------- */
+
+CollFaceInfo collInfo[2];
+static u8 infoLevel = 0xFF;
+static u8 infoShown; /* 1: this frame shows the level, and the panel is drawn */
+
+/* The kind of a face whose normal has Y as its y, on terrain row T. */
+static int KindOf(f32 y, u8 t) {
+    return y > FlatY(t) ? GROUP_FLAT : y > FLOOR_Y ? GROUP_STEEP : y >= CEILING_Y ? GROUP_WALL : GROUP_CEILING;
+}
+
+/* Whether the view's filter shows a face of kind KIND on row T of a platform (PLATFORM 1) or the landscape. */
+static int FaceShown(int kind, u8 t, int platform) {
+    u32 colour;
+    u8 skip = run.collFaces;
+
+    return !(skip & (platform ? COLL_PLATFORMS : COLL_LANDSCAPE)) && !(skip & TerrainBits(t, &colour)) &&
+           !(skip & (kind <= GROUP_STEEP ? COLL_FLOORS : kind == GROUP_WALL ? COLL_WALLS : COLL_CEILINGS));
+}
+
+/* An actor's faces, and their number. 0 if they cannot be read. */
+static int ActorFaces(const Actor *a, const CollFace **faces) {
+    const Mesh *m = ActorMesh(a);
+    int n;
+
+    *faces = a->faces;
+    if (m == NULL || !SafePointer(*faces)) {
+        return 0;
+    }
+    n = m->numFaces;
+    return n > 0 && n <= MAX_MESH_FACES && InRam(*faces, n * sizeof(CollFace), 4) ? n : 0;
+}
+
+/* Calls FN for every actor with collision faces, as the view walks them: the platforms, then the landscape. */
+static void EachFaceActor(void (*fn)(const Actor *a, int platform, void *arg), void *arg) {
+    Platform *p = platformList.head.next;
+    for (int i = 0; i < MAX_PLATFORMS && SafePointer(p) && p != &platformList.head; i++, p = p->next) {
+        if (!(p->flags & 0x84) && SafePointer(p->actor.faces)) {
+            fn(&p->actor, 1, arg);
+        }
+    }
+    Actor *a = collisionList.head.collNext;
+    for (int i = 0; i < MAX_COLLISION_ACTORS && SafePointer(a) && a != &collisionList.head; i++, a = a->collNext) {
+        fn(a, 0, arg);
+    }
+}
+
+/* Fills in OUT for face F, whose normal N is read. */
+static void SetInfo(CollFaceInfo *out, const CollFace *f, const f32 *n) {
+    out->face = f;
+    out->normal[0] = n[0];
+    out->normal[1] = n[1];
+    out->normal[2] = n[2];
+    out->terrain = f->terrain;
+    out->kind = KindOf(n[1], f->terrain);
+    out->state = 1;
+}
+
+/* Finds the actor whose faces hold the face of OUT. */
+static void FindOwner(const Actor *a, int platform, void *arg) {
+    CollFaceInfo *out = arg;
+    const CollFace *faces;
+    int n = ActorFaces(a, &faces);
+    u32 offset = (u32)out->face - (u32)faces;
+
+    if (out->actor == NULL && offset < n * sizeof(CollFace) && offset % sizeof(CollFace) == 0) {
+        out->actor = a;
+        out->number = offset / sizeof(CollFace);
+        out->platform = platform;
+    }
+}
+
+/* The ray from the eye along the view, and the nearest face that it meets so far. */
+typedef struct Ray {
+    f32 o[3], d[3];
+    f32 best; /* the distance to the nearest face so far */
+    CollFaceInfo hit;
+    u32 start;  /* osGetCount at the start of this frame's work */
+    u16 index;  /* the number of the actor being walked */
+    u16 next;   /* where the walk goes on: the actor's number */
+    u16 face;   /* and its face */
+    u8 running; /* 1: a walk is under way */
+    u8 out;     /* 1: this frame's time is up */
+} Ray;
+
+/* The ray of the walk under way, or of the last one: tests/collinfo.py reads it. A walk takes at most INFO_COUNTS
+ * of each frame (0.75 ms) and goes on over the next frames. collInfo[1] has the face of the last walk that ended. */
+static Ray ray;
+#define INFO_COUNTS 35156
+
+/* Whether the bits of a float are 0 or a normal number from 2^-30 to 2^20 in size, as ReadFloat takes them. A tiny
+ * number is not flushed to 0 here: the face is left out. */
+#define PlainFloat(bits) (((bits) & 0x7FFFFFFF) == 0 || ((bits) & 0x7FFFFFFF) - ((127 - 30) << 23) < (50 << 23))
+
+/* Reads N words from P as floats, each a PlainFloat. */
+static int ReadFaceFloats(const f32 *p, f32 *out, int n) {
+    for (int k = 0; k < n; k++) {
+        union {
+            u32 u;
+            f32 f;
+        } v;
+        v.u = ((const volatile u32 *)p)[k];
+        if (!PlainFloat(v.u)) {
+            return 0;
+        }
+        out[k] = v.f;
+    }
+    return 1;
+}
+
+/* Whether the ray meets face F of a platform (PLATFORM 1) or the landscape nearer than the best so far, and the
+ * view's filter shows it. If so, it becomes the best. */
+static int RayFace(Ray *r, const CollFace *f, int platform) {
+    f32 nn[4], c[3][3], q[3];
+
+    if (!ReadFaceFloats(f->normal, nn, 4)) {
+        return 0;
+    }
+    /* The ray meets the plane at t = -num / den. It must be ahead (num and den of opposite signs) and nearer than
+     * the best so far. The division waits for a face that passes. */
+    f32 den = Dot(nn, r->d), num = Dot(nn, r->o) + nn[3];
+    f32 ad = den < 0.0f ? -den : den, an = num < 0.0f ? -num : num;
+    if (ad < 1e-4f || (num < 0.0f) == (den < 0.0f) || an >= r->best * ad ||
+        (den > 0.0f && run.collBack == COLL_BACK_HIDE) || !ReadFaceFloats(f->corner[0], c[0], 9)) {
+        return 0;
+    }
+    f32 t = an / ad;
+    for (int k = 0; k < 3; k++) {
+        q[k] = r->o[k] + r->d[k] * t;
+    }
+    /* Inside when the point is on the inner side of each edge, with a small margin. The test is made in the plane
+     * of the two axes along which the normal is shortest: there the turn from an edge to the point has the sign of
+     * the normal's third coordinate. */
+    f32 ax = nn[0] < 0.0f ? -nn[0] : nn[0], ay = nn[1] < 0.0f ? -nn[1] : nn[1], az = nn[2] < 0.0f ? -nn[2] : nn[2];
+    int k = ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
+    int u = k == 2 ? 0 : k + 1, v = k == 0 ? 2 : k - 1;
+    for (int j = 0; j < 3; j++) {
+        const f32 *c0 = c[j], *c1 = c[j == 2 ? 0 : j + 1];
+        f32 turn = Diff(c1[u], c0[u]) * Diff(q[v], c0[v]) - Diff(c1[v], c0[v]) * Diff(q[u], c0[u]);
+        if (nn[k] > 0.0f ? turn < -0.01f : turn > 0.01f) {
+            return 0;
+        }
+    }
+    if (!FaceShown(KindOf(nn[1], f->terrain), f->terrain, platform)) {
+        return 0;
+    }
+    r->best = t;
+    SetInfo(&r->hit, f, nn);
+    r->hit.distance = t;
+    r->hit.back = den > 0.0f;
+    return 1;
+}
+
+static void RayActor(const Actor *a, int platform, void *arg) {
+    Ray *r = arg;
+    const CollFace *faces;
+    int index = r->index++;
+    int i = index == r->next ? r->face : 0;
+    f32 p[3], radius, v[3];
+
+    if (r->out || index < r->next) {
+        return;
+    }
+    if (index != r->next && osGetCount() - r->start >= INFO_COUNTS) {
+        r->out = 1;
+        r->next = index;
+        r->face = 0;
+        return;
+    }
+    int n = ActorFaces(a, &faces);
+    /* The actor's bounding sphere first. */
+    if (i == 0 && ReadVec(&a->pos.x, p) && ReadFloat(&a->radius, &radius) && radius > 0.0f) {
+        for (int k = 0; k < 3; k++) {
+            v[k] = Diff(p[k], r->o[k]);
+        }
+        f32 along = Dot(v, r->d);
+        if (along < -radius || along - radius > r->best || Dot(v, v) - along * along > radius * radius) {
+            return;
+        }
+    }
+    /* A first look at each face's plane, kept short: it runs for every face. A face that may be met goes on to
+     * RayFace, which reads it with the checks. */
+    f32 ox = r->o[0], oy = r->o[1], oz = r->o[2], dx = r->d[0], dy = r->d[1], dz = r->d[2];
+    int first = i;
+    for (; i < n; i++) {
+        const volatile u32 *w = (const volatile u32 *)&faces[i];
+
+        /* The face where this frame's walk began is always tested: the walk moves on in every frame. */
+        if ((i & 15) == 0 && i != first && osGetCount() - r->start >= INFO_COUNTS) {
+            r->out = 1;
+            r->next = index;
+            r->face = i;
+            return;
+        }
+        union {
+            u32 u;
+            f32 f;
+        } p[4];
+        u32 bad = 0;
+
+        for (int k = 0; k < 4; k++) {
+            p[k].u = w[k];
+            bad |= !PlainFloat(p[k].u);
+        }
+        if (bad) {
+            continue;
+        }
+        f32 den = p[0].f * dx + p[1].f * dy + p[2].f * dz, num = p[0].f * ox + p[1].f * oy + p[2].f * oz + p[3].f;
+        if (den < 0.0f) {
+            den = -den;
+            num = -num;
+        }
+        /* Ahead: num below 0. Nearer than the best: -num below best * den. */
+        if (!(num < 0.0f) || -num >= r->best * den) {
+            continue;
+        }
+        if (RayFace(r, &faces[i], platform)) {
+            r->hit.actor = a;
+            r->hit.number = i;
+            r->hit.platform = platform;
+        }
+    }
+}
+
+/* The view's direction: the third column of the frame's camera matrix (guLookAtHilite), turned round. The matrix
+ * is s15.16 fixed point: the whole parts first, then the fractions. */
+static int ViewDirection(f32 *dir) {
+    const s16 *whole = (const s16 *)(dynamicp + DYNAMIC_CAMERA_VIEW);
+    const u16 *frac = (const u16 *)whole + 16;
+
+    if (!InRam(whole, sizeof(Mtx), 8)) {
+        return 0;
+    }
+    for (int i = 0; i < 3; i++) {
+        dir[i] = -(whole[i * 4 + 2] + frac[i * 4 + 2] * (1.0f / 65536.0f));
+    }
+    f32 len2 = Dot(dir, dir);
+    if (!(len2 > 0.5f && len2 < 2.0f)) {
+        return 0;
+    }
+    f32 k = 1.0f / Sqrt(len2);
+    dir[0] *= k;
+    dir[1] *= k;
+    dir[2] *= k;
+    return 1;
+}
+
+void CollInfoUpdate(void) {
+    u32 start = osGetCount();
+    CollFaceInfo *glove = &collInfo[0];
+    f32 c[3], cam[3], n[3];
+
+    infoShown = FrameReady(draw_buffer & 1, c, cam);
+    if (!infoShown) {
+        return;
+    }
+    if (infoReset || gameInfo.level != infoLevel) {
+        infoReset = 0;
+        infoLevel = gameInfo.level;
+        glove->state = 0;
+        collInfo[1].state = 0;
+        ray.running = 0;
+    }
+    /* The glove's face: of those it touched, the one whose normal points most upwards. */
+    const CollFace *pick = NULL;
+    f32 best = -2.0f;
+    for (int k = 0; k < 4 && SafePointer(hand.obj); k++) {
+        const CollFace *f = hand.obj->planes[k];
+        if (SafePointer(f) && SafePointer((const u8 *)f + sizeof(CollFace) - 4) && ReadVec(f->normal, n) &&
+            n[1] > best) {
+            best = n[1];
+            pick = f;
+        }
+    }
+    if (pick != NULL) {
+        /* The actor is looked for only when the face changed. */
+        int same = pick == glove->face && glove->state == 1;
+        ReadVec(pick->normal, n);
+        SetInfo(glove, pick, n);
+        if (!same) {
+            glove->actor = NULL;
+            EachFaceActor(FindOwner, glove);
+        }
+    } else if (glove->state == 1 && !(SafePointer(hand.obj) && hand.obj->onGround)) {
+        /* The game does not test every face on every frame: while Glover stands, the face stays this frame's. */
+        glove->state = 2;
+    }
+    /* The centre's face, up to the far plane. A walk starts with this frame's ray. The last walk's face is tried
+     * first: then most faces fail at once, as farther than it. */
+    if (!ray.running) {
+        ray.best = farPlaneDist;
+        ray.o[0] = cam[0];
+        ray.o[1] = cam[1];
+        ray.o[2] = cam[2];
+        ray.hit = collInfo[1];
+        ray.running = ViewDirection(ray.d);
+        ray.next = ray.face = 0;
+        if (!ray.running || ray.hit.state != 1 || !SafePointer(ray.hit.face) ||
+            !SafePointer((const u8 *)ray.hit.face + sizeof(CollFace) - 4) ||
+            !RayFace(&ray, ray.hit.face, ray.hit.platform)) {
+            ray.hit.state = 0;
+        }
+    }
+    if (ray.running) {
+        ray.start = osGetCount();
+        ray.index = 0;
+        ray.out = 0;
+        EachFaceActor(RayActor, &ray);
+        if (!ray.out) {
+            ray.running = 0;
+            collInfo[1] = ray.hit;
+        }
+    }
+    collStats.infoCounts = osGetCount() - start;
+}
+
+/* atan(y / x) in degrees for x, y >= 0. */
+static f32 AtanDegrees(f32 y, f32 x) {
+    int swap = y > x;
+    f32 t = swap ? x / y : (x > 0.0f ? y / x : 0.0f);
+    f32 t2 = t * t;
+    /* A polynomial for atan on [0, 1], good to 0.001 degrees. */
+    f32 a = t * (0.99986601f + t2 * (-0.33029950f + t2 * (0.18014100f + t2 * (-0.08513300f + t2 * 0.02083510f))));
+    a *= 57.29578f;
+    return swap ? 90.0f - a : a;
+}
+
+static void InfoLines(Gfx **dl, int x, int y, const char *title, const CollFaceInfo *f) {
+    static const char *const kinds[COLL_KINDS] = { "flat floor", "steep floor", "wall", "ceiling" };
+    char buf[48];
+    u32 colour = f->state == 1 ? 0xFFFFFFFF : 0xA0A8B8FF;
+
+    if (f->state == 0) {
+        Format(buf, sizeof(buf), "%s: none", title);
+        TextPrint(dl, x, y, 1, colour, buf);
+        return;
+    }
+    /* The slope is the angle between the normal and straight up. */
+    f32 ny = f->normal[1], side = Sqrt(f->normal[0] * f->normal[0] + f->normal[2] * f->normal[2]);
+    f32 slope = ny >= 0.0f ? AtanDegrees(side, ny) : 180.0f - AtanDegrees(side, -ny);
+    int n = Format(buf, sizeof(buf), "%s: %s %.1f deg", title, kinds[f->kind % COLL_KINDS], (double)slope);
+    if (f->back) {
+        n += Format(buf + n, sizeof(buf) - n, " (back)");
+    }
+    TextPrint(dl, x, y, 1, colour, buf);
+    /* The names of the terrain colours (TerrainBits): a colour that is none of the others is sticky. */
+    u32 rgb;
+    u8 bits = TerrainBits(f->terrain, &rgb);
+    const char *name = bits & COLL_WATER       ? "water"
+                       : bits & COLL_SLIPPERY    ? "slippery"
+                       : bits & COLL_LOW_GRAVITY ? "low gravity"
+                       : rgb                     ? "sticky"
+                                                 : "normal";
+    n = Format(buf, sizeof(buf), "  terrain %d (%s)", f->terrain, name);
+    if (f == &collInfo[1]) {
+        Format(buf + n, sizeof(buf) - n, ", %d away", (int)f->distance);
+    }
+    TextPrint(dl, x, y + TEXT_LINE, 1, colour, buf);
+    if (f->actor == NULL) {
+        Format(buf, sizeof(buf), "  no actor found");
+    } else {
+        char model[9];
+        int i = 0;
+        if (SafePointer(f->actor->inst) && SafePointer(f->actor->inst->obj)) {
+            for (; i < 8 && f->actor->inst->obj->name[i] != '\0'; i++) {
+                model[i] = f->actor->inst->obj->name[i];
+            }
+        }
+        model[i] = '\0';
+        Format(buf, sizeof(buf), "  %s %s, face %d", f->platform ? "platform" : "landscape", model, f->number);
+    }
+    TextPrint(dl, x, y + 2 * TEXT_LINE, 1, colour, buf);
+}
+
+#define INFO_X 128
+#define INFO_Y 40
+#define INFO_W 186
+
+void CollInfoDraw(Gfx **dl) {
+    if (!infoShown) {
+        return;
+    }
+    TextRect(dl, INFO_X - 3, INFO_Y - 3, INFO_X + INFO_W, INFO_Y + 6 * TEXT_LINE + 3, MenuPanelColor(0));
+    InfoLines(dl, INFO_X, INFO_Y, "Glove", &collInfo[0]);
+    InfoLines(dl, INFO_X, INFO_Y + 3 * TEXT_LINE + 1, "Centre", &collInfo[1]);
+    /* The cross at the screen's centre, where the ray goes. */
+    TextRect(dl, 156, 120, 165, 121, 0xFFFFFFC0);
+    TextRect(dl, 160, 116, 161, 125, 0xFFFFFFC0);
+}
+
 /* ---- The frame ------------------------------------------------------------------------------------------- */
 
 /* Starts a new cache when the level's memory changed. The old one is written over only once no frame that
@@ -1458,12 +1881,8 @@ void CollViewDraw(void) {
     for (u32 i = 0; i < sizeof(fr.stats); i++) {
         ((u8 *)&fr.stats)[i] = 0;
     }
-    /* Only on frames of a level in which the game drew the world, so its camera matrix is this frame's. */
-    if (gameInfo.mode != GAME_MODE_LEVEL || gameInfo.level >= LEVEL_PRESENT || !gfxIsDrawing ||
-        onlyDrawBackdrops || (gameInfo.fade >= 276 && gameInfo.fade2 >= 276) || !ReadVec(&hand.pos.x, fr.c) ||
-        !ReadVec(&actualCamPos[b].x, fr.cam) || fieldOfView <= 0 || nearPlaneDist <= 0 ||
-        farPlaneDist <= nearPlaneDist || !(fr.c[0] < MAX_CENTRE && fr.c[0] > -MAX_CENTRE) ||
-        !(fr.c[1] < MAX_CENTRE && fr.c[1] > -MAX_CENTRE) || !(fr.c[2] < MAX_CENTRE && fr.c[2] > -MAX_CENTRE)) {
+    fr.stats.infoCounts = run.collInfo ? collStats.infoCounts : 0; /* CollInfoUpdate ran before */
+    if (!FrameReady(b, fr.c, fr.cam)) {
         fr.stats.state = cacheState;
         collStats = fr.stats;
         return;
@@ -1473,7 +1892,6 @@ void CollViewDraw(void) {
         icoMade = 1;
     }
     CacheGameFrame();
-    FreeCamEye(fr.cam);
     fr.b = b;
     fr.radius = radii[run.collRadius % COLL_RADIUSES];
     fr.g = scene[b];
@@ -1556,10 +1974,10 @@ void CollViewDraw(void) {
     *g++ = GfxCmd(CMD_CLEARGEOMETRYMODE << 24, GEOM_ALL);
     *g++ = GfxCmd(CMD_SETGEOMETRYMODE << 24, GEOM_SHADE | GEOM_SHADING_SMOOTH | (onSurfaces ? GEOM_ZBUFFER : 0));
     *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_H, 4, 20, 0xCF0);
-    *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 0, 32, onSurfaces ? RENDER_XLU_Z : RENDER_XLU);
+    *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 3, 29, onSurfaces ? RENDER_XLU_Z : RENDER_XLU);
     *g++ = FACE_COMBINE;
     *g++ = GfxSetEnvColor(0xFFFFFFFF);
-    if (drawScene) {
+    if (drawScene && run.collWire != COLL_WIRE_ONLY) {
         /* The faces whose solid side faces the camera, then (faint) the others. The solid side is the one that
          * the normal points to, and the game's normal is the cross product of the edges from corner 0: the RSP
          * sees it as the front. */
@@ -1577,6 +1995,18 @@ void CollViewDraw(void) {
             *g++ = GfxSetEnvColor(0xFFFFFFFF);
         }
         *g++ = GfxCmd(CMD_CLEARGEOMETRYMODE << 24, GEOM_CULL_BACK | GEOM_CULL_FRONT);
+    }
+    if (drawScene && run.collWire) {
+        /* The outlines, in each face's colour. "Hide" leaves out those of the back faces. */
+        *g++ = GfxSync(CMD_PIPESYNC);
+        *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 3, 29, onSurfaces ? RENDER_WIRE_Z : RENDER_WIRE);
+        if (run.collBack == COLL_BACK_HIDE) {
+            *g++ = GfxCmd(CMD_SETGEOMETRYMODE << 24, GEOM_CULL_BACK);
+        }
+        *g++ = GfxDisplayList(scene[b]);
+        *g++ = GfxCmd(CMD_CLEARGEOMETRYMODE << 24, GEOM_CULL_BACK);
+        *g++ = GfxSync(CMD_PIPESYNC);
+        *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 3, 29, onSurfaces ? RENDER_XLU_Z : RENDER_XLU);
     }
     /* The spheres. */
     if (run.collSpheres) {

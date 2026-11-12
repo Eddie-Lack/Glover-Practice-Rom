@@ -283,8 +283,9 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   collision spheres of the glove, the ball and the enemies, and the open edges (edges of one face only, drawn as
   pink bands). Done ([build.md](build.md#the-collision-view)), with `tests/collview.py` and `tests/collview2.py`.
   The old switch "Up-to-date platforms" is gone: every platform is drawn where it is.
-- Next for the collision view: face info (the face under the glove and the face at the screen's centre) and a
-  wireframe (`Run.collInfo`, `Run.collWire`).
+- Collision view, face info and wireframe: done (`Run.collInfo`, `Run.collWire`;
+  [build.md](build.md#face-info), `tests/collinfo.py`). The wireframe draws the scene again in a render mode that
+  shows only the pixels an edge crosses, so it needs no data.
 - Spawn and move actors: done (Inspect, "Spawn actor", and Z on an actor's page in the actor list). The spawn
   list holds a garib, a garib that gives a life, the power-ups whose models the level has loaded, and the enemy
   types that the level has. Platforms are not spawned. Facts and reasons in [game.md](game.md#actors-made-and-moved-at-run-time);

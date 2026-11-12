@@ -74,6 +74,8 @@ The sub menu "Collision view" has these options:
 | Colours | by terrain, by kind or by object |
 | Back faces | How a face seen from behind is drawn: faint, hide or same |
 | Faces shown | _Sub menu_: show or hide each kind of face |
+| Wireframe | Outline every face: off, over faces or alone |
+| Face info | Show the face under the glove and the face in the middle of the screen |
 | Faces drawn | How many faces are drawn right now |
 | Collision spheres | Draw the glove's (white) and the ball's (yellow) collision spheres |
 | Enemy collision spheres | Draw the spheres of the enemies, in orange |
@@ -112,6 +114,7 @@ In every mode:
 | Colour | What it is |
 | --- | --- |
 | white | a face that Glover or the ball touches |
+| yellow | the face in the middle of the screen, with "Face info" on |
 | pink band | an open edge |
 | violet post | a hole _(see below)_ |
 
@@ -128,6 +131,30 @@ A face is solid from one side only. You see its back when you look at it from th
 ### Faces shown
 
 Hide floors, walls, ceilings, water, slippery ground, low gravity ground, the landscape or the platforms. Everything is shown by default
+
+### Wireframe
+
+Draws the edges of every face as thin lines, in the face's colour
+
+- "over faces" draws the lines on top of the faces
+- "alone" draws only the lines
+
+### Face info
+
+A panel at the top right shows two faces:
+
+- "Glove": the face Glover stands on. In the air it shows the last one in grey
+- "Centre": the face in the middle of the screen, under the small cross. With the collision view on it's drawn yellow. In big levels it takes a few frames to catch up when the camera turns
+
+For each face:
+
+| Line | What it shows |
+| --- | --- |
+| first | the kind (flat floor, steep floor, wall or ceiling) and the slope in degrees. "(back)" if you see it from behind |
+| second | its terrain number and type, and for "Centre" how far away it is |
+| third | landscape or platform, the object's model name, and the face's number in that object |
+
+"Centre" only finds faces that the view shows: the "Faces shown" menu and "Back faces: hide" leave faces out. It also works with the collision view off. With the free camera it looks where the free camera looks
 
 ### Open edges
 
@@ -153,6 +180,8 @@ Note: the hole itself is about 0.4 units wide, so aim at the post's base
 ## **The collision view can add lag!**
 
 A whole level of faces is a lot of see-through triangles. If the game slows down, use a smaller radius or hide some kinds of faces
+
+The wireframe draws every face a second time, so it adds more. Face info adds a little too
 
 ## Show missed taps
 

@@ -83,7 +83,7 @@ typedef struct Run {
     u8 collFaces;    /* the collision view's face filter: the kinds of faces left out, one bit each (collview.h) */
     u8 collColour;   /* its colour mode (collview.h) */
     u8 collBack;     /* how it draws back faces (collview.h) */
-    u8 collWire;     /* 1: it outlines every face (collview.h) */
+    u8 collWire;     /* it outlines every face: 0 off, 1 over the faces, 2 in place of them (collview.h) */
     u8 collInfo;     /* 1: it shows the face under Glover and the face at the screen's centre (collview.h) */
 } Run;
 

@@ -630,9 +630,12 @@ where it is, also far from Glover, where the game's own faces are out of date.
   (`CACHE_WAIT_FRAMES`, 3 frames after the last one that drew the cache). What changes each frame (the scene
   list, the platform and sphere matrices, the touched faces, the holes, the projection, the viewport) has one set
   for each frame buffer. A build only appends to the cache, which frames in flight do not read past.
-- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 2,048 commands (16 KB) for the cache, 96
+- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 1,920 commands (15 KB) for the cache, 96
   landscape matrices, 128 shapes and 160 records; for each frame buffer a scene list of 896 commands, an extra list
-  of 224, 64 platform matrices and 40 sphere matrices. The faces alone of the largest level (Atlantis 3) take
+  of 232, 64 platform matrices and 32 sphere matrices. One byte for each face of the mesh being built
+  (`faceBytes`) holds a face build's groups or an edge build's open edges: only one build runs. Face info and the
+  wireframe took the room for their code from the cache's commands (2,048 before; Atlantis 3's faces need 1,193)
+  and from the sphere matrices (40 before). The faces alone of the largest level (Atlantis 3) take
   2,297 vertices and 1,193 commands. The old scan's buffers are gone.
 
 ### Each frame
@@ -658,14 +661,19 @@ where it is, also far from Glover, where the game's own faces are out of date.
   mode, render mode, combiner), calls the scene, then draws the spheres, the touched faces and the holes.
   "See-through" uses the game's translucent surface; "on surfaces" adds Z compare without Z update and pulls the
   faces 2 units towards the camera in the viewport.
+- Set a render mode with `G_SETOTHERMODE_L`, shift 3 and length 29, as `gDPSetRenderMode` does. With shift 0 and
+  length 32, F3DEX 1.21 (run by the emulator's low-level RSP) keeps the old bits and ORs the new ones in: the
+  outline mode drew nothing until this was changed. The view, the text (`text.c`) and the ghost (`ghost.c`) now
+  set their modes this way.
 - A see-through mode that sorts the faces by depth (the view clearing the Z buffer and filling it with the faces
   first, with Z update) was tried. In the emulator, any Z update in the frame's last task broke the practice menu's
-  text on that frame and the game's HUD digits on the next ones. The cause was not found. Do not write the Z
-  buffer from the overlay.
+  text on that frame and the game's HUD digits on the next ones. It was tried while every render mode was set with
+  length 32: the text then kept the view's Z bits, which may be the cause. It was not tried again. Do not write
+  the Z buffer from the overlay until it is.
 - The faces that the glove and the ball touched on the last game frame (`ActorObject.planes`) are drawn white over
   the cache, from their world-space corners, in half units around Glover (at most 8).
 - Collision spheres (`Run.collSpheres`, `Run.collEnemies`): one cached icosahedron, drawn with a matrix for each
-  sphere (at most 40, the glove's and the ball's first). An enemy is an actor of type 5 to 58 (not 6) with flag 8
+  sphere (at most 32, the glove's and the ball's first). An enemy is an actor of type 5 to 58 (not 6) with flag 8
   (the flag `CheckActorCollisions` tests; the scenery fish of Atlantis 1 have none) within twice the radius plus
   its own radius of Glover, or any with the whole level. The game places a sphere with
   `RotateVectorByQuaternion`, which goes through `GetRotationFromQuaternion` (an `acos`) and can give NaN for a
@@ -689,6 +697,52 @@ Atlantis 1). Meshes of more than 512 faces are left out (the largest in the 26 l
   for actors that come later. In the largest levels they do not all fit (`CollStats.full` bit 1): the view has
   room for about 70 to 500 of them. Turning the switch off and on again drops the edge lists and builds them again
   around Glover's new place, if no shape was built after them.
+
+### Wireframe
+
+`Run.collWire`: 0 off, 1 over the faces, 2 alone. The extra list calls the scene once more after the face passes
+(or in place of them), with the render mode `0x50006248` (`0x50006A58` on surfaces):
+
+- `ALPHA_CVG_SEL`: the blender's alpha is the pixel's coverage, not the combiner's alpha.
+- `AA_EN`: every pixel that a face touches is drawn, not only those whose centre it covers.
+- The blend is turned round: memory times the alpha, plus the face's colour times 1 - alpha (`FORCE_BL`,
+  `IM_RD`).
+
+A pixel inside a face is fully covered and keeps the frame's colour. A pixel that an edge crosses takes some of the
+face's colour. So each face's edges show as lines about a pixel wide, in its colour, with no line microcode, no
+vertices and no lists of their own. "Hide" back faces culls the back faces' outlines; "faint" and "same" outline
+every face. An open edge's band is outlined too. The scene's edge lists end by setting the faces' combiner, which
+the outline pass also uses.
+
+Cost: no memory and a few commands. The RSP and the RDP draw every face of the scene once more; the RDP reads and
+writes every pixel of every face (inside ones blend to their own colour). The menu warns about the lag.
+
+### Face info
+
+`Run.collInfo`. `CollInfoUpdate` runs on the draw thread before `CollViewDraw` on frames that show the level (the
+same test as the view), and `CollInfoDraw` draws a panel at the top right in the text pass, with a cross at the
+screen's centre. It works with the view off. Two faces, in `collInfo` (`CollFaceInfo`, collview.h):
+
+- The glove's: of the faces in `hand.obj->planes`, the one whose normal points most upwards. Its actor is found by
+  walking the two lists for the actor whose `faces` array holds it. With no face this frame it stays this frame's
+  while `onGround` is set (the game does not test every face on every frame), and is shown in grey as an earlier
+  frame's once Glover is in the air. A level change or `CollViewReset` clears it.
+- The centre's: a ray from the eye (`actualCamPos`, or the free camera's) along the view. The direction is the third
+  column of the frame's camera matrix (`dynamicp + 0x4080`, s15.16), turned round. Each actor's bounding sphere is
+  tested first. Each face's plane (`normal`, `d`) is read as bits and tested in a short loop: ahead of the eye and
+  nearer than the best so far. Only then are the corners read, and the point is tested against each edge in the
+  plane of the two axes along which the normal is shortest. The last walk's face is tried first, so most faces
+  fail at once. The ray ends at the far plane. It honours the face filter and "hide" back faces. The face is drawn
+  yellow among the touched faces (`MAX_CONTACTS` is 9).
+- The walk over the faces takes at most 0.75 ms of each frame (`INFO_COUNTS`, looked at every 16 faces) and goes
+  on over the next frames from the actor and face where it stopped, with the ray of its first frame. `collInfo[1]`
+  changes only when a walk ends. In the largest levels a walk can take several frames, so the centre's face lags
+  a fast turn of the camera.
+- The panel shows the kind (the view's thresholds, `KindOf`), the slope (the angle of the normal from straight up),
+  "(back)" when the ray meets the back, the terrain row and its type, the distance, platform or landscape, the
+  model's name and the face's number in the actor's `faces`.
+
+`CollStats.infoCounts` is the CPU counts of `CollInfoUpdate` in the frame.
 
 ### Moon Pound holes
 
@@ -735,6 +789,11 @@ surfaces with the open edges, the glove's, the ball's and the enemies' spheres:
   matrix), not with the faces. The old scan used up to its 3 ms (141,000 counts) and more for 6 to 50 faces.
 - A build takes 5.5 to 6.9 million counts in all, over 70 to 90 frames (2 to 3 seconds); no frame passes about
   180,000 counts while it runs. The emulator's count rate may be faster than a console's.
+- The wireframe adds about 100 counts of CPU work (a few commands). Face info, measured the same way in the hub,
+  Atlantis 3, Carnival 1 and 3, Pirates 1 and 3, Fear 3, Out of this World 1 and the first space boss: 38,000 to
+  47,000 counts a frame (median), at most 66,000. A walk of the ray over the level's faces takes about 4 to 7
+  frames there. The emulator counts about 2 counts an instruction in these loops (a test loop of stores: 8 counts
+  for 4 instructions).
 - The RDP draws every face of the level (up to about 2,200, plus the open edges' bands) as see-through triangles,
   and each face is rasterized once in each mode. Its time cannot be measured in the emulator (angrylion does not
   model time). On a console the view can add lag, most with the whole level: a smaller radius or the face filter
