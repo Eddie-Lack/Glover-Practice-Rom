@@ -42,6 +42,7 @@
 /* A rebuild waits this many frames after the last one that drew the cache. A frame's list is sent at the start
  * of the next frame's build and has run by the end of the one after. */
 #define CACHE_WAIT_FRAMES 3
+#define BUILD_RETRY_FRAMES 30 /* draw frames before a failed record is built again */
 
 /* The kinds of faces, by the normal's y. A floor is above 0.3 (the game lets such a face carry Glover,
  * collision.c, CheckCollisions). It is steep from 1 - 0.25 / handSlideScale down (CheckPlaneForSliding: Glover
@@ -148,6 +149,7 @@ typedef struct Record {
     u8 platform; /* 1: a platform, which moves; its matrix is made each frame */
     u8 colour;   /* its colour in the "one colour per object" mode */
     u8 bits;     /* the face filter's terrain bits (CollFaceBit) */
+    u8 retry;    /* the draw frame (low 8 bits) when its build failed */
     u16 matrix;  /* a landscape actor's matrix in staticMtx */
     u32 special; /* the colour of its terrain row in the terrain mode, or 0 for colours by the slope */
 } Record;
@@ -675,6 +677,7 @@ static void EndRecord(int shape) {
 
     job.step = JOB_NONE;
     r->shape = NO_SHAPE;
+    r->retry = (u8)practice.drawFrames;
     if (shape == -1) {
         cacheFull = 1;
     }
@@ -966,6 +969,7 @@ static Record *AddRecord(Record *r, const Actor *a, int platform) {
     }
     r->mesh = m;
     r->shape = NO_SHAPE;
+    r->retry = (u8)practice.drawFrames;
     r->platform = platform;
     r->terrain = SafePointer(faces) ? faces->terrain : 0;
     r->bits = TerrainBits(r->terrain, &r->special);
@@ -1030,7 +1034,11 @@ static void VisitActor(Frame *fr, const Actor *a, int platform) {
     const Mesh *m = ActorMesh(a);
     const Shape *s;
 
-    if (r == NULL || r->mesh != m ||
+    /* A record whose build failed is tried again now and then: a read can fail for a moment. */
+    int retry = r != NULL && r->shape == NO_SHAPE && m != NULL && r->mesh == m &&
+                (u8)(practice.drawFrames - r->retry) >= BUILD_RETRY_FRAMES;
+
+    if (r == NULL || r->mesh != m || retry ||
         (r->shape < shapeCount && m != NULL &&
          (shapes[r->shape].numFaces != m->numFaces || shapes[r->shape].verts != m->verts ||
           shapes[r->shape].faces != m->faces))) {
@@ -1038,7 +1046,9 @@ static void VisitActor(Frame *fr, const Actor *a, int platform) {
             return;
         }
         if (job.step != JOB_NONE || fr->buildCounts >= BUILD_COUNTS) {
-            fr->pending++;
+            if (!retry) {
+                fr->pending++;
+            }
             return;
         }
         u32 t0 = osGetCount();
@@ -1136,6 +1146,11 @@ static void BuildEdgesNear(Frame *fr) {
     }
     if (edgeReset) {
         if (job.step != JOB_NONE || practice.drawFrames - lastEdgesDrawn < CACHE_WAIT_FRAMES) {
+            return;
+        }
+        if (facesAfterEdges) {
+            /* A shape was built while the reset waited: its lists lie after the edge lists. */
+            edgeReset = 0;
             return;
         }
         vtxUsed = edgeVtxStart;
@@ -1809,10 +1824,10 @@ static void InfoLines(Gfx **dl, int x, int y, const char *title, const CollFaceI
     u8 bits = TerrainBits(f->terrain, &rgb);
     const char *name = bits & COLL_WATER       ? "water"
                        : bits & COLL_SLIPPERY    ? "slippery"
-                       : bits & COLL_LOW_GRAVITY ? "low gravity"
+                       : bits & COLL_LOW_GRAVITY ? "low grav"
                        : rgb                     ? "sticky"
                                                  : "normal";
-    n = Format(buf, sizeof(buf), "  terrain %d (%s)", f->terrain, name);
+    n = Format(buf, sizeof(buf), "  terrain %d %s", f->terrain, name);
     if (f == &collInfo[1]) {
         Format(buf + n, sizeof(buf) - n, ", %d away", (int)f->distance);
     }
@@ -1833,9 +1848,10 @@ static void InfoLines(Gfx **dl, int x, int y, const char *title, const CollFaceI
     TextPrint(dl, x, y + 2 * TEXT_LINE, 1, colour, buf);
 }
 
-#define INFO_X 128
+/* Text is 6 px a character: 37 fit between INFO_X and the screen edge, and the longest line is 36. */
+#define INFO_X 96
 #define INFO_Y 40
-#define INFO_W 186
+#define INFO_W 222
 
 void CollInfoDraw(Gfx **dl) {
     if (!infoShown) {
