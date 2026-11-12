@@ -799,6 +799,59 @@ surfaces with the open edges, the glove's, the ball's and the enemies' spheres:
   model time). On a console the view can add lag, most with the whole level: a smaller radius or the face filter
   draws fewer.
 
+## Hiding objects
+
+`Run.hide` holds one bit for each kind of object that the Inspect menu's "Hide objects" page leaves out of the
+picture (`practice/include/hide.h`, `practice/src/hide.c`). Several of the game's drawing functions also change the
+game's state, so a hidden kind's function always runs:
+
+- `TransformAndDrawObject` places collision spheres and platforms tied to a sub-object, and `DrawActor` steps the
+  animations before it.
+- `PrintStats` calls `Random`. `DrawFootprints` ages and kills footprints and calls `UpdateEnemyBlastring`.
+  `UpdateLightning` counts its timers down, and `DrawLightning` calls `Random`. `ProcessShadows` fades the shadows.
+
+After the call, `Strip` turns the commands that the function wrote to `glistp` and that draw into `G_SPNOOP`:
+`G_VTX`, `G_TRI1`, `G_TRI2`, `G_LINE3D`, `G_FILLRECT`, `G_SPRITE2D_DRAW`, and `G_TEXRECT` with its two half
+commands. For the 3D objects it also drops `G_DL` and `G_BRANCH_Z` (a model's prebuilt list). Every other command
+stays: matrices, render modes, combiners, texture loads and geometry modes. The RDP then ends in the state that the
+game expects, and the game's copies of that state (`transparentSurf`, `xluSurf`, `xluFact`, the lighting bit) stay
+true. A state command inside a dropped prebuilt list is lost; that can only change how a later object looks.
+
+| Kind | Hook | Which ones |
+| --- | --- | --- |
+| Landscape, scenery, water, platforms, glove, ball, enemies, pick-ups, debris | `TransformAndDrawObject` in `DrawActor` (object.c) | by `currentDrawActor`: `&hand`; `&ball`, `extraBall[3]`, `plaster[4]`; inside `debris[120]` (0x120 bytes each); then by type: 60 with flag 4 and 63 are scenery, 60 without it is landscape, 62 water, 59 platforms, 61 and 1000 or more (orbiters) pick-ups, 4, 2 (ball shots) and 5 to 58 enemies. `fadeOverlay`, `starOverlay` and the foreground objects (`noClip`) are never hidden |
+| Garibs, debris sprites, shots' sprites, sprites of hidden models | `PrintSprite` at its four calls (overlay.c) | a sprite inside `debris[]`; a sprite whose animation's frames are those of `garibAnimation[0..3]` (this also hides the garib that the Locate cheat shows over the glove); a sprite inside a `Bullet` of `bulletList`; a sprite of the model of an actor hidden on this frame (at most 32 a frame, from the model's tree) |
+| Sky | `PrintBackdrops` (main.c) | every backdrop |
+| HUD | `PrintStats`, inside `PracticePrintStats` | the game's counters. `PrintStats` sets up no state of its own, and `ShowText` after it starts with `spInit`: here `glistp` is put back instead. Texts and the pause screen stay |
+| Shadows, footprints and blast rings, trails, lightning | `ProcessShadows`, `DrawFootprints`, `UpdateLightning`, `DrawBlurs` in `CreateObjects` | all of them. `DrawBlurs` calls `blurdl`, which sets state only, and keeps it |
+
+The hooks are in `hooks/object.c.patch` (five calls), `hooks/overlay.c.patch` (the four calls of `PrintSprite`)
+and `hooks/main.c.patch` (`PrintBackdrops`). `PracticePrintStats` already took the place of `PrintStats`.
+
+A sprite of the opaque pass whose actor is drawn later, in the translucent pass, is not hidden: the list of a frame's
+hidden models starts empty at each frame (`dispFrameCount`). `HideStats` (`hideStats`) counts the actors, sprites and
+commands of the last complete frame for the tests.
+
+A run with any kind hidden does not count for a practice best time (`BT_OTHER` in `BestTimesTick`). The game's logic
+is the same, but the RDP has less to do, so a frame can lag less. That moves when the drawn frames fall between game
+frames, which decides some `Random` calls and animation steps. With every bit off, each hook costs a test of
+`run.hide` and the work of the call.
+
+The collision view's "On surfaces" mode compares with the Z buffer. With the landscape hidden, the Z buffer holds no
+landscape, and that mode shows the faces that are in front of the objects still drawn.
+
+Cost: with every kind hidden in Atlantis 1, the practice code's work after the calls (17 actors, 14 sprites, 262
+commands) took at most 19,060 counts (0.41 ms) of the draw thread a frame (`HideStats.counts`, `tests/hide.py`).
+The RDP has less to draw. 2 KB of code and data and 0.2 KB of bss.
+
+The overlay lists (`overlayList`, practice.c) hold only text: the HUD, the menu and the face info. The collision
+view and the ghost have lists of their own. The most commands one frame used was 3,811, with the menu on its HUD page
+in Out of this World 3 and every HUD item, every collision view switch and face info on (`tests/overlay.py`, which
+also visited the menu's other pages and views in Atlantis 3, Carnival 1, Pirates 3 and Out of this World 3). The
+level does not change it: the HUD and face info use about 1,900 commands, and a menu page about as many. `OVERLAY_SIZE`
+went from 6,000 to 4,800 commands for each of the two lists, which frees 19 KB. The text writers stop at the end of
+the list (`Room` in text.c) and `Practice.overlayFull` counts the frames on which one stopped; the test requires 0.
+
 ## The fog switch
 
 The Game menu's "Fog" item turns the level's fog off (`Run.fogOff`). Only the drawing code reads `fog.on`

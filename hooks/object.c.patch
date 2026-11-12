@@ -1,0 +1,34 @@
+--- a/src/object.c
++++ b/src/object.c
+@@ -19,6 +19,7 @@
+ #include "anim.h"
+ #include "enemy.h"
+ #include "shadow.h"
++#include "practice_hooks.h"
+ 
+ extern s16 farPlaneDist;
+ extern Quat zeroQuat;
+@@ -354,10 +355,10 @@
+         }
+         aiSurf = 0;
+         mirrorTextures = 1;
+-        ProcessShadows();
+-        DrawFootprints();
+-        UpdateLightning();
+-        DrawBlurs();
++        PRACTICE_WRAP(ProcessShadows)();
++        PRACTICE_WRAP(DrawFootprints)();
++        PRACTICE_WRAP(UpdateLightning)();
++        PRACTICE_WRAP(DrawBlurs)();
+         mirrorTextures = 0;
+     }
+     ClearViewing();
+@@ -428,7 +429,7 @@
+     currentDrawActor = ptr;
+     xluOverride = ptr->alpha;
+     if (ptr->inst->obj != NULL) {
+-        TransformAndDrawObject(ptr->inst->obj, animTime, 0, 0);
++        PRACTICE_WRAP(TransformAndDrawObject)(ptr->inst->obj, animTime, 0, 0);
+     }
+     if (calcMtx == TRUE || !staticObj) {
+         PopMatrix();

@@ -20,6 +20,8 @@ typedef struct Practice {
     /* 0x08 */ u32 textFrames; /* frames on which the practice text was drawn */
     /* 0x0C */ u32 levelStarts; /* levels started (StartNewLevel) */
     /* 0x10 */ u32 fogFrames;  /* frames drawn with the fog off */
+    /* 0x14 */ u32 overlayPeak; /* most commands one frame has put in the overlay list */
+    /* 0x18 */ u32 overlayFull; /* frames on which the overlay list was full and text was cut */
 } Practice;
 
 #define PRACTICE_MAGIC 0x50524143 /* "PRAC" */

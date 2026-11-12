@@ -32,5 +32,12 @@ void PracticeprintHiscores(char *name, s32 start);
 void PracticeguLookAtHilite(Mtx *m, LookAt *l, Hilite *h, float xEye, float yEye, float zEye, float xAt, float yAt,
                             float zAt, float xUp, float yUp, float zUp, float xl1, float yl1, float zl1, float xl2,
                             float yl2, float zl2, int twidth, int theight);
+void PracticeTransformAndDrawObject(struct Object *obj, f32 time, s16 doKeys, s16 arg3);
+void PracticePrintSprite(struct GameSprite *sprite);
+void PracticePrintBackdrops(void);
+void PracticeProcessShadows(void);
+void PracticeDrawFootprints(void);
+void PracticeUpdateLightning(void);
+void PracticeDrawBlurs(void);
 
 #endif
