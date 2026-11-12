@@ -1094,7 +1094,7 @@ static void VisitActor(Frame *fr, const Actor *a, int platform) {
         }
         u32 colour = GroupColour(r, g);
         if (colour != last) {
-            /* The primitive colour is taken with each primitive: it needs no pipe sync. */
+            /* No pipe sync: the RDP takes the primitive colour with each primitive. */
             *fr->g++ = GfxSetPrimColor(colour << 8 | FACE_ALPHA);
             last = colour;
         }

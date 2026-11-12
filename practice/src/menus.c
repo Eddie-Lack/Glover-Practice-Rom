@@ -546,7 +546,8 @@ static void CollStatsText(char *buf, int size, int arg) {
     } else if (collStats.state != COLL_CACHE_READY) {
         Format(buf, size, "building");
     } else {
-        Format(buf, size, "%d%s", collStats.faces, collStats.full ? " (full)" : "");
+        /* Bit 1 (open edges that did not fit) is usual in the largest levels and is not shown. */
+        Format(buf, size, "%d%s", collStats.faces, collStats.full & 5 ? " (full)" : "");
     }
 }
 

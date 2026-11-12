@@ -149,7 +149,7 @@ most `MENU_ROWS` (14) items. With the title row and the hint line the panel is 1
 scrolls (the cheats, 26 items, the HUD layout, 22, and the splits, 48); the title row then shows the cursor's place
 as "n/N". Every other menu has at most 14 items and fits as it is. Sub pages keep the first page to the items that
 are used most: Savestate > SD card, HUD > Counters, Game > Random numbers, Controller 2 and Movement and camera,
-and Inspect > Collision view. `tests/menupages.py` walks every page and checks the frame buffer.
+and Inspect > Collision view (with its own sub page, Faces shown). `tests/menupages.py` walks every page and checks the frame buffer.
 
 The Settings menu has "Menu opacity" and "Menu position across" and "Menu position down". `menu.c` keeps the table of
 the nine places of the panel (x 12, 32 or 52; y 12, 28 or 36) and the six alpha values of the panel
