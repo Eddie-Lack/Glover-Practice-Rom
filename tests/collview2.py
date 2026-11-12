@@ -1,30 +1,33 @@
-"""The three extra parts of the collision view in Atlantis 1, each with its own switch (Inspect menu):
-enemy spheres, up-to-date platforms and open edges.
+"""The collision view's switches in Atlantis 1, read from the display lists that it builds
+(practice/src/collview.c):
 
-Glover is moved to the mallet enemy's place (Run.teleport), 320 units from two bobbing platforms that the game
-does not update at that distance. With all three switches off, nothing is computed. Each switch on draws its part:
-the stats count it, and the vertex buffer holds it (hot pink for edges, the enemy colour for spheres, and a corner
-of a platform placed from its mesh). The game goes on. Writes enemies0/1.png, platforms0/1.png and edges0/1.png
-(the two frame buffers; needs --gfx angrylion)."""
+- Enemy spheres: the mallet enemy's spheres are drawn in its colour.
+- Open edges: a list of pink bands is built for the meshes, and the frame's scene calls it.
+- Back faces: "faint" draws the scene a second time with the front faces culled, "hide" once with the back faces
+  culled, "same" once with no culling.
+- Colours: by kind gives at most three colours, by object one for each actor.
+- The cache is built again after a reset of the level and after a warp, and draws in the new level.
+Writes enemies0/1.png and edges0/1.png (the two frame buffers; needs --gfx angrylion)."""
 import struct
 import trace
 from tools import C_ALL, press, wait_for
 
-RUN_TELEPORT = 0x10     # Run.teleport, then teleportPos (practice/include/actions.h)
+RUN_WARP_LEVEL = 0x04
+RUN_TELEPORT = 0x10      # Run.teleport, then teleportPos (practice/include/actions.h)
 RUN_TELEPORT_POS = 0x14
-RUN_COLL_VIEW = 0x2C    # collView, collRadius, collSpheres
-RUN_COLL_ENEMIES = 0x3B  # then collFresh and collEdges
-STATS_SPHERES = 0x2     # CollStats (practice/include/collview.h)
-STATS_ENEMIES = 0xC
-STATS_FRESH = 0xE
-STATS_EDGES = 0x10
-STATS_COUNTS = 0x14     # CPU counts of the last scan and list (the cost)
-MAX_FACES, MAX_SPHERES, SPHERE_VERTS = 320, 40, 12
-EDGE_BASE = MAX_FACES * 3 + MAX_SPHERES * SPHERE_VERTS  # vertices before the open edges
-VTX_COUNT = EDGE_BASE + 128 * 4
+RUN_COLL_VIEW = 0x2C     # collView, collRadius, collSpheres
+RUN_COLL_ENEMIES = 0x3B  # collEnemies; collEdges is 2 further on
+RUN_COLL_FACES = 0x52    # collFaces, collColour, collBack
+ACTION_RESET, ACTION_WARP = 0, 1
+# CollStats (practice/include/collview.h)
+ST_FACES, ST_ACTORS, ST_SPHERES, ST_ENEMIES, ST_EDGES = 0x0, 0x2, 0x4, 0x6, 0x8
+ST_STATE, ST_FULL, ST_SHAPES, ST_BUILDS, ST_COUNTS = 0x10, 0x11, 0x12, 0x1A, 0x1C
+READY = 2
+SHAPE_SIZE, NO_LIST = 44, 0xFFFF
+SCENE_SIZE, EXTRA_SIZE = 896, 224
 EDGE_RGBA = (0xFF, 0x20, 0xA0, 0xFF)
-ENEMY_RGB = (0xFF, 0x60, 0x30)
-NOT_UPDATED = 0x20084   # Platform.flags: the game does not bring its faces up to date
+ENEMY_PRIM = 0xFF6030
+GEOM_CULL_FRONT, GEOM_CULL_BACK = 0x1000, 0x2000
 
 
 def run(emu, sym, args):
@@ -34,37 +37,38 @@ def run(emu, sym, args):
     level = lambda: emu.r8(gi + 1)  # noqa: E731
     run_addr = sym("run")
     stats = sym("collStats")
-    hand = sym("hand")
-    verts = sym("vertices")
+    stat = lambda o: emu.r16(stats + o)  # noqa: E731
+    requests = sym("requests")
 
-    def switches(view, enemies, fresh, edges):
-        emu.w8(run_addr + RUN_COLL_VIEW, view)
-        emu.w8(run_addr + RUN_COLL_ENEMIES, enemies)
-        emu.w8(run_addr + RUN_COLL_ENEMIES + 1, fresh)
-        emu.w8(run_addr + RUN_COLL_ENEMIES + 2, edges)
+    def settle(n=3):
+        start = fc()
+        yield from wait_for(emu, lambda: fc() >= start + n, 200, f"{n} game frames")
 
-    def vertex_buffers():
-        """Both buffers' vertices, as (x, y, z, rgba) lists."""
+    def ready():
+        yield from wait_for(emu, lambda: emu.r8(stats + ST_STATE) == READY and stat(ST_FACES) > 0, 1200, "the cache")
+        yield from settle()
+
+    def commands(addr, size):
+        """The commands of a list, up to its end: (w0, w1) pairs."""
         out = []
-        for b in range(2):
-            raw = emu.read(verts + b * VTX_COUNT * 16, VTX_COUNT * 16)
-            out.append([struct.unpack(">hhhxxxxxxBBBB", raw[i * 16:i * 16 + 16]) for i in range(VTX_COUNT)])
+        for _ in range(size):
+            w0, w1 = emu.r32(addr), emu.r32(addr + 4)
+            addr += 8
+            out.append((w0, w1))
+            if w0 >> 24 == 0xB8:
+                break
         return out
 
-    def stat(offset):
-        return emu.r16(stats + offset)
+    def last_lists():
+        """The scene and the extra list of the frame buffer drawn last (the other one is being built)."""
+        b = 1 - (emu.r8(sym("draw_buffer")) & 1)
+        return (commands(sym("scene") + b * SCENE_SIZE * 8, SCENE_SIZE),
+                commands(sym("extra") + b * EXTRA_SIZE * 8, EXTRA_SIZE), b)
 
     def shot(name):
         if args.gfx == "angrylion":
             emu.fb_png(name + "0", sym("cfb_16_a"))
             emu.fb_png(name + "1", sym("cfb_16_b"))
-
-    def platforms():
-        head = sym("platformList") + 4
-        p = emu.r32(head)
-        while p != head and p:
-            yield p
-            p = emu.r32(p)
 
     yield from wait_for(emu, lambda: level() == trace.PRESENT and fc() >= 200, 4000, "the logos")
     yield from press(emu, "START", frames=6)
@@ -87,123 +91,102 @@ def run(emu, sym, args):
     for i in range(3):
         emu.wf(run_addr + RUN_TELEPORT_POS + 4 * i, mallet[i] + (50 if i == 1 else 0))
     emu.w8(run_addr + RUN_TELEPORT, 1)
-    yield 400
-    print("collview2: Glover at", [round(emu.rf(hand + 0x34 + 4 * i)) for i in range(3)], "mallet at", mallet)
+    emu.w8(run_addr + RUN_COLL_VIEW, 1)
+    yield from ready()
+    builds = stat(ST_BUILDS)
 
-    # 1. The view on and every switch off: none of the three parts is computed.
-    emu.w8(run_addr + RUN_COLL_VIEW + 1, 0)  # radius 500
-    switches(1, 0, 0, 0)
-    yield 40
-    if stat(STATS_ENEMIES) or stat(STATS_FRESH) or stat(STATS_EDGES):
-        emu.fail(f"with the switches off: {stat(STATS_ENEMIES)} enemy spheres, {stat(STATS_FRESH)} platforms, "
-                 f"{stat(STATS_EDGES)} edges")
-    if stat(0) < 10:
-        emu.fail("the collision view drew no faces with the switches off")
-    print(f"collview2 off: {stat(0)} faces, {emu.r32(stats + STATS_COUNTS)} counts")
-
-    # 2. Enemy spheres.
-    switches(1, 1, 0, 0)
-    best = 0
-    start = fc()
-    for _ in range(60):
-        best = max(best, stat(STATS_ENEMIES))
-        yield 1
+    # 1. Enemy spheres.
+    if stat(ST_ENEMIES):
+        emu.fail(f"{stat(ST_ENEMIES)} enemy spheres with the switch off")
+    emu.w8(run_addr + RUN_COLL_ENEMIES, 1)
+    yield from settle()
+    _, extra, _ = last_lists()
+    prims = {w1 >> 8 for w0, w1 in extra if w0 >> 24 == 0xFA}
+    print(f"collview2 enemies: {stat(ST_ENEMIES)} enemy spheres, {stat(ST_SPHERES)} spheres in all; "
+          f"enemy colour set: {ENEMY_PRIM in prims}")
+    if stat(ST_ENEMIES) == 0 or ENEMY_PRIM not in prims:
+        emu.fail("the enemy spheres were not drawn")
     shot("enemies")
-    seen = any(v[3:6] == ENEMY_RGB for buf in vertex_buffers() for v in buf[:EDGE_BASE])
-    print(f"collview2 enemies: at most {best} enemy spheres; enemy colour in a vertex buffer: {seen}; "
-          f"{emu.r32(stats + STATS_COUNTS)} counts")
-    if best == 0 or not seen:
-        emu.fail(f"the enemy spheres were not drawn ({best} spheres, colour found: {seen})")
-    if fc() < start + 5:
-        emu.fail("the game did not go on with the enemy spheres")
+    emu.w8(run_addr + RUN_COLL_ENEMIES, 0)
 
-    # 3. Up-to-date platforms. Glover stands on the bobbing platform at (3, 73, -683), 232 units from the next one,
-    # which the game does not update at that distance. For each platform that the game did not update on this game
-    # frame: its faces, placed from the mesh, must be in the frame's vertices. Some of them differ from the
-    # game's own faces, which are out of date.
-    switches(1, 0, 1, 0)
-    for i, v in enumerate((3.0, 120.0, -683.0)):
-        emu.wf(run_addr + RUN_TELEPORT_POS + 4 * i, v)
-    emu.w8(run_addr + RUN_TELEPORT, 1)
-    yield 400
-    print("collview2: Glover at", [round(emu.rf(hand + 0x34 + 4 * i)) for i in range(3)])
-    good = checked = moved = 0
-    most_fresh = 0
-    for _ in range(60):
-        yield 1
-        most_fresh = max(most_fresh, stat(STATS_FRESH))
-        hp = [emu.rf(hand + 0x34 + 4 * i) for i in range(3)]
-        bufs = vertex_buffers()
-        for p in platforms():
-            act = p + 0x80
-            inst = emu.r32(act + 0xC8)
-            mesh = emu.r32(emu.r32(inst + 0xC) + 0x14) if inst else 0
-            if not mesh or emu.r32(p + 0x14) & NOT_UPDATED or emu.r16(p + 0x6E) == fc() & 0xFFFF:
-                continue
-            if emu.r16s(mesh) < 1:
-                continue
-            pos = [emu.rf(act + 0x34 + 4 * i) for i in range(3)]
-            if sum((pos[i] - hp[i]) ** 2 for i in range(3)) > (400 + emu.rf(act + 0x30)) ** 2:
-                continue
-            q = [emu.rf(act + 0x9C + 4 * i) for i in range(4)]
-            if abs(q[3] - 1.0) > 1e-6:
-                continue  # an identity rotation keeps the check short
-            sc = [emu.rf(act + 0xBC + 4 * i) for i in range(3)]
-            verts_p, faces_p = emu.r32(mesh + 4), emu.r32(mesh + 8)
-            game_faces = emu.r32(act + 0xE0)
-            have = {v[:3] for buf in bufs for v in buf[:MAX_FACES * 3]}
-            for i in range(min(emu.r16s(mesh), 40)):
-                corner = []
-                for j in range(3):
-                    vi = emu.r16s(faces_p + 6 * i + j * 2)
-                    corner.append([emu.rf(verts_p + 12 * vi + 4 * k) * sc[k] + pos[k] for k in range(3)])
-                stale = [[emu.rf(game_faces + 0x78 * i + 0x10 + 12 * j + 4 * k) for k in range(3)] for j in range(3)]
-                want = [tuple(round((c[k] - hp[k]) * 2) for k in range(3)) for c in corner]
-                hit = all(any(all(abs(w[k] - h[k]) <= 3 for k in range(3)) for h in have) for w in want)
-                differs = max(abs(corner[j][k] - stale[j][k]) for j in range(3) for k in range(3)) > 1.5
-                checked += 1
-                good += hit
-                if hit and differs:
-                    moved += 1
-                    if moved <= 2:
-                        print(f"collview2 platform {p:08X} face {i}: game corner y {stale[0][1]:.2f}, "
-                              f"drawn at the placed y {corner[0][1]:.2f}")
-    shot("platforms")
-    print(f"collview2 platforms: at most {most_fresh} placed from the mesh; {good} of {checked} faces found in the "
-          f"vertices, {moved} of them where the game's own face was out of date")
-    if most_fresh == 0 or moved == 0:
-        emu.fail(f"no out-of-date platform face was drawn at its place ({most_fresh} platforms counted, "
-                 f"{good} faces found, {moved} out of date)")
-
-    # 4. Open edges.
-    switches(1, 0, 0, 1)
-    most_edges = 0
-    for _ in range(60):
-        yield 1
-        most_edges = max(most_edges, stat(STATS_EDGES))
-    n = stat(STATS_EDGES)
+    # 2. Open edges.
+    if stat(ST_EDGES):
+        emu.fail(f"{stat(ST_EDGES)} open edges with the switch off")
+    emu.w8(run_addr + RUN_COLL_ENEMIES + 2, 1)
+    yield from settle(6)
+    shapes, cache_gfx = sym("shapes"), sym("cacheGfx")
+    edge_lists = set()
+    pink = 0
+    for i in range(stat(ST_SHAPES)):
+        start = emu.r16(shapes + i * SHAPE_SIZE + 36)
+        if start == NO_LIST:
+            continue
+        edge_lists.add(cache_gfx + start * 8)
+        for w0, w1 in commands(cache_gfx + start * 8, 2000):
+            if w0 >> 24 == 0x04:
+                n = (w0 >> 10) & 0x3F
+                raw = emu.read(w1 | 0x80000000, n * 16)
+                pink += sum(1 for k in range(n) if tuple(raw[k * 16 + 12:k * 16 + 16]) == EDGE_RGBA)
+    scene, _, _ = last_lists()
+    called = sum(1 for w0, w1 in scene if w0 >> 24 == 0x06 and (w1 | 0x80000000) in edge_lists)
+    print(f"collview2 edges: {stat(ST_EDGES)} open edges drawn, {len(edge_lists)} edge lists, {pink} pink "
+          f"vertices, {called} calls in the scene; full {emu.r8(stats + ST_FULL)}; {emu.r32(stats + ST_COUNTS)} counts")
+    if stat(ST_EDGES) == 0 or not edge_lists or pink == 0 or called == 0:
+        emu.fail("the open edges were not drawn")
     shot("edges")
-    pink = sum(1 for buf in vertex_buffers() for v in buf[EDGE_BASE:EDGE_BASE + 8] if v[3:7] == EDGE_RGBA)
-    print(f"collview2 edges: {n} open edges now, at most {most_edges}; pink vertices in the first 8 of each buffer: {pink}; "
-          f"{emu.r32(stats + STATS_COUNTS)} counts")
-    if most_edges == 0 or pink == 0:
-        emu.fail(f"the open edges were not drawn ({most_edges} edges, {pink} pink vertices)")
+    emu.w8(run_addr + RUN_COLL_ENEMIES + 2, 0)
+    yield from settle()
+    if stat(ST_EDGES):
+        emu.fail("open edges were drawn after the switch was turned off")
 
-    # 5. All three, with the glove's spheres, while Glover walks about.
-    emu.w8(run_addr + RUN_COLL_VIEW + 2, 1)
-    switches(2, 1, 1, 1)
-    start = fc()
-    for i in range(240):
-        x, y = [(0, 80), (80, 0), (0, -80), (-80, 0)][i // 60]
-        emu.hold(x=x, y=y)
-        yield 1
-    emu.release()
-    shot("all")
-    print(f"collview2 all: {stat(0)} faces, {stat(STATS_SPHERES)} spheres, {stat(STATS_EDGES)} edges; "
-          f"game frames {start} to {fc()}")
-    if fc() < start + 30:
-        emu.fail(f"the game did not go on with all three switches on ({start} to {fc()})")
-    switches(0, 0, 0, 0)
+    # 3. Back faces, see-through and on surfaces.
+    for view in (1, 2):
+        emu.w8(run_addr + RUN_COLL_VIEW, view)
+        for back, name in ((0, "faint"), (1, "hide"), (2, "same")):
+            emu.w8(run_addr + RUN_COLL_FACES + 2, back)
+            yield from settle()
+            scene, extra, b = last_lists()
+            scene_addr = sym("scene") + b * SCENE_SIZE * 8
+            calls = sum(1 for w0, w1 in extra if w0 >> 24 == 0x06 and (w1 | 0x80000000) == scene_addr)
+            culls = [(w0 >> 24, w1) for w0, w1 in extra if w0 >> 24 in (0xB6, 0xB7) and w1 & 0x3000]
+            want = {0: 2, 1: 1, 2: 1}[back]
+            print(f"collview2 view {view} back faces {name}: the scene drawn {calls} times; culling {culls}")
+            if calls != want:
+                emu.fail(f"view {view}, back faces {name}: the scene was drawn {calls} times, not {want}")
+            if back == 2 and any(op == 0xB7 for op, w1 in culls):
+                emu.fail("back faces \"same\" culled faces")
+            if back == 1 and (0xB7, GEOM_CULL_BACK) not in culls:
+                emu.fail("back faces \"hide\" did not cull the back faces")
+            if back == 0 and (0xB7, GEOM_CULL_FRONT) not in culls:
+                emu.fail("back faces \"faint\" did not draw the back faces")
+    emu.w8(run_addr + RUN_COLL_FACES + 2, 0)
+
+    # 4. Colours.
+    found = {}
+    for colour, name in ((0, "terrain"), (1, "kind"), (2, "object")):
+        emu.w8(run_addr + RUN_COLL_FACES + 1, colour)
+        yield from settle()
+        scene, _, _ = last_lists()
+        found[name] = {w1 >> 8 for w0, w1 in scene if w0 >> 24 == 0xFA}
+        print(f"collview2 colours by {name}: {len(found[name])} colours")
+    emu.w8(run_addr + RUN_COLL_FACES + 1, 0)
+    if len(found["kind"]) > 3 or len(found["object"]) < 6 or not found["terrain"]:
+        emu.fail(f"the colour modes: {found}")
+
+    # 5. A new cache after a reset of the level, and after a warp to Atlantis 2.
+    emu.w16(requests, emu.r16(requests) | 1 << ACTION_RESET)
+    yield from wait_for(emu, lambda: stat(ST_BUILDS) > builds, 3000, "a new build after the reset")
+    yield from ready()
+    print(f"collview2 reset: build {stat(ST_BUILDS)}, {stat(ST_FACES)} faces")
+    builds = stat(ST_BUILDS)
+    emu.w8(run_addr + RUN_WARP_LEVEL, trace.ATLANTIS1 + 1)
+    emu.w16(requests, emu.r16(requests) | 1 << ACTION_WARP)
+    yield from wait_for(emu, lambda: level() == trace.ATLANTIS1 + 1 and mode() == 4 and fc() > 30, 6000, "Atlantis 2")
+    yield from ready()
+    print(f"collview2 warp: build {stat(ST_BUILDS)}, {stat(ST_FACES)} faces, {stat(ST_ACTORS)} actors in Atlantis 2")
+    if stat(ST_BUILDS) <= builds:
+        emu.fail("the cache was not built again after the warp")
+    emu.w8(run_addr + RUN_COLL_VIEW, 0)
     start = fc()
     yield 60
     if fc() <= start:

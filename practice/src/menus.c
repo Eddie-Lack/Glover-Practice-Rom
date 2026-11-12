@@ -535,16 +535,28 @@ extern const View frameLogView;
 extern const View spawnView;
 
 static const char *const collViewNames[] = { "off", "see-through", "on surfaces" };
-static const char *const collRadiusNames[] = { "500", "250", "1000" };
+static const char *const collRadiusNames[COLL_RADIUSES] = { "whole level", "1000", "500", "250" };
+static const char *const collColourNames[COLL_COLOURS] = { "by terrain", "by kind", "by object" };
+static const char *const collBackNames[COLL_BACKS] = { "faint", "hide", "same" };
 
 static void CollStatsText(char *buf, int size, int arg) {
     (void)arg;
     if (!run.collView) {
         buf[0] = '\0';
+    } else if (collStats.state != COLL_CACHE_READY) {
+        Format(buf, size, "building");
     } else {
-        Format(buf, size, "%d faces, radius %d%s", collStats.faces, collStats.radius,
-               collStats.full || collStats.slow ? " (full)" : "");
+        Format(buf, size, "%d%s", collStats.faces, collStats.full ? " (full)" : "");
     }
+}
+
+/* The face filter: A shows or hides one kind of face (a bit of Run.collFaces). */
+static void CollFaceToggle(int bit) {
+    run.collFaces ^= 1 << bit;
+}
+
+static void CollFaceText(char *buf, int size, int bit) {
+    Format(buf, size, "%s", run.collFaces & (1 << bit) ? "hidden" : "shown");
 }
 
 static const char *const regionNames[REGION_COUNT] = { "Glove actor", "Ball actor", "Level's actors", "Memory view range" };
@@ -592,13 +604,27 @@ static const MenuItem corruptItems[] = {
 };
 static MENU(corruptMenu, "Memory corruption", corruptItems);
 
+static const MenuItem collFaceItems[] = {
+    STATE("Floors", CollFaceToggle, CollFaceText, 0),
+    STATE("Walls", CollFaceToggle, CollFaceText, 1),
+    STATE("Ceilings", CollFaceToggle, CollFaceText, 2),
+    STATE("Water", CollFaceToggle, CollFaceText, 3),
+    STATE("Slippery", CollFaceToggle, CollFaceText, 4),
+    STATE("Low gravity", CollFaceToggle, CollFaceText, 5),
+    STATE("Landscape", CollFaceToggle, CollFaceText, 6),
+    STATE("Platforms", CollFaceToggle, CollFaceText, 7),
+};
+static MENU(collFaceMenu, "Faces shown", collFaceItems);
+
 static const MenuItem collItems[] = {
     CHOICE("Collision view", &run.collView, collViewNames, COLLVIEW_MODES),
-    CHOICE("Collision radius", &run.collRadius, collRadiusNames, 3),
+    CHOICE("Radius", &run.collRadius, collRadiusNames, COLL_RADIUSES),
+    CHOICE("Colours", &run.collColour, collColourNames, COLL_COLOURS),
+    CHOICE("Back faces", &run.collBack, collBackNames, COLL_BACKS),
+    SUBMENU("Faces shown", collFaceMenu),
+    INFO("Faces drawn", CollStatsText),
     TOGGLE("Collision spheres", &run.collSpheres),
-    INFO("Collision shown", CollStatsText),
     TOGGLE("Enemy collision spheres", &run.collEnemies),
-    TOGGLE("Up-to-date platforms", &run.collFresh),
     TOGGLE("Open collision edges", &run.collEdges),
     WARN("Moon Pound holes", &run.collHoles, "Can add lag: up to 3 ms a game frame"),
 };
