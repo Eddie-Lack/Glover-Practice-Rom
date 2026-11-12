@@ -467,8 +467,17 @@ matrix only, so these limits hold:
   when something comes near the platform. A moving platform far from Glover keeps the faces of its last check.
 - `CollFace.terrain` is a row of `terrain[]` (14 rows of slip, bounce, slide and gravity values). Read from the
   ROM: slip above 1 in rows 2, 8 and 11 (slippery), slip below 1 in rows 1, 3, 5, 9 and 10, gravity below 1 in
-  rows 7 and 13; row 12 is water (water.c). The game's onGround test takes a normal with y of 0.75 or more as
-  floor.
+  rows 7 and 13; row 12 is water (water.c). The game's onGround test (`UpdateActor`, actor.c) takes a face with a
+  normal's y of 0.75 or more as floor, and any face on a row with gravity below 1. Glover slides on a face with y up
+  to 1 - 0.25 / `handSlideScale` (`CheckPlaneForSliding`, not on low gravity rows), and a platform carries an actor
+  that touches its face with y above 0.3 (`CheckCollisions`).
+- Every face of an actor has the same terrain row (`SetActorTerrain`): checked for the 1,611 actors with faces in
+  26 levels.
+- An actor's collision faces are its mesh placed by its actor: each corner scaled by `Actor.scale`, turned by the
+  matrix of `QuaternionToMatrix(rotQuat)` and moved to `Actor.pos` (`InitPlanes`, `RecalculatePlatformInfo`). In 26
+  levels, every landscape actor and every platform whose faces were up to date matched within 0.0002 units.
+  `InitPlatformInfo` can add a y offset in the mesh's space (a POS token after an offset token, parse.c), which
+  `RecalculatePlatformInfo` drops; no platform of the 26 levels showed one.
 - The collision spheres are in `ActorObject.spheres`; `CalcCollisionSpheres` places each one at the actor
   (flag 0x20), at its own world position (0x10), or turned by the actor's rotation from it.
 - The collision mesh of a landscape actor or a platform has a face i for each mesh face i, with corner j from

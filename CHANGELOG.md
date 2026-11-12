@@ -1,5 +1,18 @@
 # Changelog
 
+## Not yet released
+
+- The collision view is steady: it reads the level's collision once, when you enter the level (it shows
+  "building" for a second or two), and draws it every frame. Moving platforms are drawn where they are.
+- Collision view: it draws the whole level by default. "Radius" picks whole level, 1000, 500 or 250.
+- Collision view: "Colours" (by terrain, by kind or by object), "Back faces" (faint, hide or same) and "Faces
+  shown", which hides floors, walls, ceilings, water, slippery or low gravity ground, the landscape or the
+  platforms.
+- Collision view: open edges are bands inside their face. In the biggest levels the ones nearest to Glover are
+  drawn.
+- Removed "Up-to-date platforms": every platform is up to date now.
+- Fixed: the number of faces in the Collision view menu ran into its label.
+
 ## 0.9.10 (2026-11-04)
 
 - Removed the L mash metronome trainer.

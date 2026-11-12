@@ -277,11 +277,14 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 
 ### 4. Game science and glitch hunting (done)
 
-- Collision view: faces of the landscape and the platforms near the glove, coloured by kind; the collision
-  spheres of the glove and the ball. Done ([build.md](build.md#the-collision-view)).
-- Three more collision view switches (on the Inspect menu's Collision view page), each off by default: the enemies'
-  collision spheres, platforms drawn up to date from their mesh, position and rotation also when far from Glover,
-  and the open edges (edges of one face only, drawn as thin pink quads). Done, with `tests/collview2.py`.
+- Collision view: the faces of the landscape and the platforms, from a cache of the level's meshes built once
+  per level and drawn with each actor's matrix, so the view is steady and platforms move with it. The whole level
+  by default, or a radius of 1000, 500 or 250. A face filter, three colour modes and three back face modes. The
+  collision spheres of the glove, the ball and the enemies, and the open edges (edges of one face only, drawn as
+  pink bands). Done ([build.md](build.md#the-collision-view)), with `tests/collview.py` and `tests/collview2.py`.
+  The old switch "Up-to-date platforms" is gone: every platform is drawn where it is.
+- Next for the collision view: face info (the face under the glove and the face at the screen's centre) and a
+  wireframe (`Run.collInfo`, `Run.collWire`).
 - Spawn and move actors: done (Inspect, "Spawn actor", and Z on an actor's page in the actor list). The spawn
   list holds a garib, a garib that gives a life, the power-ups whose models the level has loaded, and the enemy
   types that the level has. Platforms are not spawned. Facts and reasons in [game.md](game.md#actors-made-and-moved-at-run-time);

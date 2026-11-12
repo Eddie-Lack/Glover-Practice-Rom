@@ -70,30 +70,70 @@ The sub menu "Collision view" has these options:
 | Option | What it does |
 | --- | --- |
 | Collision view | off, see-through or on surfaces |
-| Collision radius | How far from Glover faces are drawn: 500, 250 or 1000 |
+| Radius | Which faces are drawn: whole level, 1000, 500 or 250 units around Glover |
+| Colours | by terrain, by kind or by object |
+| Back faces | How a face seen from behind is drawn: faint, hide or same |
+| Faces shown | _Sub menu_: show or hide each kind of face |
+| Faces drawn | How many faces are drawn right now |
 | Collision spheres | Draw the glove's (white) and the ball's (yellow) collision spheres |
-| Collision shown | Shows how many faces are drawn |
-| Enemy collision spheres | Draw the spheres of the enemies near Glover, in orange |
-| Up-to-date platforms | Draw a moving platform where it is now, also far from Glover |
-| Open collision edges | Draw edges that belong to one face only, as thin pink lines |
+| Enemy collision spheres | Draw the spheres of the enemies, in orange |
+| Open collision edges | Draw edges that belong to one face only, as pink bands |
 | Moon Pound holes | Draw a violet post on each hole where a falling glove touches no face |
 
-It draws the faces that the game collides with near Glover:
+It draws the faces that the game collides with: the level's landscape and its platforms. Moving platforms are drawn where they are on each frame
+
+"See-through" draws the faces over everything. "On surfaces" draws a face only where nothing in front of it hides it
+
+When you enter a level, the view takes a second or two to read the level's collision. "Faces drawn" shows "building" until it's done
+
+"Radius" counts an object when any part of it comes that close to Glover, so faces further away can show up too
+
+### Colours
+
+"By terrain":
 
 | Colour | Surface |
 | --- | --- |
 | green | floor |
-| yellow-green | slope |
+| yellow-green | floor too steep to stand on: Glover slides |
 | blue | wall |
 | red | ceiling |
 | cyan | water |
 | pale blue | slippery ground |
 | magenta | sticky ground |
 | orange | low gravity |
+
+"By kind" draws floors green, walls blue and ceilings red, whatever the terrain
+
+"By object" gives each object its own colour. Use it to see where one object ends and the next starts
+
+In every mode:
+
+| Colour | What it is |
+| --- | --- |
 | white | a face that Glover or the ball touches |
+| pink band | an open edge |
 | violet post | a hole _(see below)_ |
 
-A face seen from behind is lighter. "See-through" draws every face near Glover over everything. "On surfaces" draws a face only if it isn't blocked by something
+A floor is a face that can carry Glover. A face steeper than about 73 degrees is a wall, and a face that faces down is a ceiling
+
+### Back faces
+
+A face is solid from one side only. You see its back when you look at it from the inside of a wall or from below a floor
+
+- "faint" draws the back of a face lighter
+- "hide" doesn't draw it
+- "same" draws it like the front
+
+### Faces shown
+
+Hide floors, walls, ceilings, water, slippery ground, low gravity ground, the landscape or the platforms. Everything is shown by default
+
+### Open edges
+
+An open edge belongs to one face only: the side of a platform, the rim of a floor with nothing below it
+
+In the biggest levels there isn't room for every open edge. The view draws the ones nearest to Glover first. Turn "Open collision edges" off and on again to draw the edges around where Glover is now
 
 ## Moon Pound holes
 
@@ -111,6 +151,8 @@ It can add lag (up to 3 ms a game frame)!
 Note: the hole itself is about 0.4 units wide, so aim at the post's base 
 
 ## **The collision view can add lag!**
+
+A whole level of faces is a lot of see-through triangles. If the game slows down, use a smaller radius or hide some kinds of faces
 
 ## Show missed taps
 
