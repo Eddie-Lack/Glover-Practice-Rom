@@ -3,10 +3,10 @@
 1. With nothing hidden, the frame's display lists hold vertices, triangles and rectangles, and the practice code
    notes nothing (HideStats).
 2. Each kind on its own: the practice code turns some of the frame's drawing commands into no-ops for the kinds that
-   are in view at the level's start (the landscape, the glove, the ball, the garibs, the shadows, the HUD), and the
-   game goes on. The other kinds are reported.
+   are in view at the level's start (the landscape, the glove, the ball, the garibs, the shadows, the HUD), the
+   frame's lists hold fewer commands than with nothing hidden (not for the landscape and the HUD, which these lists do not show), and the game goes on. The other kinds are reported.
 3. Every kind at once: the 3D objects' task keeps under a tenth of its triangles (the fade and the star
-   transition are drawn later and stay) and under half of its display list calls, and the game goes on while Glover walks
+   transition are drawn later and stay) and under a fifth of its display list calls, and the game goes on while Glover walks
    about. The run no longer counts for a best time (BT_OTHER). Writes land0.png (the landscape hidden), all0.png
    and all1.png (needs --gfx angrylion).
 4. The menu: Inspect, Hide objects, Glove hides the glove and shows it again; Show everything clears every kind."""
@@ -30,6 +30,9 @@ KINDS = ["landscape", "scenery", "water", "platforms", "glove", "ball", "enemies
          "debris", "sky", "HUD", "shadows", "footprints", "trails", "lightning"]
 # Kinds that are in view at the start of Atlantis 1.
 MUST = {"landscape", "glove", "ball", "pick-ups and garibs", "shadows", "HUD"}
+# Kinds that the lists read here do not show: the landscape draws through prebuilt lists, and the HUD's commands
+# are not in the lists of the tasks that draw_commands reads.
+NOT_IN_LISTS = {"landscape", "HUD"}
 
 
 def draw_commands(emu, sym):
@@ -70,15 +73,17 @@ def stats(emu, sym):
 
 
 def sample(emu, sym, frames=12):
-    """The most of each count over a few frames."""
+    """The most of each of the practice code's counts, and the median of each draw count over the frames whose lists could be read."""
     most = [0, 0, 0, 0]
-    cmds = {"vtx": 0, "tri": 0, "rect": 0, "world": 0, "dl": 0}
+    seen = {"vtx": [], "tri": [], "rect": [], "world": [], "dl": []}
     for _ in range(frames):
         most = [max(m, s) for m, s in zip(most, stats(emu, sym))]
         c = draw_commands(emu, sym)
-        cmds = {k: max(cmds[k], c[k]) for k in cmds}
+        if any(c.values()):  # the lists of a frame can be gone when they are read
+            for k, v in c.items():
+                seen[k].append(v)
         yield 2
-    return most, cmds
+    return most, {k: sorted(v)[len(v) // 2] if v else 0 for k, v in seen.items()}
 
 
 def run(emu, sym, args):
@@ -116,6 +121,10 @@ def run(emu, sym, args):
         print(f"hide: {name}: {most[0]} actors, {most[1]} sprites, {most[2]} commands hidden; left {cmds}")
         if name in MUST and most[2] == 0:
             emu.fail(f"hiding {name} hid nothing")
+        if name in MUST and name not in NOT_IN_LISTS and sum(cmds.values()) >= sum(base.values()):
+            emu.fail(f"hiding {name} left the frame's lists at {cmds}, from {base}")
+        if name not in MUST or name in NOT_IN_LISTS:
+            print(f"hide: {name}: not checked in the frame's lists here")
         if fc() < start + 5:
             emu.fail(f"the game stopped with {name} hidden")
         if name == "landscape" and args.gfx == "angrylion":
@@ -129,7 +138,7 @@ def run(emu, sym, args):
     most, cmds = yield from sample(emu, sym)
     print(f"hide: everything: {most[0]} actors, {most[1]} sprites, {most[2]} commands hidden; left {cmds}; "
           f"at most {most[3]} counts ({most[3] / 46875:.2f} ms) a frame")
-    if cmds["world"] * 10 > base["world"] or cmds["dl"] * 2 > base["dl"]:
+    if cmds["world"] * 10 > base["world"] or cmds["dl"] * 5 > base["dl"]:
         emu.fail(f"with everything hidden {cmds['world']} of {base['world']} triangle commands and "
                  f"{cmds['dl']} of {base['dl']} list calls are left")
     start = fc()
@@ -148,7 +157,7 @@ def run(emu, sym, args):
     emu.w16(hide, 0)
     yield 6
     _, back = yield from sample(emu, sym)
-    if back["world"] * 2 < base["world"]:
+    if back["world"] * 10 < base["world"] * 9 or back["dl"] * 10 < base["dl"] * 9:
         emu.fail(f"the frame did not come back: {back} after {base}")
 
     # 4. The menu.
@@ -159,6 +168,8 @@ def run(emu, sym, args):
     yield from press(emu, "A")
     if emu.r16(hide) != 0:
         emu.fail("Glove a second time did not show the glove again")
+    emu.w16(hide, 0x5A5)
+    yield 2
     yield from goto(emu, sym, "Ball", "Show everything")
     if emu.r16(hide) != 0:
         emu.fail(f"Show everything left run.hide at {emu.r16(hide):#x}")
