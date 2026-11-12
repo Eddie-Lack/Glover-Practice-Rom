@@ -1,6 +1,6 @@
 # Changelog
 
-## Not yet released
+## 0.9.20 (2026-11-12)
 
 - The collision view is steady: it reads the level's collision once, when you enter the level (it shows
   "building" for a second or two), and draws it every frame. Moving platforms are drawn where they are.
