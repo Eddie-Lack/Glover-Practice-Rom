@@ -69,7 +69,8 @@ typedef struct CollStats {
     /* 0x0C */ u16 contacts; /* faces that the glove or the ball touched, drawn white */
     /* 0x0E */ u16 bad;     /* actors with data that could not be read, or out of range */
     /* 0x10 */ u8 state;    /* CollCacheState */
-    /* 0x11 */ u8 full;     /* bit 0: an actor did not fit in the cache or the frame's list; bit 1: open edges did not */
+    /* 0x11 */ u8 full;     /* bit 0: an actor did not fit in the cache; bit 1: open edges did not; bit 2: an actor did
+                             * not fit in the frame's list */
     /* 0x12 */ u16 shapes;  /* meshes in the cache */
     /* 0x14 */ u16 records; /* actors in the cache */
     /* 0x16 */ u16 vertices; /* vertices in the cache */

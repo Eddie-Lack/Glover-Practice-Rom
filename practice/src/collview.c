@@ -72,6 +72,9 @@ enum Group { GROUP_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING, GROUPS };
 /* The open edges of a mesh are found with a hash table of its edges. A mesh with more faces is left out. While a
  * shape is built, the table and the batch slot of each mesh vertex take the unused end of the cache's vertices. */
 #define EDGE_MESH_FACES 512
+/* The open edges leave this much of the cache for the faces of actors that come later. */
+#define EDGE_RESERVE_VTX 192
+#define EDGE_RESERVE_GFX 96
 /* A marked hole is a post of this height and half width, violet and opaque, standing on the hole's centre. */
 #define HOLE_HEIGHT 24.0f
 #define HOLE_HALF_WIDTH 1.5f
@@ -293,15 +296,6 @@ static int PlaceMatrix(const Actor *a, int shift, Mtx *out) {
 
 /* ---- Building the cache ---------------------------------------------------------------------------------- */
 
-static void CacheClear(void) {
-    vtxUsed = gfxUsed = shapeCount = recordCount = staticCount = 0;
-    cacheFull = edgesFull = facesAfterEdges = edgeReset = 0;
-    edgeVtxStart = -1;
-    for (int i = 0; i < ACTOR_SLOTS; i++) {
-        actorSlots[i] = 0;
-    }
-}
-
 static u32 ActorSlot(const Actor *a) {
     return ((u32)a >> 2) * 2654435761u >> (32 - 9);
 }
@@ -319,12 +313,12 @@ static Record *FindRecord(const Actor *a) {
     return NULL;
 }
 
-/* Puts record R in the table, in place of an older record of the same actor. */
+/* Puts record R in the table. */
 static void PutRecord(Record *r) {
     u32 slot = ActorSlot(r->actor);
 
     for (int n = 0; n < ACTOR_SLOTS; n++, slot = (slot + 1) & (ACTOR_SLOTS - 1)) {
-        if (!actorSlots[slot] || records[actorSlots[slot] - 1].actor == r->actor) {
+        if (!actorSlots[slot]) {
             actorSlots[slot] = r - records + 1;
             return;
         }
@@ -383,11 +377,12 @@ typedef struct Batch {
 static u16 *vertSlot;
 static u16 batchNumber;
 static int vtxLimit; /* the scratch starts here */
+static int gfxLimit; /* and the commands end here */
 
 typedef struct Builder {
     const Vec3 *v;
     const s16 (*f)[3];
-    int nv;
+    int nv, nf;
     f32 scale[3];
     f32 mult; /* 2^shift */
     int ok;   /* 0 once something did not fit */
@@ -438,7 +433,7 @@ static void FlushBatch(Builder *b, Batch *t) {
     if (t->verts == 0) {
         return;
     }
-    if (vtxUsed + t->verts > vtxLimit || gfxUsed + 1 + (t->tris + 1) / 2 + LIST_END_COMMANDS > CACHE_GFX) {
+    if (vtxUsed + t->verts > vtxLimit || gfxUsed + 1 + (t->tris + 1) / 2 + LIST_END_COMMANDS > gfxLimit) {
         b->ok = 0;
     }
     if (b->ok) {
@@ -588,6 +583,7 @@ static int BeginBuild(Builder *b, int extra) {
         return 0;
     }
     vertSlot = (u16 *)&cacheVtx[vtxLimit];
+    gfxLimit = CACHE_GFX;
     for (int i = 0; i < b->nv; i++) {
         vertSlot[i] = 0;
     }
@@ -597,60 +593,115 @@ static int BeginBuild(Builder *b, int extra) {
     return 1;
 }
 
-/* The group of each face of the mesh as the actor places it, in faceGroup. FLAT_Y is the normal's y above which a
- * floor is flat. Returns a hash of the groups. */
-static u32 FaceGroups(const Builder *b, const f32 rot[3][3], f32 flatY, int nf) {
-    u32 h = 0;
+/* The group of face I as the actor places it: B's scale scales it and ROT turns it. FLAT_Y is the normal's y
+ * above which a floor is flat. GROUPS for a face that cannot be drawn. */
+static int FaceGroup(const Builder *b, const f32 rot[3][3], f32 flatY, int i) {
+    f32 c[3][3], p[3][3], e1[3], e2[3], n[3], len2;
 
-    for (int i = 0; i < nf; i++) {
-        f32 p[3][3], e1[3], e2[3], n[3], len2;
-        int g = GROUPS;
-
-        for (int j = 0; j < 3 && g == GROUPS; j++) {
-            f32 c[3];
-            if (!MeshVertex(b, b->f[i][j], c)) {
-                break;
-            }
-            for (int k = 0; k < 3; k++) {
-                c[k] *= b->scale[k];
-            }
-            for (int k = 0; k < 3; k++) {
-                p[j][k] = rot[0][k] * c[0] + rot[1][k] * c[1] + rot[2][k] * c[2];
-            }
-            if (j < 2) {
-                continue;
-            }
-            for (int k = 0; k < 3; k++) {
-                e1[k] = Diff(p[1][k], p[0][k]);
-                e2[k] = Diff(p[2][k], p[0][k]);
-            }
-            Cross(e1, e2, n);
-            len2 = Dot(n, n);
-            if (len2 > 1e-8f) {
-                f32 y = n[1] / Sqrt(len2);
-                g = y > flatY ? GROUP_FLAT : y > FLOOR_Y ? GROUP_STEEP : y >= CEILING_Y ? GROUP_WALL : GROUP_CEILING;
-            }
-        }
-        faceGroup[i] = g;
-        h = h * 31 + g + 1;
+    if (!FaceCorners(b, i, c)) {
+        return GROUPS;
     }
-    return h;
+    for (int j = 0; j < 3; j++) {
+        for (int k = 0; k < 3; k++) {
+            p[j][k] = rot[0][k] * c[j][0] * b->scale[0] + rot[1][k] * c[j][1] * b->scale[1] +
+                      rot[2][k] * c[j][2] * b->scale[2];
+        }
+    }
+    for (int k = 0; k < 3; k++) {
+        e1[k] = Diff(p[1][k], p[0][k]);
+        e2[k] = Diff(p[2][k], p[0][k]);
+    }
+    Cross(e1, e2, n);
+    len2 = Dot(n, n);
+    if (!(len2 > 1e-8f)) {
+        return GROUPS;
+    }
+    f32 y = n[1] / Sqrt(len2);
+    return y > flatY ? GROUP_FLAT : y > FLOOR_Y ? GROUP_STEEP : y >= CEILING_Y ? GROUP_WALL : GROUP_CEILING;
 }
 
-/* Builds the shape of mesh M for builder B (faceGroup filled in) and the actor of record R. Returns its number,
- * or -1 if it does not fit. */
 static Batch batch;
 static Builder builder;
 
-static int BuildShape(Builder *b, const Mesh *m, u32 key, int r) {
-    Batch *t = &batch;
-    Shape *s = &shapes[shapeCount];
-    int nf = m->numFaces, vtxStart = vtxUsed, gfxStart = gfxUsed;
-    f32 most = 0.0f;
-    int shift;
+/* The build that runs: one mesh at a time, a few faces at a time, over as many frames as it needs. It finds the
+ * group of each face, then builds the shape's lists one group after another (or finds a shape to share), or it
+ * builds a shape's open edges. */
+enum JobStep { JOB_NONE, JOB_GROUPS, JOB_FACES, JOB_EDGES };
+#define JOB_FACES_A_STEP 16 /* faces between two looks at the time */
+/* Record.shape while its shape is built, and for an actor that cannot be drawn. */
+#define SHAPE_BUILDING 0xFE
+#define NO_SHAPE 0xFF
 
+static struct Job {
+    u8 step;
+    u8 group;
+    int face;
+    int count; /* faces of the group so far */
+    int vtxStart, gfxStart;
+    Record *record;
+    Shape *shape;
+    u32 key;
+    f32 rot[3][3];
+    f32 flatY;
+    int shift;
+} job;
+
+/* Drops what the job wrote to the cache. */
+static void JobUndo(void) {
+    vtxUsed = job.vtxStart;
+    gfxUsed = job.gfxStart;
+}
+
+/* Ends the job of a record with shape SHAPE, or with none: -1 when the cache is full, -2 when the actor cannot
+ * be drawn. */
+static void EndRecord(int shape) {
+    Record *r = job.record;
+
+    job.step = JOB_NONE;
+    r->shape = NO_SHAPE;
+    if (shape == -1) {
+        cacheFull = 1;
+    }
+    if (shape < 0) {
+        return;
+    }
+    if (!r->platform) {
+        if (staticCount >= MAX_STATIC) {
+            cacheFull = 1;
+            return;
+        }
+        if (!PlaceMatrix(r->actor, shapes[shape].shift, &staticMtx[staticCount])) {
+            return;
+        }
+        osWritebackDCache(&staticMtx[staticCount], sizeof(Mtx));
+        r->matrix = staticCount++;
+    }
+    r->shape = shape;
+}
+
+/* The groups are known: shares a shape with the same mesh, scale and groups, or starts a new one. */
+static void StartShape(void) {
+    Builder *b = &builder;
+    const Mesh *m = job.record->mesh;
+    f32 most = 0.0f;
+
+    for (int k = 0; k < 3; k++) {
+        union {
+            f32 f;
+            u32 u;
+        } bits = { b->scale[k] };
+        job.key = job.key * 31 + bits.u;
+    }
+    for (int i = 0; i < shapeCount; i++) {
+        const Shape *s = &shapes[i];
+        if (s->mesh == m && s->key == job.key && s->numFaces == b->nf && s->verts == b->v && s->faces == b->f) {
+            EndRecord(i);
+            return;
+        }
+    }
     if (shapeCount >= MAX_SHAPES) {
-        return -1;
+        EndRecord(-1);
+        return;
     }
     for (int i = 0; i < b->nv; i++) {
         f32 v[3];
@@ -662,105 +713,171 @@ static int BuildShape(Builder *b, const Mesh *m, u32 key, int r) {
         }
     }
     /* The most precision for which every vertex fits an s16. */
-    for (shift = 6; shift > -6 && most * (shift >= 0 ? (f32)(1 << shift) : 1.0f / (1 << -shift)) > 30000.0f;
-         shift--) {
+    for (job.shift = 6; job.shift > -6 && most * (job.shift >= 0 ? (f32)(1 << job.shift) : 1.0f / (1 << -job.shift)) > 30000.0f;
+         job.shift--) {
     }
-    b->mult = shift >= 0 ? (f32)(1 << shift) : 1.0f / (1 << -shift);
+    b->mult = job.shift >= 0 ? (f32)(1 << job.shift) : 1.0f / (1 << -job.shift);
+    job.vtxStart = vtxUsed;
+    job.gfxStart = gfxUsed;
     if (!BeginBuild(b, 0)) {
-        return -1;
+        EndRecord(-1);
+        return;
     }
-    for (int g = 0; g < GROUPS && b->ok; g++) {
-        int count = 0;
-        t->verts = t->tris = 0;
-        s->list[g] = gfxUsed;
-        for (int i = 0; i < nf; i++) {
-            if (faceGroup[i] == g) {
-                AddFace(b, t, i);
-                count++;
-            }
-        }
-        FlushBatch(b, t);
-        if (count == 0) {
-            s->list[g] = NO_LIST;
-        } else if (b->ok) {
-            Put(GfxEndDisplayList());
-        }
-        s->count[g] = count;
-    }
-    if (!b->ok) {
-        vtxUsed = vtxStart;
-        gfxUsed = gfxStart;
-        return -1;
-    }
-    s->mesh = m;
-    s->key = key;
-    s->numFaces = m->numFaces;
-    s->verts = m->verts;
-    s->faces = m->faces;
-    s->edgeList = NO_LIST;
-    s->edges = EDGES_NOT_BUILT;
-    s->record = r;
-    facesAfterEdges |= edgeVtxStart >= 0;
-    s->shift = shift;
-    osWritebackDCache(&cacheVtx[vtxStart], (vtxUsed - vtxStart) * sizeof(Vtx));
-    osWritebackDCache(&cacheGfx[gfxStart], (gfxUsed - gfxStart) * sizeof(Gfx));
-    return shapeCount++;
+    job.step = JOB_FACES;
+    job.group = 0;
+    job.face = job.count = 0;
+    batch.verts = batch.tris = 0;
+    shapes[shapeCount].list[0] = gfxUsed;
 }
 
-/* Builds the list of shape S's open edges, which is drawn after its faces. Returns 0 if it does not fit. */
-static int BuildEdges(Shape *s) {
+/* The last group is built: the shape is complete. */
+static void EndShape(void) {
     Builder *b = &builder;
-    Batch *t = &batch;
+    Shape *s = &shapes[shapeCount];
+
+    s->mesh = job.record->mesh;
+    s->key = job.key;
+    s->numFaces = b->nf;
+    s->verts = b->v;
+    s->faces = b->f;
+    s->edgeList = NO_LIST;
+    s->edges = EDGES_NOT_BUILT;
+    s->record = job.record - records;
+    s->shift = job.shift;
+    facesAfterEdges |= edgeVtxStart >= 0;
+    osWritebackDCache(&cacheVtx[job.vtxStart], (vtxUsed - job.vtxStart) * sizeof(Vtx));
+    osWritebackDCache(&cacheGfx[job.gfxStart], (gfxUsed - job.gfxStart) * sizeof(Gfx));
+    EndRecord(shapeCount++);
+}
+
+/* Builds the next faces of the shape's list of the job's group. */
+static void FacesStep(void) {
+    Builder *b = &builder;
+    Shape *s = &shapes[shapeCount];
+
+    for (int n = 0; n < JOB_FACES_A_STEP && job.face < b->nf; n++, job.face++) {
+        if (faceGroup[job.face] == job.group) {
+            AddFace(b, &batch, job.face);
+            job.count++;
+        }
+    }
+    if (job.face < b->nf) {
+        return;
+    }
+    FlushBatch(b, &batch);
+    if (job.count && b->ok) {
+        Put(GfxEndDisplayList());
+    }
+    if (!b->ok) {
+        JobUndo();
+        EndRecord(-1);
+        return;
+    }
+    s->list[job.group] = job.count ? s->list[job.group] : NO_LIST;
+    s->count[job.group] = job.count;
+    job.face = job.count = 0;
+    if (++job.group == GROUPS) {
+        EndShape();
+    } else {
+        s->list[job.group] = gfxUsed;
+    }
+}
+
+/* Builds the bands of the next faces' open edges. */
+static void EdgesStep(void) {
+    Builder *b = &builder;
+    Shape *s = job.shape;
+
+    for (int n = 0; n < JOB_FACES_A_STEP && job.face < b->nf && b->ok; n++, job.face++) {
+        AddEdges(b, &batch, job.face);
+    }
+    if (b->ok && job.face < b->nf) {
+        return;
+    }
+    FlushBatch(b, &batch);
+    job.step = JOB_NONE;
+    if (!b->ok || b->edgeCount == 0) {
+        JobUndo();
+        edgesFull |= !b->ok;
+        return;
+    }
+    Put(GfxSync(CMD_PIPESYNC));
+    Put(FACE_COMBINE);
+    Put(GfxEndDisplayList());
+    s->edgeList = job.gfxStart;
+    s->edges = b->edgeCount;
+    if (edgeVtxStart < 0) {
+        edgeVtxStart = job.vtxStart;
+        edgeGfxStart = job.gfxStart;
+    }
+    osWritebackDCache(&cacheVtx[job.vtxStart], (vtxUsed - job.vtxStart) * sizeof(Vtx));
+    osWritebackDCache(&cacheGfx[job.gfxStart], (gfxUsed - job.gfxStart) * sizeof(Gfx));
+}
+
+/* Runs the job for at most COUNTS from START (osGetCount). */
+static void RunJob(u32 start, u32 counts) {
+    Builder *b = &builder;
+
+    while (job.step != JOB_NONE && osGetCount() - start < counts) {
+        if (job.step == JOB_GROUPS) {
+            for (int n = 0; n < JOB_FACES_A_STEP && job.face < b->nf; n++, job.face++) {
+                int g = FaceGroup(b, job.rot, job.flatY, job.face);
+                faceGroup[job.face] = g;
+                job.key = job.key * 31 + g + 1;
+            }
+            if (job.face == b->nf) {
+                StartShape();
+            }
+        } else if (job.step == JOB_FACES) {
+            FacesStep();
+        } else {
+            EdgesStep();
+        }
+    }
+}
+
+/* Starts the list of shape S's open edges, which is drawn after its faces. */
+static void StartEdges(Shape *s) {
+    Builder *b = &builder;
     const Mesh *m = s->mesh;
     const Actor *a = records[s->record].actor;
-    int nf = s->numFaces, vtxStart = vtxUsed, gfxStart = gfxUsed;
+    int nf = s->numFaces;
 
     s->edges = 0;
     /* The scale of the first actor that uses the shape gives the bands' width. */
     if (nf > EDGE_MESH_FACES || !SafePointer(m) || m->numFaces != nf || (const void *)m->verts != s->verts ||
         (const void *)m->faces != s->faces || !SafePointer(a) || !ReadVec(&a->scale.x, b->scale)) {
-        return 1;
+        return;
     }
     b->v = m->verts;
     b->f = m->faces;
     b->nv = m->numVerts;
+    b->nf = nf;
     b->mult = s->shift >= 0 ? (f32)(1 << s->shift) : 1.0f / (1 << -s->shift);
     if (b->nv < 3 || !InRam(b->v, b->nv * sizeof(Vec3), 4) || !InRam(b->f, nf * sizeof(b->f[0]), 2)) {
-        return 1;
+        return;
     }
     int bits = 6;
     while ((1 << bits) < nf * 4) {
         bits++;
     }
     int tableVtx = (4 << bits) / sizeof(Vtx);
-    if (!BeginBuild(b, tableVtx)) {
-        return 0;
+    job.vtxStart = vtxUsed;
+    job.gfxStart = gfxUsed;
+    /* The edges leave room for the faces of actors that come later. */
+    if (!BeginBuild(b, tableVtx + EDGE_RESERVE_VTX) || gfxUsed + 2 + EDGE_RESERVE_GFX > CACHE_GFX) {
+        edgesFull = 1;
+        return;
     }
+    vtxLimit -= EDGE_RESERVE_VTX;
+    gfxLimit -= EDGE_RESERVE_GFX;
     FindOpenEdges(b->f, nf, (u32 *)&cacheVtx[vtxLimit - tableVtx], bits);
-    t->verts = t->tris = 0;
     Put(GfxSync(CMD_PIPESYNC));
     Put(EDGE_COMBINE);
-    for (int i = 0; i < nf && b->ok; i++) {
-        AddEdges(b, t, i);
-    }
-    FlushBatch(b, t);
-    if (!b->ok || b->edgeCount == 0) {
-        vtxUsed = vtxStart;
-        gfxUsed = gfxStart;
-        return b->ok;
-    }
-    Put(GfxSync(CMD_PIPESYNC));
-    Put(FACE_COMBINE);
-    Put(GfxEndDisplayList());
-    s->edgeList = gfxStart;
-    s->edges = b->edgeCount;
-    if (edgeVtxStart < 0) {
-        edgeVtxStart = vtxStart;
-        edgeGfxStart = gfxStart;
-    }
-    osWritebackDCache(&cacheVtx[vtxStart], (vtxUsed - vtxStart) * sizeof(Vtx));
-    osWritebackDCache(&cacheGfx[gfxStart], (gfxUsed - gfxStart) * sizeof(Gfx));
-    return 1;
+    batch.verts = batch.tris = 0;
+    job.step = JOB_EDGES;
+    job.shape = s;
+    job.face = 0;
 }
 
 /* The terrain bits of the face filter for terrain row T, and its colour in the terrain mode (0: by the slope). */
@@ -803,74 +920,56 @@ static f32 FlatY(u8 t) {
     return FLOOR_Y;
 }
 
-/* Adds a record for actor A (PLATFORM: one of platformList). A record with shape 0xFF stands for an actor
- * that cannot be drawn. Returns NULL when the records are full. */
-static Record *AddRecord(const Actor *a, int platform) {
+static void CacheClear(void) {
+    vtxUsed = gfxUsed = shapeCount = recordCount = staticCount = 0;
+    cacheFull = edgesFull = facesAfterEdges = edgeReset = 0;
+    edgeVtxStart = -1;
+    job.step = JOB_NONE;
+    for (int i = 0; i < ACTOR_SLOTS; i++) {
+        actorSlots[i] = 0;
+    }
+}
+
+/* Adds a record for actor A (PLATFORM: one of platformList), or brings its record R up to date when its mesh
+ * changed, and starts the job of its shape. Returns NULL when the records are full. */
+static Record *AddRecord(Record *r, const Actor *a, int platform) {
     Builder *b = &builder;
-    Record *r;
     const Mesh *m = ActorMesh(a);
     const CollFace *faces = a->faces;
-    f32 rot[3][3];
-    int nf, shape = -1;
 
-    if (recordCount >= MAX_RECORDS) {
-        cacheFull = 1;
-        return NULL;
+    if (r == NULL) {
+        if (recordCount >= MAX_RECORDS) {
+            cacheFull = 1;
+            return NULL;
+        }
+        r = &records[recordCount];
+        r->actor = a;
+        r->colour = recordCount;
+        recordCount++;
+        PutRecord(r);
     }
-    r = &records[recordCount];
-    r->actor = a;
     r->mesh = m;
-    r->shape = 0xFF;
+    r->shape = NO_SHAPE;
     r->platform = platform;
-    r->colour = recordCount;
     r->terrain = SafePointer(faces) ? faces->terrain : 0;
     r->bits = TerrainBits(r->terrain, &r->special);
-    recordCount++;
-    PutRecord(r);
     if (m == NULL) {
         return r;
     }
-    nf = m->numFaces;
     b->v = m->verts;
     b->f = m->faces;
     b->nv = m->numVerts;
-    if (nf < 1 || nf > MAX_MESH_FACES || b->nv < 3 || !InRam(b->v, b->nv * sizeof(Vec3), 4) ||
-        !InRam(b->f, nf * sizeof(b->f[0]), 2) || !ReadVec(&a->scale.x, b->scale) || !ActorRotation(a, rot)) {
+    b->nf = m->numFaces;
+    if (b->nf < 1 || b->nf > MAX_MESH_FACES || b->nv < 3 || !InRam(b->v, b->nv * sizeof(Vec3), 4) ||
+        !InRam(b->f, b->nf * sizeof(b->f[0]), 2) || !ReadVec(&a->scale.x, b->scale) || !ActorRotation(a, job.rot)) {
         return r;
     }
-    u32 key = FaceGroups(b, rot, FlatY(r->terrain), nf);
-    for (int k = 0; k < 3; k++) {
-        union {
-            f32 f;
-            u32 u;
-        } bits = { b->scale[k] };
-        key = key * 31 + bits.u;
-    }
-    for (int i = 0; i < shapeCount && shape < 0; i++) {
-        const Shape *s = &shapes[i];
-        if (s->mesh == m && s->key == key && s->numFaces == nf && s->verts == b->v && s->faces == b->f) {
-            shape = i;
-        }
-    }
-    if (shape < 0) {
-        shape = BuildShape(b, m, key, r - records);
-    }
-    if (shape < 0) {
-        cacheFull = 1;
-        return r;
-    }
-    if (!platform) {
-        if (staticCount >= MAX_STATIC) {
-            cacheFull = 1;
-            return r;
-        }
-        if (!PlaceMatrix(a, shapes[shape].shift, &staticMtx[staticCount])) {
-            return r;
-        }
-        osWritebackDCache(&staticMtx[staticCount], sizeof(Mtx));
-        r->matrix = staticCount++;
-    }
-    r->shape = shape;
+    r->shape = SHAPE_BUILDING;
+    job.step = JOB_GROUPS;
+    job.record = r;
+    job.face = 0;
+    job.key = 0;
+    job.flatY = FlatY(r->terrain);
     return r;
 }
 
@@ -908,31 +1007,37 @@ static u32 GroupColour(const Record *r, int g) {
     return r->special ? r->special : slope[g];
 }
 
-/* Looks up actor A's record, adding it if there is build time left, and adds its lists to the scene. */
+/* Looks up actor A's record, starting its build if no build runs and there is build time left, and adds its
+ * lists to the scene. */
 static void VisitActor(Frame *fr, const Actor *a, int platform) {
     Record *r = FindRecord(a);
     const Mesh *m = ActorMesh(a);
     const Shape *s;
 
     if (r == NULL || r->mesh != m ||
-        (r->shape != 0xFF && m != NULL &&
+        (r->shape < shapeCount && m != NULL &&
          (shapes[r->shape].numFaces != m->numFaces || shapes[r->shape].verts != m->verts ||
           shapes[r->shape].faces != m->faces))) {
         if (cacheFull) {
             return;
         }
-        if (fr->buildCounts > BUILD_COUNTS) {
+        if (job.step != JOB_NONE || fr->buildCounts >= BUILD_COUNTS) {
             fr->pending++;
             return;
         }
         u32 t0 = osGetCount();
-        r = AddRecord(a, platform);
+        r = AddRecord(r, a, platform);
+        RunJob(t0, BUILD_COUNTS - fr->buildCounts);
         fr->buildCounts += osGetCount() - t0;
         if (r == NULL) {
             return;
         }
     }
-    if (r->shape == 0xFF) {
+    if (r->shape == SHAPE_BUILDING) {
+        fr->pending++;
+        return;
+    }
+    if (r->shape == NO_SHAPE) {
         fr->stats.bad++;
         return;
     }
@@ -959,14 +1064,14 @@ static void VisitActor(Frame *fr, const Actor *a, int platform) {
         }
     }
     /* A matrix, then for each kind a colour (when it changes) and the list. */
-    if (fr->g + 2 + GROUPS * 3 >= fr->end) {
-        fr->stats.full = 1;
+    if (fr->g + 2 + GROUPS * 2 >= fr->end) {
+        fr->stats.full |= 4;
         return;
     }
     const Mtx *mtx;
     if (platform) {
         if (fr->moving >= MAX_MOVING) {
-            fr->stats.full = 1;
+            fr->stats.full |= 4;
             return;
         }
         Mtx *mm = &movingMtx[fr->b][fr->moving];
@@ -989,7 +1094,7 @@ static void VisitActor(Frame *fr, const Actor *a, int platform) {
         }
         u32 colour = GroupColour(r, g);
         if (colour != last) {
-            *fr->g++ = GfxSync(CMD_PIPESYNC);
+            /* The primitive colour is taken with each primitive: it needs no pipe sync. */
             *fr->g++ = GfxSetPrimColor(colour << 8 | FACE_ALPHA);
             last = colour;
         }
@@ -1008,15 +1113,13 @@ static void VisitActor(Frame *fr, const Actor *a, int platform) {
     fr->stats.actors++;
 }
 
-/* Builds the open edges of the shapes nearest to Glover first, for the build's time on this frame. */
+/* Builds the open edges of the shapes nearest to Glover first, in the build's time left on this frame. */
 static void BuildEdgesNear(Frame *fr) {
-    u32 t0 = osGetCount();
-
     if (!edgesWereOn && edgesFull && !facesAfterEdges && edgeVtxStart >= 0) {
         edgeReset = 1;
     }
     if (edgeReset) {
-        if (practice.drawFrames - lastEdgesDrawn < CACHE_WAIT_FRAMES) {
+        if (job.step != JOB_NONE || practice.drawFrames - lastEdgesDrawn < CACHE_WAIT_FRAMES) {
             return;
         }
         vtxUsed = edgeVtxStart;
@@ -1028,13 +1131,14 @@ static void BuildEdgesNear(Frame *fr) {
         }
         edgesFull = edgeReset = 0;
     }
-    while (!edgesFull && osGetCount() - t0 < BUILD_COUNTS) {
+    u32 t0 = osGetCount();
+    while (!edgesFull && job.step == JOB_NONE && fr->buildCounts + (osGetCount() - t0) < BUILD_COUNTS) {
         f32 best = 0.0f;
         int pick = -1;
         for (int i = 0; i < recordCount; i++) {
             const Record *r = &records[i];
             f32 p[3], d[3];
-            if (r->shape == 0xFF || shapes[r->shape].edges != EDGES_NOT_BUILT || !SafePointer(r->actor) ||
+            if (r->shape >= shapeCount || shapes[r->shape].edges != EDGES_NOT_BUILT || !SafePointer(r->actor) ||
                 !ReadVec(&r->actor->pos.x, p)) {
                 continue;
             }
@@ -1050,10 +1154,10 @@ static void BuildEdgesNear(Frame *fr) {
         if (pick < 0) {
             break;
         }
-        if (!BuildEdges(&shapes[pick])) {
-            edgesFull = 1;
-        }
+        StartEdges(&shapes[pick]);
+        RunJob(t0, BUILD_COUNTS - fr->buildCounts);
     }
+    fr->buildCounts += osGetCount() - t0;
 }
 
 /* ---- The glove's, the ball's and the enemies' spheres ---------------------------------------------------- */
@@ -1160,7 +1264,6 @@ static int AddSpheres(Frame *fr, Gfx **gp, const Actor *a, u32 rgb) {
         guMtxF2L(mf, m);
         *g++ = GfxMatrix(m, MTX_LOAD);
         if (colour != fr->sphereColour) {
-            *g++ = GfxSync(CMD_PIPESYNC);
             *g++ = GfxSetPrimColor(colour);
             fr->sphereColour = colour;
         }
@@ -1382,6 +1485,9 @@ void CollViewDraw(void) {
     /* Every actor with collision faces: the platforms, then the landscape. Each frame finds the actors again in
      * the game's lists. */
     if (cacheState != COLL_CACHE_WAIT) {
+        /* The build that runs goes on first: a mesh is built over as many frames as it needs. */
+        RunJob(fr.start, BUILD_COUNTS);
+        fr.buildCounts = osGetCount() - fr.start;
         Platform *p = platformList.head.next;
         for (int i = 0; i < MAX_PLATFORMS && SafePointer(p) && p != &platformList.head; i++, p = p->next) {
             if (!(p->flags & 0x84) && SafePointer(p->actor.faces)) {
@@ -1395,7 +1501,7 @@ void CollViewDraw(void) {
         }
         if (cacheState == COLL_CACHE_BUILD) {
             buildCounts += fr.buildCounts;
-            if (fr.pending == 0) {
+            if (fr.pending == 0 && job.step == JOB_NONE) {
                 cacheState = COLL_CACHE_READY;
             }
         } else if (run.collEdges) {
