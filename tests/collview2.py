@@ -6,7 +6,7 @@
 - Back faces: "faint" draws the scene a second time with the front faces culled, "hide" once with the back faces
   culled, "same" once with no culling.
 - Colours: by kind gives at most three colours, by object one for each actor.
-- The cache is built again after a reset of the level and after a warp, and draws in the new level.
+- The cache is built again after a reset of the level after a warp and after a savestate load, and draws in the new level.
 Writes enemies0/1.png and edges0/1.png (the two frame buffers; needs --gfx angrylion)."""
 import struct
 import trace
@@ -18,7 +18,7 @@ RUN_TELEPORT_POS = 0x14
 RUN_COLL_VIEW = 0x2C     # collView, collRadius, collSpheres
 RUN_COLL_ENEMIES = 0x3B  # collEnemies; collEdges is 2 further on
 RUN_COLL_FACES = 0x52    # collFaces, collColour, collBack
-ACTION_RESET, ACTION_WARP = 0, 1
+ACTION_RESET, ACTION_WARP, ACTION_SAVE_STATE, ACTION_LOAD_STATE = 0, 1, 8, 9
 # CollStats (practice/include/collview.h)
 ST_FACES, ST_ACTORS, ST_SPHERES, ST_ENEMIES, ST_EDGES = 0x0, 0x2, 0x4, 0x6, 0x8
 ST_STATE, ST_FULL, ST_SHAPES, ST_BUILDS, ST_COUNTS = 0x10, 0x11, 0x12, 0x1A, 0x1C
@@ -186,6 +186,17 @@ def run(emu, sym, args):
     print(f"collview2 warp: build {stat(ST_BUILDS)}, {stat(ST_FACES)} faces, {stat(ST_ACTORS)} actors in Atlantis 2")
     if stat(ST_BUILDS) <= builds:
         emu.fail("the cache was not built again after the warp")
+
+    # 6. A new cache after a savestate load.
+    start = fc()
+    yield from wait_for(emu, lambda: fc() >= start + 60, 1200, "60 game frames")
+    emu.w16(requests, emu.r16(requests) | 1 << ACTION_SAVE_STATE)
+    yield from wait_for(emu, lambda: emu.r8(sym("stateSaved")), 600, "the state to be saved")
+    builds = stat(ST_BUILDS)
+    emu.w16(requests, emu.r16(requests) | 1 << ACTION_LOAD_STATE)
+    yield from wait_for(emu, lambda: stat(ST_BUILDS) > builds, 3000, "a new build after the load")
+    yield from ready()
+    print(f"collview2 load: build {stat(ST_BUILDS)}, {stat(ST_FACES)} faces")
     emu.w8(run_addr + RUN_COLL_VIEW, 0)
     start = fc()
     yield 60

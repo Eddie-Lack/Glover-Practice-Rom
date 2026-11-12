@@ -4,6 +4,8 @@
   touches, its actor holds the face at the number given, and its kind and terrain are the face's. The face at the
   screen's centre is the nearest face that the last walk's ray meets, worked out here over every face of every
   collision actor (no bounding spheres), at Glover's start and at three other places.
+  The centre's face is also checked with the filter leaving out the landscape, then the platforms: it is of the
+  other kind. Its platform and back flags are the ray's. The glove's face is checked at one new place at least.
 - After Glover leaves the ground, the glove's face stays as an earlier frame's.
 - The wireframe: "over faces" draws the scene with the faces' render mode, then again with the outline mode
   (coverage as alpha, set with shift 3 and length 29); "alone" draws it only in the outline mode; "on surfaces"
@@ -16,7 +18,9 @@ from tools import C_ALL, press, wait_for
 RUN_TELEPORT = 0x10      # Run.teleport, then teleportPos (practice/include/actions.h)
 RUN_TELEPORT_POS = 0x14
 RUN_COLL_VIEW = 0x2C
+RUN_COLL_FACES = 0x52    # collFaces, the kinds left out (practice/include/collview.h)
 RUN_COLL_WIRE, RUN_COLL_INFO = 0x55, 0x56
+COLL_LANDSCAPE, COLL_PLATFORMS = 0x40, 0x80
 PRACTICE_TEXT_FRAMES = 0x08
 # CollFaceInfo and the Ray in collview.c
 INFO_SIZE = 0x20
@@ -84,10 +88,14 @@ def run(emu, sym, args):
         return result
 
     def cast(o, d):
-        """The nearest face that the ray from O along D meets: (t, face address)."""
-        best = (1e30, 0)
+        """The nearest face that the view's filter shows and the ray from O along D meets: (t, face address,
+        platform, back)."""
+        best = (1e30, 0, 0, 0)
+        skip = emu.r8(run_addr + RUN_COLL_FACES)
         far = emu.r16s(sym("farPlaneDist"))
         for actor, faces, count, platform in face_actors():
+            if skip & (COLL_PLATFORMS if platform else COLL_LANDSCAPE):
+                continue
             raw = emu.read(faces, count * FACE_SIZE)
             for i in range(count):
                 f = struct.unpack_from(">13f", raw, i * FACE_SIZE)
@@ -108,7 +116,7 @@ def run(emu, sym, args):
                     if sum(x[k] * n[k] for k in range(3)) <= -0.01:
                         inside = False
                 if inside:
-                    best = (t, faces + i * FACE_SIZE)
+                    best = (t, faces + i * FACE_SIZE, platform, den > 0)
         return best
 
     def check_info(where, glove=True):
@@ -141,13 +149,16 @@ def run(emu, sym, args):
     def check_centre(where):
         c = info + INFO_SIZE
         o, d = vec(ray), vec(ray + 0xC)
-        t, want = cast(o, d)
+        t, want, platform, back = cast(o, d)
         got = emu.r32(c + I_FACE) if emu.r8(c + I_STATE) == 1 else 0
         dist = emu.rf(c + I_DIST)
         print(f"collinfo {where}: centre {got:08X} at {dist:.1f}, expected {want:08X} at {t:.1f}; "
               f"{emu.r32(stats + ST_INFO_COUNTS)} counts")
         if got != want and not (got and abs(dist - t) < 0.05):
             emu.fail(f"{where}: the centre's face is {got:08X}, the ray meets {want:08X} first")
+        if got and (emu.r8(c + I_PLATFORM) != platform or emu.r8(c + I_BACK) != back):
+            emu.fail(f"{where}: the centre's face is a platform {emu.r8(c + I_PLATFORM)}, back {emu.r8(c + I_BACK)}; "
+                     f"the ray's is {platform}, {int(back)}")
         if got and emu.r32(emu.r32(c + I_ACTOR) + 0xE0) + emu.r16(c + I_NUMBER) * FACE_SIZE != got:
             emu.fail(f"{where}: the centre's face number is wrong")
         return got
@@ -202,16 +213,41 @@ def run(emu, sym, args):
     check_info("start")
     shot("info")
     start = vec(hand + 0x34)
-    hits = 0
+    hits = landed = 0
     for k, (dx, dz) in enumerate(((300, 0), (0, -400), (-250, 250))):
         for i, v in enumerate((start[0] + dx, start[1] + 60, start[2] + dz)):
             emu.wf(run_addr + RUN_TELEPORT_POS + 4 * i, v)
         emu.w8(run_addr + RUN_TELEPORT, 1)
         yield from settle(30)
+        # The glove's face is checked at each place where it lands within five seconds (not every place has ground).
+        for _ in range(300):
+            if emu.r8(info + I_STATE) == 1:
+                break
+            yield 1
         yield from wait_for(emu, lambda: emu.r8(ray + RAY_RUNNING) == 0, 100, "a finished walk")
-        hits += bool(check_info(f"place {k + 1}", emu.r8(info + I_STATE) == 1))
+        on_ground = emu.r8(info + I_STATE) == 1
+        hits += bool(check_info(f"place {k + 1}", on_ground))
+        landed += on_ground
     if hits == 0:
         emu.fail("the ray met no face at any place")
+    if landed == 0:
+        emu.fail("the glove's face was checked at none of the new places")
+
+    # With the view's filter leaving out the landscape or the platforms, the centre's face is of the other kind.
+    emu.wf(run_addr + RUN_TELEPORT_POS, start[0])
+    emu.wf(run_addr + RUN_TELEPORT_POS + 4, start[1] + 60)
+    emu.wf(run_addr + RUN_TELEPORT_POS + 8, start[2])
+    emu.w8(run_addr + RUN_TELEPORT, 1)
+    yield from settle(30)
+    for name, bit in (("landscape", COLL_LANDSCAPE), ("platforms", COLL_PLATFORMS)):
+        emu.w8(run_addr + RUN_COLL_FACES, bit)
+        yield from settle(6)
+        yield from wait_for(emu, lambda: emu.r8(ray + RAY_RUNNING) == 0, 100, "a finished walk")
+        got = check_centre(f"without the {name}")
+        if got and emu.r8(info + INFO_SIZE + I_PLATFORM) != (bit == COLL_LANDSCAPE):
+            emu.fail(f"the centre's face is of the kind left out ({name})")
+    emu.w8(run_addr + RUN_COLL_FACES, 0)
+    yield from settle(6)
 
     # 2. In the air the glove's face is kept as an earlier frame's.
     p = vec(hand + 0x34)
