@@ -62,7 +62,7 @@ void TextBegin(Gfx **dl, const Gfx *end) {
 
     *g++ = GfxSync(CMD_PIPESYNC);
     *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_H, 4, 20, OTHERMODE_H);
-    *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 0, 32, OTHERMODE_L);
+    *g++ = GfxSetOtherMode(CMD_SETOTHERMODE_L, 3, 29, OTHERMODE_L);
     *g++ = GfxCmd(COMBINE_W0, COMBINE_W1);
     *g++ = GfxSetTextureImage(TX_FMT_I, TX_SIZ_16B, 1, fontAtlas);
     *g++ = GfxSetTile(TX_FMT_I, TX_SIZ_16B, 0, 0, TX_LOADTILE, 0, 0);

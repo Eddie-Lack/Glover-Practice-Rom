@@ -254,7 +254,7 @@ void ActionsGameFrame(void) {
     if (r & (1 << ACTION_RESET)) {
         if (StateInstantReset()) {
             recording.playing = recording.recording = 0;
-            CollViewEdgesReset();
+            CollViewReset();
         } else {
             ActionsRestart(gameInfo.level);
         }
@@ -266,7 +266,7 @@ void ActionsGameFrame(void) {
             warpGive = 1;
             warpStarts = starts;
         }
-        CollViewEdgesReset();
+        CollViewReset();
     }
     if (r & (1 << ACTION_CHECKPOINT)) {
         /* The pause menu's own choice is a part of the game. A state where that menu hides the choice taints. */
@@ -282,7 +282,7 @@ void ActionsGameFrame(void) {
     if ((r & (1 << ACTION_LOAD_STATE)) && Announce(ACTION_LOAD_STATE, StateLoadReady(stateSlot), "loading...")) {
         recording.playing = recording.recording = 0;
         StateLoad();
-        CollViewEdgesReset();
+        CollViewReset();
     }
     if ((r & (1 << ACTION_RECORD)) && Announce(ACTION_RECORD, !recording.recording && StateSaveReady(), "saving...")) {
         RecordingToggle();

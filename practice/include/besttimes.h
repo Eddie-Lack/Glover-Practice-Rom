@@ -29,7 +29,7 @@ enum {
     BT_SET = 1 << 4,       /* a set glove action or ball state */
     BT_TIME = 1 << 5,      /* frame advance or slow motion */
     BT_STATE = 1 << 6,     /* a savestate was loaded */
-    BT_OTHER = 1 << 7,     /* a cheat, controller 2's debug controls, a frozen or changed seed, Lives or Health set, a camera speed */
+    BT_OTHER = 1 << 7,     /* a cheat, controller 2's debug controls, a frozen or changed seed, Lives or Health set, a camera speed, hidden objects */
 };
 
 enum {

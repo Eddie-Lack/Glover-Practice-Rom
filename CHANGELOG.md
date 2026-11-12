@@ -1,5 +1,26 @@
 # Changelog
 
+## Not yet released
+
+- The collision view is steady: it reads the level's collision once, when you enter the level (it shows
+  "building" for a second or two), and draws it every frame. Moving platforms are drawn where they are.
+- Collision view: it draws the whole level by default. "Radius" picks whole level, 1000, 500 or 250.
+- Collision view: "Colours" (by terrain, by kind or by object), "Back faces" (faint, hide or same) and "Faces
+  shown", which hides floors, walls, ceilings, water, slippery or low gravity ground, the landscape or the
+  platforms.
+- Collision view: open edges are bands inside their face. In the biggest levels the ones nearest to Glover are
+  drawn.
+- Collision view: "Wireframe" outlines every face, over the faces or alone. It draws every face again: it can
+  add lag.
+- Collision view: "Face info" shows the face under the glove and the face in the middle of the screen: its kind,
+  slope, terrain and object. The face in the middle is drawn yellow.
+- Removed "Up-to-date platforms": every platform is up to date now.
+- Fixed: the number of faces in the Collision view menu ran into its label.
+- Inspect menu: "Hide objects" hides one kind of object at a time: the landscape, scenery, water, platforms, the
+  glove, the ball, enemies and their shots, pick-ups and garibs, debris, the sky, the HUD's counters, shadows,
+  footprints, trails and lightning. "Show everything" brings them all back. A run with anything hidden doesn't count
+  for a practice best time.
+
 ## 0.9.10 (2026-11-04)
 
 - Removed the L mash metronome trainer.

@@ -48,7 +48,7 @@ typedef struct Run {
     s32 musicVolume; /* the game's volumes from before the mute */
     s32 sfxVolume;
     u8 collView;     /* the collision view (collview.h, CollViewMode) */
-    u8 collRadius;   /* its radius: 500, 250 or 1000 units */
+    u8 collRadius;   /* its radius: the whole level, 1000, 500 or 250 units (collview.h, CollRadius) */
     u8 collSpheres;  /* 1: also the collision spheres of the glove and the ball */
     u8 rngCalls;     /* steps of the random number seed to make on the next game frame */
     u8 rngReset;     /* 1: set the seed to its value at a level's start on the next game frame */
@@ -63,7 +63,7 @@ typedef struct Run {
     u8 setBallRequest; /* the ball state to start on the next game frame, plus 1 */
     u8 setMarker;    /* drawn frames left of the HUD's MODIFIED marker for a set action */
     u8 collEnemies;  /* 1: the collision view also draws the collision spheres of the enemies */
-    u8 collFresh;    /* 1: it brings the faces of platforms up to date from their mesh, position and rotation */
+    u8 collFresh;    /* unused: it was the switch for up-to-date platforms, which every platform now is */
     u8 collEdges;    /* 1: it marks the edges that belong to one face only */
     u8 spawnKind;    /* the kind to make on the next game frame, plus 1 (spawn.h) */
     u8 actorsMod;    /* 1: an actor was made or moved in this level; the HUD shows the MODIFIED marker */
@@ -83,7 +83,7 @@ typedef struct Run {
     u8 collFaces;    /* the collision view's face filter: the kinds of faces left out, one bit each (collview.h) */
     u8 collColour;   /* its colour mode (collview.h) */
     u8 collBack;     /* how it draws back faces (collview.h) */
-    u8 collWire;     /* 1: it outlines every face (collview.h) */
+    u8 collWire;     /* it outlines every face: 0 off, 1 over the faces, 2 in place of them (collview.h) */
     u8 collInfo;     /* 1: it shows the face under Glover and the face at the screen's centre (collview.h) */
 } Run;
 

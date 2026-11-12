@@ -149,7 +149,7 @@ most `MENU_ROWS` (14) items. With the title row and the hint line the panel is 1
 scrolls (the cheats, 26 items, the HUD layout, 22, and the splits, 48); the title row then shows the cursor's place
 as "n/N". Every other menu has at most 14 items and fits as it is. Sub pages keep the first page to the items that
 are used most: Savestate > SD card, HUD > Counters, Game > Random numbers, Controller 2 and Movement and camera,
-and Inspect > Collision view. `tests/menupages.py` walks every page and checks the frame buffer.
+and Inspect > Collision view (with its own sub page, Faces shown). `tests/menupages.py` walks every page and checks the frame buffer.
 
 The Settings menu has "Menu opacity" and "Menu position across" and "Menu position down". `menu.c` keeps the table of
 the nine places of the panel (x 12, 32 or 52; y 12, 28 or 36) and the six alpha values of the panel
@@ -583,71 +583,166 @@ frame's display list, while the view is on. It reads the game's memory and appen
 
 - It draws only on frames of a level in which the game drew the world (`gfxIsDrawing`, no backdrop-only frame,
   the screen not faded out): only then is the frame's camera matrix (`dynamicp + 0x4080`, from `SetupViewing`)
-  this frame's.
-- The faces are those of `CheckCollisions` (collision.c): the landscape actors in `collisionList`, and the
-  platforms in `platformList` without flag 0x84. Their corners are in world space (`CollFace`). A platform's
-  faces are brought up to date only when something is near it. A moving platform far from Glover shows where
-  it was last checked (unless "Up-to-date platforms" is on, below). The faces that the glove and the ball touched on the last game frame
-  (`ActorObject.planes`) are drawn white.
-- A face is kept when its plane and its triangle come within the radius of Glover. At most 320 faces, and the
-  scan stops after 3 ms of the CPU counter. The scan keeps the first faces it finds. When the faces in reach
-  fill the buffer or the time runs out, the radius shrinks by a quarter for the next frame (to 100 units at
-  least), and it grows back towards the menu's radius while fewer than half fit. The menu shows the radius in
-  use and "(full)". A face that Glover or the ball touches is drawn once, in white.
-- The view draws only while Glover is less than 30,000 units from the origin on each axis: its model matrix is
-  16.16 fixed point (`guMtxF2L`), and the conversion of a larger value traps.
+  this frame's. Glover must be less than 30,000 units from the origin on each axis: a matrix is 16.16 fixed point
+  (`guMtxF2L`), and the conversion of a larger value traps.
 - The draw thread runs above the game thread and can stop it in the middle of a game frame. Every pointer is
   checked before it is followed, every list walk is bounded, and every float is checked as bits before the FPU
   sees it (`practice/include/safe.h`): the game's threads trap on NaN and denormal operands. The actor and
   memory views use the same checks.
-- The overlay runs in the frame's last RSP task, which starts from the microcode's first state. Its list
-  sets the viewport, the matrices (the game's projection from `guPerspective` with the game's values, times the
-  frame's camera matrix; a model matrix that moves the half-unit vertices back to Glover's place), the
-  geometry mode, the render mode (the game's translucent surface) and the combiner. "On surfaces" adds the Z
-  compare without Z update, and moves the faces a little towards the camera in the viewport.
-- Its buffers (vertices, list, matrices, viewport) are in the practice segment's bss, one set for each frame
-  buffer, written back from the data cache before the `G_DL`.
 
-### The three extra switches
+### The cache
 
-Each has its own item at the end of the Inspect menu (`Run.collEnemies`, `collFresh`, `collEdges`). With a switch
-off, nothing of its part is computed. All three need the view itself to be on.
+The faces are those of `CheckCollisions` (collision.c): the landscape actors in `collisionList`, and the platforms
+in `platformList` without flag 0x84 and with faces. The game places face i of an actor as the corners of mesh face
+i, each scaled by `Actor.scale`, turned by the matrix of `QuaternionToMatrix` and moved to `Actor.pos`
+(`InitPlanes` for the landscape, `RecalculatePlatformInfo` for a platform). This was checked in 26 levels: for every
+landscape actor, and every platform whose faces the game had brought up to date on that frame, the mesh placed this
+way is the game's `CollFace` corners within 0.0002 units. So the view keeps each mesh once, in its own space, and
+draws it with a matrix made the same way each frame. A platform moves with no work for its faces, and is drawn
+where it is, also far from Glover, where the game's own faces are out of date.
 
-- **Enemy collision spheres.** `AddEnemySpheres` walks `actorList` (at most 400 actors) and draws the spheres of
-  every actor of type 5 to 58 (not 6) with flag 8 (the flag `CheckActorCollisions` tests; the scenery fish of
-  Atlantis 1 have none) that is within twice the scan's radius plus its own radius of Glover. They are orange,
-  and share the sphere buffer with the glove's and the ball's (40 spheres, the glove's and ball's first). The
-  game places a sphere with `RotateVectorByQuaternion`, which goes through `GetRotationFromQuaternion` (an
-  `acos`) and can give NaN for a quaternion that is a little off. The view has its own copy: it turns by the
-  unit quaternion directly (`Rotate`), reads every game float with `ReadFloat` (`safe.h`: NaN, infinity and
-  values of 2^20 or more are refused; values below 2^-30 read as 0, which leaves no denormal product), and leaves
-  out a sphere whose actor has a quaternion with a squared size outside 0.8 to 1.25. Spheres with flag 0x20 or
-  0x10 need no rotation.
-- **Up-to-date platforms.** `RecalculatePlatformInfo` runs only when something is within the platform's radius
-  of an actor that is checked for collision (`CheckCollisions`), or the platform sparkles. A platform that the
-  game did not bring up to date on this game frame (`Platform.lastUpdate` is not the low half of `frameCount`)
-  is placed again by the view (`BeginPlace`, `PlaceFace`): each corner of each mesh face is scaled by
-  `Actor.scale`, turned by the matrix of `QuaternionToMatrix` (a copy, refused when the quaternion's squared size
-  is outside 0.25 to 4) and moved to `Actor.pos`; the normal comes from the corners. The view never writes the
-  game's faces. Platforms with flag 0x20084 are not placed: the game never updates them either (0x84 are skipped
-  by collision). The game's own faces are what collides. The terrain row is the game's. Stats: `fresh` counts
-  the platforms placed.
-- **Open collision edges.** An edge is open when only one face of its mesh uses it. The game's own
-  `CheckForInnerEdges` marks only edges between coplanar faces. The view works out its own. `OpenBits` counts
-  every edge of a mesh once (a hash table of the two vertex numbers, 4 slots a face) and keeps one byte of bits
-  a face (bit j: the edge from corner j to corner j + 1), for at most 96 meshes and 16,384 faces. A new mesh takes the next entry in turn and the next bytes of the pool
-  (which wraps round) and drops the meshes whose entry or bytes it takes. The check value hashes the face count,
-  the vertex count and about 32 faces spread over the mesh. The shape of a
-  mesh does not change when a platform moves. The kept bits serve both landscape and platforms. At most two
-  meshes are built on a frame (the rest wait for the next frame), and none after the scan has used half of its
-  3 ms. The time of a build counts against the 3 ms. Meshes of more than 700 faces are left out
-  (`edgesSkipped`; none that large in Atlantis 1, where the largest has 164). Faces share an edge when they share
-  its two vertex numbers: a mesh with the same corner twice under two numbers would show false open edges (none in
-  Atlantis 1). The kept bits are dropped when the switch was off, the level changed, the frame count went back,
-  a savestate was loaded or a warp was made, or a mesh's check value changed. An open edge belongs to a face that the scan keeps (near Glover). The
-  radius limits the edges too. Each is a quad of two triangles, hot pink and opaque, 3 units wide, turned to the
-  camera (the game has no line microcode loaded), at most 128 (`edgesFull`), loaded 7 at a time and drawn last. A
-  platform that is placed again has its edges on the placed corners.
+- A record is one actor: its shape, its terrain row, and for a landscape actor its matrix, made once
+  (`staticMtx`). A platform's matrix is made each frame (`movingMtx`, one set for each frame buffer). A hash table
+  finds an actor's record by its address. Each frame the view walks the game's two lists and looks up each actor.
+  An actor with no record, or whose mesh changed, gets a build.
+- A shape is one mesh as some actors use it. Actors share a shape when they have the same mesh, the same scale
+  and the same kind of each face (the kind depends on the actor's rotation). The 26 levels have at most 116 meshes
+  and 2,476 faces; a shape is about one mesh.
+- A shape holds the mesh's vertices as s16, times 2^shift (the most precision that fits; the matrix divides it
+  out), and one display list for each kind of face. A list is batches of up to 32 vertices (F3DEX 1.21's vertex
+  cache) and the triangles that use them, two to a `G_TRI2`. A mesh vertex is loaded once in a batch. The levels
+  need about 1.2 vertices a face.
+- The kinds: a flat floor (normal y above 1 - 0.25 / `handSlideScale` of the terrain row: 0.75 for most rows, the
+  game's `CheckPlaneForSliding` and the onGround test of `UpdateActor`), a steep floor (above 0.3: the game lets
+  such a face carry Glover, collision.c), a wall (-0.3 to 0.3) and a ceiling (below -0.3; the game has no such
+  threshold, it mirrors the floor's). On low gravity rows there is no steep floor. A degenerate face is left out.
+  A platform that turns keeps the kinds of the rotation it had when its shape was built.
+- The build runs as a job, one mesh at a time and 16 faces at a time, for at most 1.5 ms of CPU counts on each
+  frame (`BUILD_COUNTS`), over as many frames as it needs: first the kind of each face, then a shape to share or
+  the new shape's lists, one kind after another. Nothing of the cache is drawn until every actor has its shape
+  (`CollStats.state`, the menu shows "building"). An actor that comes later is added the same way while the rest
+  is drawn.
+- While a shape is built, its scratch (the batch slot of each mesh vertex, and for open edges the hash table of
+  the mesh's edges) is in the unused end of `cacheVtx`.
+- The cache is built again after `CollViewReset` (a savestate load, a reset of the level and a warp call it), a
+  level change, or a frame count that went back. It is cleared only once no frame in flight draws it: a frame's
+  list is sent at the start of the next frame's build and has run by the end of the one after
+  (`CACHE_WAIT_FRAMES`, 3 frames after the last one that drew the cache). What changes each frame (the scene
+  list, the platform and sphere matrices, the touched faces, the holes, the projection, the viewport) has one set
+  for each frame buffer. A build only appends to the cache, which frames in flight do not read past.
+- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 1,920 commands (15 KB) for the cache, 96
+  landscape matrices, 128 shapes and 160 records; for each frame buffer a scene list of 896 commands, an extra list
+  of 232, 64 platform matrices and 32 sphere matrices. One byte for each face of the mesh being built
+  (`faceBytes`) holds a face build's groups or an edge build's open edges: only one build runs. Face info and the
+  wireframe took the room for their code from the cache's commands (2,048 before; Atlantis 3's faces need 1,193)
+  and from the sphere matrices (40 before). The faces alone of the largest level (Atlantis 3) take
+  2,297 vertices and 1,193 commands. The old scan's buffers are gone.
+
+### Each frame
+
+- The scene list: for each actor in reach and not filtered out, a matrix load, then for each kind of its faces
+  a primitive colour (when it changes) and a `G_DL` to the shape's list. Vertices are white; the colour and alpha
+  come from the primitive colour, times the environment alpha (the combiner). The primitive colour needs no pipe
+  sync.
+- Radius (`Run.collRadius`): the whole level (0), or 1000, 500 or 250 units. An actor is in reach when its
+  bounding sphere (`Actor.pos`, `Actor.radius`) comes within the radius of Glover. The landscape's radii go up to
+  3,922 units, so faces far from Glover can be drawn.
+- Face filter (`Run.collFaces`, one bit each, `collview.h`): floors (flat and steep), walls and ceilings leave out
+  a shape's lists; water (row 12), slippery (slip above 1), low gravity (gravity scale below 1), landscape and
+  platforms leave out the actor.
+- Colours (`Run.collColour`): by terrain (water, slippery, low gravity and sticky rows in their colour, others by
+  kind with the steep floor yellow-green), by kind (floor, wall, ceiling), or one of 12 colours for each record.
+- Back faces (`Run.collBack`). The solid side is the one that the normal points to, and the game's normal is the
+  cross product of the edges from corner 0: the RSP sees it as the front. "faint" draws the scene with
+  `G_CULL_BACK`, then again with `G_CULL_FRONT` and the environment alpha at 0x6B (about 0x28 for a face);
+  "hide" draws it once with `G_CULL_BACK`; "same" once with no culling.
+- The extra list sets the state (the frame's last RSP task starts from the microcode's first state: viewport,
+  the game's projection from `guPerspective` with the game's values times the frame's camera matrix, geometry
+  mode, render mode, combiner), calls the scene, then draws the spheres, the touched faces and the holes.
+  "See-through" uses the game's translucent surface; "on surfaces" adds Z compare without Z update and pulls the
+  faces 2 units towards the camera in the viewport.
+- Set a render mode with `G_SETOTHERMODE_L`, shift 3 and length 29, as `gDPSetRenderMode` does. With shift 0 and
+  length 32, F3DEX 1.21 (run by the emulator's low-level RSP) keeps the old bits and ORs the new ones in: the
+  outline mode drew nothing until this was changed. The view, the text (`text.c`) and the ghost (`ghost.c`) now
+  set their modes this way.
+- A see-through mode that sorts the faces by depth (the view clearing the Z buffer and filling it with the faces
+  first, with Z update) was tried. In the emulator, any Z update in the frame's last task broke the practice menu's
+  text on that frame and the game's HUD digits on the next ones. It was tried while every render mode was set with
+  length 32: the text then kept the view's Z bits, which may be the cause. It was not tried again. Do not write
+  the Z buffer from the overlay until it is.
+- The faces that the glove and the ball touched on the last game frame (`ActorObject.planes`) are drawn white over
+  the cache, from their world-space corners, in half units around Glover (at most 8).
+- Collision spheres (`Run.collSpheres`, `Run.collEnemies`): one cached icosahedron, drawn with a matrix for each
+  sphere (at most 32, the glove's and the ball's first). An enemy is an actor of type 5 to 58 (not 6) with flag 8
+  (the flag `CheckActorCollisions` tests; the scenery fish of Atlantis 1 have none) within twice the radius plus
+  its own radius of Glover, or any with the whole level. The game places a sphere with
+  `RotateVectorByQuaternion`, which goes through `GetRotationFromQuaternion` (an `acos`) and can give NaN for a
+  quaternion that is a little off. The view turns by the unit quaternion directly (`Rotate`) and leaves out a
+  sphere whose actor has a quaternion with a squared size outside 0.8 to 1.25. Spheres with flag 0x20 or 0x10
+  need no rotation.
+
+### Open edges
+
+An edge is open when only one face of its mesh uses it (`Run.collEdges`). The game's own `CheckForInnerEdges`
+marks only edges between coplanar faces. `FindOpenEdges` counts every edge of a mesh once (a hash table of the two
+vertex numbers, at least 4 slots a face) when the shape's edges are built. Faces share an edge when they share its
+two vertex numbers: a mesh with the same corner twice under two numbers would show false open edges (none in
+Atlantis 1). Meshes of more than 512 faces are left out (the largest in the 26 levels has 328).
+
+- Each open edge is a band 3 units wide inside its face, from the edge to the same edge moved in: the inner
+  corners are the face's corners pulled towards its incentre, which keeps every band the same width. The band
+  turns the same way as its face, so it is culled with it. Its vertices are pink and opaque.
+- A shape's open edges are a list of their own, drawn after its faces. The lists are built after the faces of
+  every actor, nearest to Glover first, in the build's time. They leave 192 vertices and 96 commands of the cache
+  for actors that come later. In the largest levels they do not all fit (`CollStats.full` bit 1): the view has
+  room for about 70 to 500 of them. Turning the switch off and on again drops the edge lists and builds them again
+  around Glover's new place, if no shape was built after them.
+
+### Wireframe
+
+`Run.collWire`: 0 off, 1 over the faces, 2 alone. The extra list calls the scene once more after the face passes
+(or in place of them), with the render mode `0x50006248` (`0x50006A58` on surfaces):
+
+- `ALPHA_CVG_SEL`: the blender's alpha is the pixel's coverage, not the combiner's alpha.
+- `AA_EN`: every pixel that a face touches is drawn, not only those whose centre it covers.
+- The blend is turned round: memory times the alpha, plus the face's colour times 1 - alpha (`FORCE_BL`,
+  `IM_RD`).
+
+A pixel inside a face is fully covered and keeps the frame's colour. A pixel that an edge crosses takes some of the
+face's colour. So each face's edges show as lines about a pixel wide, in its colour, with no line microcode, no
+vertices and no lists of their own. "Hide" back faces culls the back faces' outlines; "faint" and "same" outline
+every face. An open edge's band is outlined too. The scene's edge lists end by setting the faces' combiner, which
+the outline pass also uses.
+
+Cost: no memory and a few commands. The RSP and the RDP draw every face of the scene once more; the RDP reads and
+writes every pixel of every face (inside ones blend to their own colour). The menu warns about the lag.
+
+### Face info
+
+`Run.collInfo`. `CollInfoUpdate` runs on the draw thread before `CollViewDraw` on frames that show the level (the
+same test as the view), and `CollInfoDraw` draws a panel at the top right in the text pass, with a cross at the
+screen's centre. It works with the view off. Two faces, in `collInfo` (`CollFaceInfo`, collview.h):
+
+- The glove's: of the faces in `hand.obj->planes`, the one whose normal points most upwards. Its actor is found by
+  walking the two lists for the actor whose `faces` array holds it. With no face this frame it stays this frame's
+  while `onGround` is set (the game does not test every face on every frame), and is shown in grey as an earlier
+  frame's once Glover is in the air. A level change or `CollViewReset` clears it.
+- The centre's: a ray from the eye (`actualCamPos`, or the free camera's) along the view. The direction is the third
+  column of the frame's camera matrix (`dynamicp + 0x4080`, s15.16), turned round. Each actor's bounding sphere is
+  tested first. Each face's plane (`normal`, `d`) is read as bits and tested in a short loop: ahead of the eye and
+  nearer than the best so far. Only then are the corners read, and the point is tested against each edge in the
+  plane of the two axes along which the normal is shortest. The last walk's face is tried first, so most faces
+  fail at once. The ray ends at the far plane. It honours the face filter and "hide" back faces. The face is drawn
+  yellow among the touched faces (`MAX_CONTACTS` is 9).
+- The walk over the faces takes at most 0.75 ms of each frame (`INFO_COUNTS`, looked at every 16 faces) and goes
+  on over the next frames from the actor and face where it stopped, with the ray of its first frame. `collInfo[1]`
+  changes only when a walk ends. In the largest levels a walk can take several frames, so the centre's face lags
+  a fast turn of the camera.
+- The panel shows the kind (the view's thresholds, `KindOf`), the slope (the angle of the normal from straight up),
+  "(back)" when the ray meets the back, the terrain row and its type, the distance, platform or landscape, the
+  model's name and the face's number in the actor's `faces`.
+
+`CollStats.infoCounts` is the CPU counts of `CollInfoUpdate` in the frame.
 
 ### Moon Pound holes
 
@@ -662,25 +757,100 @@ off, nothing of its part is computed. All three need the view itself to be on.
   centroid offset for a centre 1 unit above it) into `holeViews[(holeSeq + 1) & 1]` with the `holeBegin`/`holeSeq`
   protocol of the trainer views.
 - The draw thread (`AddHoles` in collview.c) copies the list, checks that no publish began, and writes one post for
-  each hole into the vertex buffer after the open edges (`HOLE_BASE`, 64 quads): a camera-facing quad 3 units wide and
-  24 tall, violet (`0xB050FFFF`), made by `MakeBar` (`AddEdge` uses it too). `CollStats.holes` counts them.
+  each hole (`holeVtx`, 64 quads, one set for each frame buffer): a camera-facing quad 3 units wide and 24 tall,
+  violet (`0xB050FFFF`), made by `MakeBar`, in half units around Glover. `CollStats.holes` counts them.
 
 The candidates lie within 72 units of the build centre, so the holes shown are those within about 50 units of Glover.
-Cost: 8 KB of vertices and 1.5 KB of lists in bss. Measured in the hub (`tests/collholes.py`): the longest game thread
+Cost: 8 KB of vertices in bss. Measured in the hub (`tests/collholes.py`): the longest game thread
 step 103,990 counts (2.2 ms; a call that starts before the budget ends can pass it). A build takes about 11 game frames.
 
-Every buffer is sized for its limit. The list always has room: the faces (320, 11 commands for 10), the
-spheres (40, 11 commands each) and the edges (128, 8 commands for 7) add up to under 1,000 commands, in the view's
-own list. The game's list still grows by one command.
+### Cost
 
-Measured in the emulator with `tests/collview2.py`, in counts of the CPU counter (`CollStats.counts`, for the
-whole view on one frame): in Atlantis 1 at a radius of 100 units, about 150,000 with the switches off, 157,000
-with the enemy spheres and 171,000 with 5 open edges. The view without the switches already reaches its 3 ms limit
-in the emulator there (the radius shrinks to 100 units), as it did before the switches existed; the emulator's
-count rate may be faster than a console's.
+With the view off: one byte test a frame, and `CollViewReset` sets a byte on a reset, a load or a warp.
 
-Cost: with the view off, one byte test a frame. With it on, the scan takes up to 3 ms of the draw thread, and
-large see-through triangles cost RDP time: the view can add lag.
+Measured in the emulator in counts of the CPU counter (`CollStats.counts`: the view's work on the draw thread in
+one frame), with Glover at the level's start, the whole level, see-through and every other switch off, then on
+surfaces with the open edges, the glove's, the ball's and the enemies' spheres:
+
+| Level | Actors | Faces | Counts | With the switches | Open edges that fit |
+| --- | --- | --- | --- | --- | --- |
+| Hub | 78 | 1,635 | 59,000 to 62,000 | 74,000 | 327 |
+| Atlantis 3 | 70 | 1,869 | 100,000 | 139,000 | 134 |
+| Carnival 1 | 113 | 2,125 | 144,000 | 181,000 | 221 |
+| Carnival 3 | 43 | 1,909 | 63,000 | 87,000 | 233 |
+| Pirates 1 | 85 | 1,829 | 134,000 | 169,000 | 416 |
+| Pirates 3 | 109 | 1,928 | 147,000 | 182,000 | 217 |
+| Fear 1 | 70 | 2,232 | 80,000 | 105,000 | 67 |
+| Fear 2 | 113 | 1,867 | 143,000 | 165,000 | 333 |
+| Out of this World 1 | 125 | 1,744 | 144,000 | 173,000 | 328 |
+| Out of this World 3 | 109 | 2,104 | 150,000 | 182,000 | 511 |
+
+- The work grows with the number of actors (about 1,200 counts each: the lookup, the reach test, a platform's
+  matrix), not with the faces. The old scan used up to its 3 ms (141,000 counts) and more for 6 to 50 faces.
+- A build takes 5.5 to 6.9 million counts in all, over 70 to 90 frames (2 to 3 seconds); no frame passes about
+  180,000 counts while it runs. The emulator's count rate may be faster than a console's.
+- The wireframe adds about 100 counts of CPU work (a few commands). Face info, measured the same way in the hub,
+  Atlantis 3, Carnival 1 and 3, Pirates 1 and 3, Fear 3, Out of this World 1 and the first space boss: 38,000 to
+  47,000 counts a frame (median), at most 66,000. A walk of the ray over the level's faces takes about 4 to 7
+  frames there. The emulator counts about 2 counts an instruction in these loops (a test loop of stores: 8 counts
+  for 4 instructions).
+- The RDP draws every face of the level (up to about 2,200, plus the open edges' bands) as see-through triangles,
+  and each face is rasterized once in each mode. Its time cannot be measured in the emulator (angrylion does not
+  model time). On a console the view can add lag, most with the whole level: a smaller radius or the face filter
+  draws fewer.
+
+## Hiding objects
+
+`Run.hide` holds one bit for each kind of object that the Inspect menu's "Hide objects" page leaves out of the
+picture (`practice/include/hide.h`, `practice/src/hide.c`). Several of the game's drawing functions also change the
+game's state, so a hidden kind's function always runs:
+
+- `TransformAndDrawObject` places collision spheres and platforms tied to a sub-object, and `DrawActor` steps the
+  animations before it.
+- `PrintStats` calls `Random`. `DrawFootprints` ages and kills footprints and calls `UpdateEnemyBlastring`.
+  `UpdateLightning` counts its timers down, and `DrawLightning` calls `Random`. `ProcessShadows` fades the shadows.
+
+After the call, `Strip` turns the commands that the function wrote to `glistp` and that draw into `G_SPNOOP`:
+`G_VTX`, `G_TRI1`, `G_TRI2`, `G_LINE3D`, `G_FILLRECT`, `G_SPRITE2D_DRAW`, and `G_TEXRECT` with its two half
+commands. For the 3D objects it also drops `G_DL` and `G_BRANCH_Z` (a model's prebuilt list). Every other command
+stays: matrices, render modes, combiners, texture loads and geometry modes. The RDP then ends in the state that the
+game expects, and the game's copies of that state (`transparentSurf`, `xluSurf`, `xluFact`, the lighting bit) stay
+true. A state command inside a dropped prebuilt list is lost; that can only change how a later object looks.
+
+| Kind | Hook | Which ones |
+| --- | --- | --- |
+| Landscape, scenery, water, platforms, glove, ball, enemies, pick-ups, debris | `TransformAndDrawObject` in `DrawActor` (object.c) | by `currentDrawActor`: `&hand`; `&ball`, `extraBall[3]`, `plaster[4]`; inside `debris[120]` (0x120 bytes each); then by type: 60 with flag 4 and 63 are scenery, 60 without it is landscape, 62 water, 59 platforms, 61 and 1000 or more (orbiters) pick-ups, 4, 2 (ball shots) and 5 to 58 enemies. `fadeOverlay`, `starOverlay` and the foreground objects (`noClip`) are never hidden |
+| Garibs, debris sprites, shots' sprites, sprites of hidden models | `PrintSprite` at its four calls (overlay.c) | a sprite inside `debris[]`; a sprite whose animation's frames are those of `garibAnimation[0..3]` (this also hides the garib that the Locate cheat shows over the glove); a sprite inside a `Bullet` of `bulletList`; a sprite of the model of an actor hidden on this frame (at most 32 a frame, from the model's tree) |
+| Sky | `PrintBackdrops` (main.c) | every backdrop |
+| HUD | `PrintStats`, inside `PracticePrintStats` | the game's counters. `PrintStats` sets up no state of its own, and `ShowText` after it starts with `spInit`: here `glistp` is put back instead. Texts and the pause screen stay |
+| Shadows, footprints and blast rings, trails, lightning | `ProcessShadows`, `DrawFootprints`, `UpdateLightning`, `DrawBlurs` in `CreateObjects` | all of them. `DrawBlurs` calls `blurdl`, which sets state only, and keeps it |
+
+The hooks are in `hooks/object.c.patch` (five calls), `hooks/overlay.c.patch` (the four calls of `PrintSprite`)
+and `hooks/main.c.patch` (`PrintBackdrops`). `PracticePrintStats` already took the place of `PrintStats`.
+
+A sprite of the opaque pass whose actor is drawn later, in the translucent pass, is not hidden: the list of a frame's
+hidden models starts empty at each frame (`dispFrameCount`). `HideStats` (`hideStats`) counts the actors, sprites and
+commands of the last complete frame for the tests.
+
+A run with any kind hidden does not count for a practice best time (`BT_OTHER` in `BestTimesTick`). The game's logic
+is the same, but the RDP has less to do, so a frame can lag less. That moves when the drawn frames fall between game
+frames, which decides some `Random` calls and animation steps. With every bit off, each hook costs a test of
+`run.hide` and the work of the call.
+
+The collision view's "On surfaces" mode compares with the Z buffer. With the landscape hidden, the Z buffer holds no
+landscape, and that mode shows the faces that are in front of the objects still drawn.
+
+Cost: with every kind hidden in Atlantis 1, the practice code's work after the calls (17 actors, 14 sprites, 262
+commands) took at most 19,060 counts (0.41 ms) of the draw thread a frame (`HideStats.counts`, `tests/hide.py`).
+The RDP has less to draw. 2 KB of code and data and 0.2 KB of bss.
+
+The overlay lists (`overlayList`, practice.c) hold only text: the HUD, the menu and the face info. The collision
+view and the ghost have lists of their own. The most commands one frame used was 3,811, with the menu on its HUD page
+in Out of this World 3 and every HUD item, every collision view switch and face info on (`tests/overlay.py`, which
+also visited the menu's other pages and views in Atlantis 3, Carnival 1, Pirates 3 and Out of this World 3). The
+level does not change it: the HUD and face info use about 1,900 commands, and a menu page about as many. `OVERLAY_SIZE`
+went from 6,000 to 4,800 commands for each of the two lists, which frees 19 KB. The text writers stop at the end of
+the list (`Room` in text.c) and `Practice.overlayFull` counts the frames on which one stopped; the test requires 0.
 
 ## The fog switch
 

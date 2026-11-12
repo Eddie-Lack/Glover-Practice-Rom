@@ -17,3 +17,32 @@
      }
      if (gameInfo.mode == 4 && gameInfo.level == FLYTHRU) {
          if (startText != NULL) {
+@@ -548,12 +549,12 @@
+     if (gamePaused) {
+         for (sprite = spriteList.head.next; sprite != &spriteList.head && !(sprite->flags & 1);
+              sprite = sprite->next) {
+-            PrintSprite(sprite);
++            PRACTICE_WRAP(PrintSprite)(sprite);
+         }
+     } else {
+         for (sprite = spriteList.head.next; sprite != &spriteList.head && !(sprite->flags & 1);
+              sprite = sprite->next) {
+-            PrintSprite(sprite);
++            PRACTICE_WRAP(PrintSprite)(sprite);
+             if (sprite->anim.def.type) {
+                 AnimateSprite(sprite);
+             }
+@@ -583,11 +584,11 @@
+     }
+     if (gamePaused) {
+         for (; sprite != &spriteList.head; sprite = sprite->next) {
+-            PrintSprite(sprite);
++            PRACTICE_WRAP(PrintSprite)(sprite);
+         }
+     } else {
+         for (; sprite != &spriteList.head; sprite = sprite->next) {
+-            PrintSprite(sprite);
++            PRACTICE_WRAP(PrintSprite)(sprite);
+             if (sprite->anim.def.type) {
+                 AnimateSprite(sprite);
+             }

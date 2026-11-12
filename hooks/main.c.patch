@@ -53,6 +53,15 @@
                  dynamicp = &dynamic[draw_buffer];
                  tlistp = tlistPointers[draw_buffer];
                  glistp = dynamicp->glist;
+@@ -835,7 +836,7 @@
+                     if (gameInfo.mode == 2 || gameInfo.mode == 15 || GameBeingPlayed()) {
+                         UpdateBackSprites();
+                     }
+-                    PrintBackdrops();
++                    PRACTICE_WRAP(PrintBackdrops)();
+                     CleanupAndSendDisplayList(1, 0);
+                     EndTimer(1);
+                     if (onlyDrawBackdrops) {
 @@ -855,7 +856,7 @@
                          CleanupAndSendDisplayList(0, 0);
                      }
@@ -90,7 +99,7 @@
  
  void MainGameLoop(void) {
      Vec3 tempVect;
-@@ -1058,7 +1064,7 @@
+@@ -1057,7 +1063,7 @@
      if (!gamePaused) {
          if (GameBeingPlayed()) {
              if (gameInfo.mode != 5) {
@@ -99,7 +108,7 @@
                  UpdateActorPositionDependencies();
                  MoveBall();
                  MoveHand();
-@@ -1070,7 +1076,7 @@
+@@ -1069,7 +1075,7 @@
          }
      }
      if (!gamePaused) {
