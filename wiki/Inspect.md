@@ -207,7 +207,7 @@ Leave kinds of objects out of the picture, one at a time. Each item shows `shown
 | Lightning | Lightning |
 | Show everything | Show every kind again |
 
-- The game still runs exactly as before. Only the picture changes
+- The game's logic is the same. Only the picture changes _(see the last point about lag)_
 - Hidden objects still collide. Use the collision view to see what Glover touches _(see above)_
 - With the landscape hidden, "On surfaces" in the collision view also shows faces that the landscape would block
 - The game has less to draw, so it can lag less. That can change some random numbers. A run with anything hidden doesn't count for a practice best time
