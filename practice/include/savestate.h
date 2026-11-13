@@ -15,11 +15,16 @@
  * The slots are STATE_USER_SLOTS that the player chooses, one that a recording keeps its state in, and one that
  * the instant reset keeps the state of the level's first game frame in. */
 #define STATE_POOL 0x80480000
-#define STATE_POOL_END 0x806EC000
+/* The last 0x2400 bytes below the test mailbox hold the work tables of the savestate code (savestate.c, STATE_WORK).
+ * They are not in the practice segment, which has little room. The pool ends where they begin. */
+#define STATE_WORK_SIZE 0x2400
+#define STATE_POOL_END 0x806E9C00
+#define STATE_WORK STATE_POOL_END
 /* 16 KB behind the pool for the SD card test mailbox (sd.c, only in the test build, make testrom). It is reserved in
  * every build: the test ROM then has the release ROM's memory map, and the mailbox needs no room in the practice
  * segment. The test link sets the symbol sdMailbox to this address. */
 #define TEST_MAILBOX 0x806EC000
+_Static_assert(STATE_WORK + STATE_WORK_SIZE == TEST_MAILBOX, "the work tables end where the mailbox begins");
 #define TEST_MAILBOX_SIZE 0x4000
 /* 64 KB behind the pool for the work of a save and a load: two blocks of LZ_BLOCK_MAX bytes. They are not in the
  * practice segment, whose 512 KB is nearly full. */
@@ -66,6 +71,7 @@ int StateInstantReset(void);
 /* Empties a slot (STATE_SLOTS: every slot). The menu calls this from the controller thread, which runs only
  * while the game thread is not inside a save or a load. */
 void StateClear(int slot);
+void StateInit(void); /* clears the work tables; the boot calls it once */
 
 /* The menu's text for the chosen slot and for the pool. */
 void StateSlotText(char *buf, int size, int arg);

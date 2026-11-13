@@ -195,7 +195,8 @@ The Expansion Pak's upper 4 MB is laid out as follows (docs/plan.md has the whol
 | Range | Use |
 | --- | --- |
 | 0x80400000 to 0x8047FFFF | the practice segment (code, data, bss) |
-| 0x80480000 to 0x806EBFFF | the pool (2.4 MB) |
+| 0x80480000 to 0x806E9BFF | the pool (2.4 MB) |
+| 0x806E9C00 to 0x806EBFFF | the savestate work tables (`STATE_WORK`, 9 KB): the compressor's table, the chunk sums of the bases and of the state being made, and the game's save data that a load keeps. `StateInit` clears them at boot |
 | 0x806EC000 to 0x806EFFFF | the SD card test mailbox, used only by the test ROM (`make testrom`) |
 | 0x806F0000 to 0x806FFFFF | the work of a save and a load: two blocks of 16 KB |
 | 0x80700000 to 0x8077FFFF | the ghosts |
@@ -212,7 +213,7 @@ behind it move down (a copy of at most a few hundred kilobytes). Free space is o
   when its base is of the same level.
 
 The state is cut into chunks of at most 16 KB (`LZ_BLOCK_MAX`), each in one range; there are 145
-(`STATE_CHUNKS`, counted by `tools/mkstate.py`; a `_Static_assert` keeps it within `STATE_CHUNKS_MAX`, 160). A base
+(`STATE_CHUNKS`, counted by `tools/mkstate.py`; the work tables are sized from it). A base
 is a list of chunks, each compressed by `LzCompress` ([below](#the-compressor)) or, if that does not make it
 smaller, stored as it is. A slot is a list of chunks of four kinds, each with a 2-byte header (kind in the top 2
 bits, length in the other 14):

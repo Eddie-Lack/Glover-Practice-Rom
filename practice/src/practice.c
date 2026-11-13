@@ -17,6 +17,7 @@
 #include "perf.h"
 #include "practice.h"
 #include "saveedit.h"
+#include "savestate.h"
 #include "settings.h"
 #include "text.h"
 #include "trainers.h"
@@ -38,6 +39,7 @@ void PracticeInit(void) {
         *p = 0;
     }
     TextInit(atlas);
+    StateInit();
     MenusInit();
     SettingsDefault();
     SettingsLoadAtBoot();
