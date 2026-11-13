@@ -119,7 +119,6 @@ PURPOSES = {
     "extra": "collision view: display list commands for open edges, spheres and contacts, two frames",
     "records": "collision view: one record for each cached actor",
     "atlas": "text: the font atlas",
-        "splitItems": "menu: the full-game timer's split items",
     "cellSim": "Moon Pound aim: the work of the cell simulation",
     "threadStack": "missed taps: the extra controller reader's thread stack",
     "holeViews": "Moon Pound aim: the views that the draw thread draws",

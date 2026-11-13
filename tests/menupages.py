@@ -12,7 +12,7 @@ Needs --gfx angrylion. The panel is made solid for 1 and 3 so that its colour is
 import layout
 import menunav
 import trace
-from menunav import Page, goto, to_item
+from menunav import Page, goto, to_item, top
 from tools import C_ALL, press
 
 W, H = 320, 240
@@ -130,6 +130,13 @@ def run(emu, sym, args):
     emu.w8(settings + layout.SETTINGS_MENU_OPACITY, 6)  # solid
     yield 6
 
+    # The Splits page shows one row for each split: 20 of them for the walk.
+    timer = sym("gameTimer")
+    emu.w8(timer + 2, 20)
+    for i in range(20):
+        emu.w32(timer + 8 + 4 * i, 600 * (i + 1))
+        emu.w8(timer + 200 + i, 1)
+
     # 1. Every page.
     log = []
     yield from walk(emu, sym, [], log)
@@ -138,6 +145,34 @@ def run(emu, sym, args):
     print(len(log), "pages checked")
     if len(log) < 20:
         emu.fail(f"only {len(log)} pages were checked")
+
+    # 1b. A page whose row count drops (the timer cleared with the menu open) keeps its cursor and scroll inside.
+    yield from goto(emu, sym, "HUD", "Full-game timer")
+    yield from to_item(emu, sym, 5)  # the last item: the sub menu (an earlier item has the same label)
+    yield from press(emu, "A")
+    page = Page(emu, sym)
+    if page.count != 20 or page.labels()[:2] != ["1", "2"]:
+        emu.fail(f"the Splits page should list 20 rows, it has {page.labels()}")
+    yield from press(emu, "UP")
+    yield 4
+    page = Page(emu, sym)
+    if (page.cursor, page.scroll) != (19, 20 - menunav.MENU_ROWS):
+        emu.fail(f"Splits: UP from the top gave cursor {page.cursor}, scroll {page.scroll}")
+    emu.w8(timer + 2, 3)
+    yield 4
+    page = Page(emu, sym)
+    if (page.count, page.cursor, page.scroll) != (3, 2, 0):
+        emu.fail(f"Splits after the count dropped to 3: cursor {page.cursor}, scroll {page.scroll}")
+    check_page(emu, sym, "Splits (3 rows)", [])
+    emu.w8(timer + 2, 0)
+    yield 4
+    yield from press(emu, "DOWN")
+    yield from press(emu, "A")
+    page = Page(emu, sym)
+    if (page.count, page.cursor, page.scroll) != (0, 0, 0):
+        emu.fail(f"Splits with no rows: cursor {page.cursor}, scroll {page.scroll}")
+    check_page(emu, sym, "Splits (no rows)", [])
+    yield from top(emu, sym)
 
     # 2. Menu opacity: Settings, Menu opacity. From 85% (step 5): solid, then around to clear and up.
     yield from goto(emu, sym, "Settings")

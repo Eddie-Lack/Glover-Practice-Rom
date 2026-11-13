@@ -146,10 +146,18 @@ thread after its read, when the game has no EEPROM request waiting, as the game 
 
 `practice/src/menu.c` draws and moves through the menus; `practice/src/menus.c` holds the tables. A menu shows at
 most `MENU_ROWS` (14) items. With the title row and the hint line the panel is 189 pixels high. A longer menu
-scrolls (the cheats, 26 items, the HUD layout, 22, and the splits, 48); the title row then shows the cursor's place
+scrolls (the cheats, 26 items, the HUD layout, 22, and the splits, up to 48); the title row then shows the cursor's place
 as "n/N". Every other menu has at most 14 items and fits as it is. Sub pages keep the first page to the items that
 are used most: Savestate > SD card, HUD > Counters, Game > Random numbers, Controller 2 and Movement and camera,
 and Inspect > Collision view (with its own sub page, Faces shown). `tests/menupages.py` walks every page and checks the frame buffer.
+
+A `MenuItem` is 24 bytes: the label, the kind, `min`, `max` and `arg` in one word, one pointer that the kind picks
+(`value`, `submenu` or `view`, a union), the action, one word for `names` (CHOICE) or `info` (ACTION, INFO; a union)
+and the hint. A quick action has its own kind, `ITEM_QUICK`: `arg` is the action and its binding shows. The rows in
+`menus.c` use designated initializers, so a row cannot set two members that share a word. The splits page is one
+`Menu` with `repeat` set: it has one item, whose `value` points to `gameTimer.splitCount`, and the page shows one row
+for each split ("N" and the split's level and time). `menu.c` pulls the cursor and the scroll back inside when the
+count drops. `tests/menunav.py` knows both layouts.
 
 The Settings menu has "Menu opacity" and "Menu position across" and "Menu position down". `menu.c` keeps the table of
 the nine places of the panel (x 12, 32 or 52; y 12, 28 or 36) and the six alpha values of the panel
