@@ -1359,7 +1359,12 @@ built. They read the game and draw. They write no game state, call no `Random` a
     frames. It starts at the first frame of each jump, when the glove is 24 units from the centre of the active buffer
     sideways or in height, every 100 game frames, and after a level start or a savestate load; two builds start at
     least 4 game frames apart. The job keeps the position of the actor list between frames and starts again if the
-    actor there changed. A face's corners are read and tested first. A full buffer keeps the nearest 192 faces.
+    actor there changed. A face's corners are read one axis at a time (x, then z, then y) and a face that lies outside
+    the box on an axis is dropped before the other axes are read. A full buffer keeps the nearest 192 faces.
+  - Memory: a buffer holds each face's box once, in `bb` (a face does not carry it as well). The distance keys of the
+    build are one array, as only the staging buffer uses them. The strip keeps a 56-byte summary of each slam
+    (`CellSum`) and plays every slam into one scratch `Sim`. The aim's bss is 12 KB smaller than before (practice
+    RAM left: 15.1 KB to 25.9 KB in the test build, 26.8 KB in the release build).
   - What a verdict needs: `cover` is the distance from the build centre within which every face is in the buffer
     (the reach, less when the buffer is full). A slam whose path, with the glove's radius, reaches beyond `cover`, or
     above 80 or below 330 units from the build centre's height, gets no verdict: its cell is grey and the zone search

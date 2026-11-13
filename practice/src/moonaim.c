@@ -23,6 +23,7 @@
 #include "text.h"
 
 #define MAX_FACES 192
+_Static_assert(MAX_FACES <= 256, "a face index is kept in a u8");
 #define MAX_CANDS 64
 #define PASSES 14          /* slam passes played: the hover and ten falls */
 #define FALL 14.0f         /* the slam's fall a pass (hand.c, MaintainAction) */
@@ -54,7 +55,6 @@ typedef struct MFace {
     f32 edir[3][3];
     f32 elen[3];
     f32 proj[4];
-    f32 lo[3], hi[3];
     u8 axis[2];
 } MFace;
 
@@ -65,7 +65,6 @@ typedef struct Cand {
 
 typedef struct Buf {
     MFace faces[MAX_FACES];
-    f32 key[MAX_FACES];        /* the squared distance from the centre to the face's box */
     f32 bb[MAX_FACES][8];      /* lo x, y, z, hi x, y, z, normal.y: what the slams test first, in a small array */
     Cand cands[MAX_CANDS];
     int faceCount, candCount, worst; /* worst: the farthest face of a full buffer */
@@ -78,6 +77,9 @@ typedef struct Buf {
 /* A buffer is built in the staging one over several game frames, in the work of the job below. When it is complete it
  * replaces the active one, which serves the slams until then. */
 static Buf bufs[2];
+/* The squared distance from the centre to each face's box, for the staging buffer: only a build reads it, and it writes
+ * a key before it reads it. */
+static f32 key[MAX_FACES];
 static Buf *act = &bufs[0];
 static Buf *stg = &bufs[1];
 
@@ -148,29 +150,35 @@ void MoonAimReset(void) {
  * The faces
  */
 
-/* Copies a game face if its corners lie inside the box. 0 if not, or if a number is not usable, or if the contact
- * test can never find a contact on it (a face with no area). The corners are read first: most faces are far away. */
-static int LoadFace(const CollFace *c, MFace *o, f32 xlo, f32 xhi, f32 zlo, f32 zhi, f32 ylo, f32 yhi) {
-    const f32 *src = (const f32 *)c;
-    f32 raw[29];
-
-    for (int i = 4; i < 13; i++) {
-        if (!ReadFloat(&src[i], &raw[i])) {
+/* Reads the three corners' values on one axis (0 x, 1 y, 2 z) into RAW and gives their lowest and highest. 0 if one is
+ * not usable, or if all lie below LO or all above HI. */
+static int ReadAxis(const f32 *src, f32 *raw, int i, f32 lo, f32 hi, f32 *mn, f32 *mx) {
+    for (int k = 0; k < 3; k++) {
+        if (!ReadFloat(&src[4 + 3 * k + i], &raw[4 + 3 * k + i])) {
             return 0;
         }
     }
-    for (int i = 0; i < 3; i++) {
-        o->lo[i] = o->hi[i] = raw[4 + i];
-        for (int k = 1; k < 3; k++) {
-            if (raw[4 + 3 * k + i] < o->lo[i]) {
-                o->lo[i] = raw[4 + 3 * k + i];
-            }
-            if (raw[4 + 3 * k + i] > o->hi[i]) {
-                o->hi[i] = raw[4 + 3 * k + i];
-            }
+    *mn = *mx = raw[4 + i];
+    for (int k = 1; k < 3; k++) {
+        if (raw[4 + 3 * k + i] < *mn) {
+            *mn = raw[4 + 3 * k + i];
+        }
+        if (raw[4 + 3 * k + i] > *mx) {
+            *mx = raw[4 + 3 * k + i];
         }
     }
-    if (o->hi[0] < xlo || o->lo[0] > xhi || o->hi[2] < zlo || o->lo[2] > zhi || o->hi[1] < ylo || o->lo[1] > yhi) {
+    return *mx >= lo && *mn <= hi;
+}
+
+/* Copies a game face if its corners lie inside the box. BOX gets the face's own box (lo x, y, z, hi x, y, z). 0 if not, or if a number is not usable, or if the contact
+ * test can never find a contact on it (a face with no area). The corners are read first: most faces are far away. */
+static int LoadFace(const CollFace *c, MFace *o, f32 *box, f32 xlo, f32 xhi, f32 zlo, f32 zhi, f32 ylo, f32 yhi) {
+    const f32 *src = (const f32 *)c;
+    f32 raw[29];
+
+    /* One axis at a time, x then z then y: most faces are out on the first. */
+    if (!ReadAxis(src, raw, 0, xlo, xhi, &box[0], &box[3]) || !ReadAxis(src, raw, 2, zlo, zhi, &box[2], &box[5]) ||
+        !ReadAxis(src, raw, 1, ylo, yhi, &box[1], &box[4])) {
         return 0;
     }
     for (int i = 0; i < 4; i++) {
@@ -209,9 +217,9 @@ static int LoadFace(const CollFace *c, MFace *o, f32 xlo, f32 xhi, f32 zlo, f32 
 }
 
 /* The squared distance from (cx, cz) to the box of a face. */
-static f32 BoxKey(const MFace *f, f32 cx, f32 cz) {
-    f32 dx = f->lo[0] > cx ? f->lo[0] - cx : cx > f->hi[0] ? cx - f->hi[0] : 0.0f;
-    f32 dz = f->lo[2] > cz ? f->lo[2] - cz : cz > f->hi[2] ? cz - f->hi[2] : 0.0f;
+static f32 BoxKey(const f32 *box, f32 cx, f32 cz) {
+    f32 dx = box[0] > cx ? box[0] - cx : cx > box[3] ? cx - box[3] : 0.0f;
+    f32 dz = box[2] > cz ? box[2] - cz : cz > box[5] ? cz - box[5] : 0.0f;
 
     return dx * dx + dz * dz;
 }
@@ -219,20 +227,17 @@ static f32 BoxKey(const MFace *f, f32 cx, f32 cz) {
 static void FindWorst(Buf *b) {
     b->worst = 0;
     for (int j = 1; j < b->faceCount; j++) {
-        if (b->key[j] > b->key[b->worst]) {
+        if (key[j] > key[b->worst]) {
             b->worst = j;
         }
     }
 }
 
-static void SetBox(Buf *b, int i) {
-    const MFace *f = &b->faces[i];
-
-    for (int k = 0; k < 3; k++) {
-        b->bb[i][k] = f->lo[k];
-        b->bb[i][3 + k] = f->hi[k];
+static void SetBox(Buf *b, int i, const f32 *box) {
+    for (int k = 0; k < 6; k++) {
+        b->bb[i][k] = box[k];
     }
-    b->bb[i][6] = f->n[1];
+    b->bb[i][6] = b->faces[i].n[1];
 }
 
 /* Starts a new build centred on the glove. */
@@ -314,7 +319,7 @@ static int CopyActor(const Actor *a) {
     }
     for (; job.faceIdx < n; job.faceIdx++) {
         static MFace tmp;
-        f32 key;
+        f32 box[6], k;
 
         if (JobTimeUp()) {
             return 0;
@@ -322,24 +327,24 @@ static int CopyActor(const Actor *a) {
         if (!SafePointer(&list[job.faceIdx]) || !SafePointer((const u8 *)&list[job.faceIdx] + sizeof(CollFace) - 4)) {
             return 1;
         }
-        if (!LoadFace(&list[job.faceIdx], &tmp, cx - job.reach, cx + job.reach, cz - job.reach, cz + job.reach, ylo,
+        if (!LoadFace(&list[job.faceIdx], &tmp, box, cx - job.reach, cx + job.reach, cz - job.reach, cz + job.reach, ylo,
                       yhi)) {
             continue;
         }
-        key = BoxKey(&tmp, cx, cz);
+        k = BoxKey(box, cx, cz);
         if (stg->faceCount < MAX_FACES) {
-            stg->key[stg->faceCount] = key;
+            key[stg->faceCount] = k;
             stg->faces[stg->faceCount] = tmp;
-            SetBox(stg, stg->faceCount++);
+            SetBox(stg, stg->faceCount++, box);
             if (stg->faceCount == MAX_FACES) {
                 FindWorst(stg);
             }
         } else {
             stg->full = 1;
-            if (key < stg->key[stg->worst]) {
+            if (k < key[stg->worst]) {
                 stg->faces[stg->worst] = tmp;
-                SetBox(stg, stg->worst);
-                stg->key[stg->worst] = key;
+                SetBox(stg, stg->worst, box);
+                key[stg->worst] = k;
                 FindWorst(stg);
             }
         }
@@ -367,7 +372,7 @@ static void CollectRun(void) {
             /* What the buffer is sure to hold: all of a disc around the centre. */
             stg->cover = job.reach;
             if (stg->full) {
-                stg->cover = Sqrt(stg->key[stg->worst]);
+                stg->cover = Sqrt(key[stg->worst]);
                 if (stg->cover > job.reach) {
                     stg->cover = job.reach;
                 }
@@ -500,9 +505,10 @@ static int MakeCandidate(int i, int k, Cand *out) {
 
     for (int j = 0; j < stg->faceCount; j++) {
         const MFace *f = &stg->faces[j];
+        const f32 *bb = stg->bb[j];
 
-        if (v[0] < f->lo[0] - 0.05f || v[0] > f->hi[0] + 0.05f || v[2] < f->lo[2] - 0.05f ||
-            v[2] > f->hi[2] + 0.05f || v[1] < f->lo[1] - 0.05f || v[1] > f->hi[1] + 0.05f) {
+        if (v[0] < bb[0] - 0.05f || v[0] > bb[3] + 0.05f || v[2] < bb[2] - 0.05f || v[2] > bb[5] + 0.05f ||
+            v[1] < bb[1] - 0.05f || v[1] > bb[4] + 0.05f) {
             continue;
         }
         for (int kk = 0; kk < 3; kk++) {
@@ -633,9 +639,10 @@ static void CandsRun(void) {
     while (job.candNext < stg->faceCount) {
         const MFace *f = &stg->faces[job.candNext];
         int i = job.candNext;
+        const f32 *bb = stg->bb[i];
 
-        if (f->n[1] < MIN_NY || f->hi[0] < stg->x - CAND_BUILD || f->lo[0] > stg->x + CAND_BUILD ||
-            f->hi[2] < stg->z - CAND_BUILD || f->lo[2] > stg->z + CAND_BUILD) {
+        if (f->n[1] < MIN_NY || bb[3] < stg->x - CAND_BUILD || bb[0] > stg->x + CAND_BUILD ||
+            bb[5] < stg->z - CAND_BUILD || bb[2] > stg->z + CAND_BUILD) {
             job.candNext++;
             continue;
         }
@@ -709,9 +716,18 @@ typedef struct Sim {
 
 static f32 mJump, mSlam;
 
-/* The slams of the strip, kept for the next game frame (see MoonAimStep). */
-static Sim cellSim[MOON_CELLS];
+/* What the aim keeps of a slam of the strip, for the next game frame (see MoonAimStep). */
+typedef struct CellSum {
+    u8 verdict;
+    f32 hover;                 /* P[3][1] */
+    f32 col[2];                /* P[5][0], P[5][2] */
+    f32 fall[PASSES - 4];      /* P[5..PASSES][1]: the glove's height in each fall pass */
+} CellSum;
+
+static Sim scratch;            /* the slam being played; the strip, the aim's fallback and the zone search all use it */
+static CellSum cellSim[MOON_CELLS];
 static u8 cellOk[MOON_CELLS];      /* cellSim[k] is a verdict for the current state */
+
 static f32 predPos[3], predVel[3]; /* the state that the next game frame should start from, if cacheOk */
 static u32 cacheSerial;
 static f32 cacheMJump, cacheRadius, cacheSlam, cacheGravity;
@@ -885,7 +901,7 @@ static int Footprint(const MFace *f, f32 x, f32 z) {
     return InsideAt(f, q, TOL);
 }
 
-static int idx[MAX_FACES];
+static u8 idx[MAX_FACES];
 
 /* Plays the slam from the state at the start of a game frame, with Z on the next frame's read and the stick neutral
  * from now on. s->verdict is MC_LAND (a contact came first), MC_CLIP (the centre crossed a floor with no contact),
@@ -1045,13 +1061,24 @@ static void Predict(const f32 *pos, const f32 *vel) {
     cacheOk = 1;
 }
 
+/* Plays one slam into the scratch and keeps its summary in CELL. */
+static void SimulateCell(const f32 *pos, const f32 *vel, CellSum *cell) {
+    Simulate(pos, vel, &scratch);
+    cell->verdict = scratch.verdict;
+    cell->hover = scratch.P[3][1];
+    cell->col[0] = scratch.P[5][0];
+    cell->col[1] = scratch.P[5][2];
+    for (int k = 5; k <= PASSES; k++) {
+        cell->fall[k - 5] = scratch.P[k][1];
+    }
+}
+
 /* ---------------------------------------------------------------------------------------------------------
  * One game frame
  */
 
 void MoonAimStep(const MoonIn *input, MoonView *out) {
-    static Sim probe;
-    const Sim *aim;
+    const CellSum *aim;
     int reuse;
     f32 pos[3], vel[3];
     int aimCell = -1;
@@ -1181,7 +1208,7 @@ void MoonAimStep(const MoonIn *input, MoonView *out) {
                 continue;
             }
             t0 = osGetCount();
-            Simulate(pos, vel, &cellSim[k]);
+            SimulateCell(pos, vel, &cellSim[k]);
             /* A cell with no verdict (the buffer does not cover it) is tried again next frame. */
             cellOk[k] = cellSim[k].verdict != MC_GREY;
             if (osGetCount() - t0 > simMax) {
@@ -1193,7 +1220,7 @@ void MoonAimStep(const MoonIn *input, MoonView *out) {
             out->cell[k] = (u8)(out->cell[k] == MC_NO_Z ? MC_NO_Z : MC_GREY);
         }
         if (k == aimCell) {
-            out->hover = cellSim[k].P[3][1];
+            out->hover = cellSim[k].hover;
         }
         AdvanceJump(pos, vel);
         if (k == 0) {
@@ -1216,15 +1243,15 @@ void MoonAimStep(const MoonIn *input, MoonView *out) {
                 pos[k] = in->pos[k];
                 vel[k] = in->vel[k];
             }
-            Simulate(pos, vel, &cellSim[0]);
+            SimulateCell(pos, vel, &cellSim[0]);
         }
-        out->hover = cellSim[0].P[3][1];
+        out->hover = cellSim[0].hover;
     }
     aim = &cellSim[aimCell];
     out->stripCounts = osGetCount() - start;
     out->aimCell = (u8)aimCell;
-    out->col[0] = aim->P[5][0];
-    out->col[1] = aim->P[5][2];
+    out->col[0] = aim->col[0];
+    out->col[1] = aim->col[1];
 
     /* The nearest hole. The candidates were found within CAND_BUILD of the build centre. */
     {
@@ -1246,7 +1273,7 @@ void MoonAimStep(const MoonIn *input, MoonView *out) {
                 continue;
             }
             for (int k = 5; k <= PASSES; k++) {
-                f32 h = aim->P[k][1] - c->v[1];
+                f32 h = aim->fall[k - 5] - c->v[1];
 
                 if (h > 0.0f && h < d) {
                     d = h;
@@ -1302,8 +1329,8 @@ void MoonAimStep(const MoonIn *input, MoonView *out) {
                         cut = 1;
                         break;
                     }
-                    Simulate(pp, v0, &probe);
-                    if (probe.verdict == MC_CLIP) {
+                    Simulate(pp, v0, &scratch);
+                    if (scratch.verdict == MC_CLIP) {
                         out->zoneKnown = 1;
                         out->dist = s;
                         break;
@@ -1420,6 +1447,7 @@ void HolesGameFrame(void) {
 /* Looks at the faces of one actor for a wall in front of POS along DIR (horizontal, unit), and keeps the nearest in OUT. */
 static void WallActor(const Actor *a, const f32 *pos, const f32 *dir, const f32 *vel, WallHit *out) {
     static MFace tmp;
+    f32 box[6];
     const CollFace *list = a->faces;
     const ObjectInstance *inst = a->inst;
     f32 dx, dz, rr;
@@ -1445,7 +1473,7 @@ static void WallActor(const Actor *a, const f32 *pos, const f32 *dir, const f32 
         if (!SafePointer(&list[i]) || !SafePointer((const u8 *)&list[i] + sizeof(CollFace) - 4)) {
             return;
         }
-        if (!LoadFace(&list[i], &tmp, pos[0] - WALL_RANGE, pos[0] + WALL_RANGE, pos[2] - WALL_RANGE,
+        if (!LoadFace(&list[i], &tmp, box, pos[0] - WALL_RANGE, pos[0] + WALL_RANGE, pos[2] - WALL_RANGE,
                       pos[2] + WALL_RANGE, pos[1] - WALL_BELOW, pos[1] + WALL_ABOVE)) {
             continue;
         }
