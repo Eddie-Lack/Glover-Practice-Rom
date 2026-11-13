@@ -11,7 +11,7 @@ The input is a constant stick forward, so the game gets the same input whatever 
 4. A save into a used slot in another level frees the old state and its base once no slot uses it, and the states
    that lie behind it move down without harm.
 5. The menu: the Slot choice, "Clear this slot" and "Clear all slots".
-6. A level when all bases are taken, and a full pool: a save that does not fit says so, and the other states are
+6. A fourth level (the fourth base), a fifth when all bases are taken, and a full pool: a save that does not fit says so, and the other states are
    still good.
 The decoding of a save also covers the chunks that the save stored as "the same as the base's": the verify compares
 every chunk. State 3 of step 1 has a change that keeps both plain sums of its chunk (a word up by one, the next down
@@ -273,28 +273,51 @@ def run(emu, sym, args):
     if used != 10:
         emu.fail(f"{used} slots hold a state, not 10")
 
-    # 6. A fourth level: the three bases are taken, so the state differs from the base of another level (the one with
-    # the most equal chunks), or does not fit.
+    # 6. A fourth level takes the fourth base (STATE_BASES is 4), or does not fit.
     yield from goto(35)
     before = emu.r32(sym("stateSaves"))
     emu.w8(slot_var, 0)
     request(ACTION_SAVE_STATE)
+    yield from wait_for(emu, lambda: emu.r32(sym("stateSaves")) > before, 1500, "the save in the fourth level")
+    yield 3
+    verify.check("the fourth level")
+    size = slot(0)[0]
+    nb = sum(1 for s in base_sizes() if s)
+    print(f"slots: slot 1 in the fourth level: {size} bytes; {nb} bases; free {pool_free() >> 10} KB")
+    if not size or nb != BASES:
+        emu.fail(f"the fourth level: {size} bytes, {nb} bases, not {BASES}")
+    t = yield from collect(TRACE)
+    traces[0] = (35, t)
+    yield from goto(10)
+    yield from load(0)
+    yield from wait_for(emu, lambda: mode() == 4, 200, "the level")
+    if level() != 35:
+        emu.fail(f"the load of the fourth level's state gave level {level()}")
+
+    # 7. A fifth level: all bases are taken, so the state differs from the base of another level (the one with the
+    # most equal chunks), or does not fit.
+    yield from goto(25)
+    before = emu.r32(sym("stateSaves"))
+    emu.w8(slot_var, 1)
+    request(ACTION_SAVE_STATE)
     yield from wait_for(emu, lambda: emu.r32(sym("stateSaves")) > before, 1500, "the save in the fifth level")
     yield 3
     verify.check("the fifth level")
-    size = slot(0)[0]
-    print(f"slots: slot 1 in the fourth level: {size} bytes (0: it did not fit), on the base of level "
-          f"{bases_levels()[slot(0)[1]]}; free {pool_free() >> 10} KB")
+    size = slot(1)[0]
+    print(f"slots: slot 2 in the fifth level: {size} bytes (0: it did not fit), "
+          f"{'on the base of level ' + str(bases_levels()[slot(1)[1]]) if size else 'no base'}; free {pool_free() >> 10} KB")
+    if sum(1 for s in base_sizes() if s) != BASES:
+        emu.fail("the fifth level made a fifth base")
     if size:
         t = yield from collect(TRACE)
-        traces[0] = (35, t)
+        traces[1] = (25, t)
         yield from goto(10)
-        yield from load(0)
+        yield from load(1)
         yield from wait_for(emu, lambda: mode() == 4, 200, "the level")
-        if level() != 35:
-            emu.fail(f"the load of the fourth level's state gave level {level()}")
-    if size and pool_free() < size:
-        # A save that does not fit: the slot's own state goes first, and the message says so.
+        if level() != 25:
+            emu.fail(f"the load of the fifth level's state gave level {level()}")
+    if not size:
+        # The fifth level's state does not fit in the 4-base pool. A save that does not fit: the slot's own state goes first, and the message says so.
         for i, text in ((6, "state not saved: pool full, slot 7 emptied"), (6, "state not saved: pool full (slot 7)")):
             before = emu.r32(sym("stateSaves"))
             emu.w8(slot_var, i)

@@ -195,18 +195,18 @@ The Expansion Pak's upper 4 MB is laid out as follows (docs/plan.md has the whol
 | Range | Use |
 | --- | --- |
 | 0x80400000 to 0x8047FFFF | the practice segment (code, data, bss) |
-| 0x80480000 to 0x806E9BFF | the pool (2.4 MB) |
-| 0x806E9C00 to 0x806EBFFF | the savestate work tables (`STATE_WORK`, 9 KB): the compressor's table, the chunk sums of the bases and of the state being made, and the game's save data that a load keeps. `StateInit` clears them at boot |
-| 0x806EC000 to 0x806EFFFF | the SD card test mailbox, used only by the test ROM (`make testrom`) |
-| 0x806F0000 to 0x806FFFFF | the work of a save and a load: two blocks of 16 KB |
-| 0x80700000 to 0x8077FFFF | the ghosts |
-| 0x80780000 to 0x807FFFFF | the input recording (512 KB; it was 1 MB, and made room for the pool) |
+| 0x80480000 to 0x807453FF | the pool (2.8 MB, 2837 KB) |
+| 0x80745400 to 0x80747FFF | the savestate work tables (`STATE_WORK`, 11 KB): the compressor's table, the chunk sums of the bases and of the state being made, and the game's save data that a load keeps. `StateInit` clears them at boot |
+| 0x80748000 to 0x8074BFFF | the SD card test mailbox, used only by the test ROM (`make testrom`) |
+| 0x8074C000 to 0x8075BFFF | the work of a save and a load: two blocks of 16 KB, then the card's stage and data |
+| 0x8075C000 to 0x807DBFFF | the ghosts |
+| 0x807DC000 to 0x807FFFFF | the input recording (144 KB: 36000 game frames of 4 bytes, 30 minutes, fill 140.6 KB; it was 1 MB, then 512 KB, and made room for the pool) |
 
 The pool holds two kinds of item, one after the other from 0x80480000. A freed item closes its gap: the items
 behind it move down (a copy of at most a few hundred kilobytes). Free space is one block at the end.
 
-- A **base** is a whole state, compressed on its own. There are at most three (`STATE_BASES`), one for each level that
-  has states. A base takes about 0.6 MB and the pool is 2.4 MB. A fourth base never fits next to the other three.
+- A **base** is a whole state, compressed on its own. There are at most four (`STATE_BASES`), one for each level that
+  has states. A base takes about 0.6 MB and the pool is 2.8 MB. A fifth base never fits next to the other four.
 - A **slot** is a state stored as its difference from a base. There are twelve: ten that the player chooses
   (`stateSlot`, the Savestate menu's "Slot"), one for the input recording (`STATE_SLOT_RECORD`, the state that Record
   saves; the chosen slot is not touched) and one for the instant reset (`STATE_SLOT_AUTO`). A slot is a few kilobytes
@@ -279,9 +279,9 @@ On a state of Atlantis 1 (game frame 300; `tests/slots.py` prints the same kind 
 | a slot, same level, 700 and 1200 game frames later | 6 to 15 KB |
 | a slot, another level's base | 400 to 650 KB (449 KB for a state of level 35 against the base of level 1) |
 
-Three levels' bases and ten slots take 1.97 MB of the 2.44 MB pool (`tests/slots.py`: 469 KB free). A fourth base does
-not fit, and `STATE_BASES` is 3. A state in a fourth level is stored as its difference from another level's base, which
-takes most of what is left. The level start slot in quick form adds up to 320 KB. The menu shows
+Four levels' bases and ten slots take 2.6 MB of the 2.8 MB pool (`tests/slots.py`: 185 KB free). A fifth base does
+not fit, and `STATE_BASES` is 4. A state in a fifth level is stored as its difference from another level's base, which
+takes most of what is left (in the test it does not fit). The level start slot in quick form adds up to 320 KB. The menu shows
 the used slots and the free kilobytes. The bytes of a state that do not
 compress (textures of 16 bits, vertex data, display lists) set the limit; the order-0 entropy of the literals is only
 6 percent below their size, and the cost is in 98,000 short matches.
@@ -468,11 +468,11 @@ card", "Load from card" and "Delete on card".
   a file of another size, magic, version or CRC and leaves the times as they are. Both files are in the folder `GLOVERPR`.
   `tests/sdrecording.py` saves them (and decodes them with `tests/sdutil.py`), `tests/sdrecordingload.py` loads them in
   another emulator run and finds the same game frames in the playback.
-- **The streams.** A save and a load never hold a whole file in memory. A 20 KB stage at 0x806F8000 (`CARD_STAGE`,
+- **The streams.** A save and a load never hold a whole file in memory. A 20 KB stage at 0x80754000 (`CARD_STAGE`,
   behind the two 16 KB work blocks) holds the records on their way to or from the card. The card code's own data
   (the `Fat` with its 8 KB FAT cache, the CRC table and a sector buffer, 10.1 KB) lives in 12 KB behind the stage
-  (`CARD_WORK`, 0x806FD000), which ends where the ghosts begin. The Controller Pak's note buffer (31 KB) uses the same 32 KB (`cpak.c`): the menu stays in the Controller Pak view while a pak operation runs, so the two never run together. A `_Static_assert` checks that the area ends at
-  0x80700000. The export fills it chunk by
+  (`CARD_WORK`, 0x80759000), which ends where the ghosts begin. The Controller Pak's note buffer (31 KB) uses the same 32 KB (`cpak.c`): the menu stays in the Controller Pak view while a pak operation runs, so the two never run together. A `_Static_assert` checks that the area ends at
+  0x8075C000. The export fills it chunk by
   chunk and hands whole sectors to the file system. The import keeps at least one record in it. A RAW record's data is
   aligned by the file's offset, and the stage keeps its addresses equal to the file's offsets modulo 4.
 - **Threads.** The menu only sets `cardWanted`. The game thread acts on it at the start of its next game frame
@@ -575,7 +575,7 @@ card", "Load from card" and "Delete on card".
 
 A recording starts with a savestate: Record saves into `STATE_SLOT_RECORD`, a pool slot of its own, and does not touch the slot that the player chose. Play loads that state. When the save does not fit, Record says "recording not started: pool full" and does not start. From the next game frame, `RecordingFrame` (in the controller thread,
 after the practice input layer and before the game's `ReadController`) keeps the buttons and the stick that the
-game is about to read, 4 bytes a game frame, from 0x80780000 (up to 131072 game frames at 20 a second, 109 minutes). Playback loads the state and writes each kept
+game is about to read, 4 bytes a game frame, from 0x807DC000 (up to 36000 game frames at 20 a second, 30 minutes; `RECORDING_MAX`). A recording that reaches the limit stops and says "recording stopped: 30 minutes is the limit". A recording in a Controller Pak note or on the SD card with more game frames than that is refused when it is read ("The recording is longer than 30 minutes. Nothing was loaded.", "the recording file is longer than 30 minutes: not loaded"), before anything is written to the buffer. Playback loads the state and writes each kept
 input into `controllerdata` at the same point. The game's `pad[]` is in the state. The game computes the same
 presses from the same reads.
 
@@ -1018,8 +1018,8 @@ the glove's and the ball's place on every game frame of an input recording, draw
   for the parts that were readable. The game's glove model is not drawn: the glove is an icosahedron with a
   pyramid for its nose (forward is `(sin, cos)` of `rot.y`, as `spawn.c` uses it), the ball an icosahedron. Their
   sizes come from the first collision sphere of each actor (12 and 20 units if unreadable).
-- **Where.** Four slots of 0x20000 bytes (8192 game frames, 6.8 minutes) at 0x80700000, between the savestate pool
-  (ends at 0x806FFFFF) and the recording at 0x80780000 (`_Static_assert`s keep the slots clear of both). Each slot has a
+- **Where.** Four slots of 0x20000 bytes (8192 game frames, 6.8 minutes) at 0x8075C000, between the card's memory
+  (ends at 0x8075BFFF) and the recording at 0x807DC000 (`_Static_assert`s keep the slots clear of both). Each slot has a
   `GhostSlot` in the practice segment's bss (level, count, start, age). A new recording takes a free slot, or the
   oldest ghost's. The ghost of the same level that it will replace stays until the new one has kept a frame
   (`Finish`). A recording that fails to start does not lose the old ghost. Frames that the sampling did not reach

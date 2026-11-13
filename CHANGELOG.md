@@ -2,6 +2,7 @@
 
 ## Not yet released
 
+- Input recording: it keeps up to 30 minutes (it was 109). A longer recording on a Controller Pak or an SD card is refused. The savestates hold four levels with their own base (it was three).
 - Controller Pak: while the game runs, a transfer takes at most 8 ms of each game frame. Your controller is read sooner.
 - Hide trails, Hide lightning, Debug pad, Noclip, HUD rng and HUD game take less time on each frame.
 - The Actors view of the menu is faster.

@@ -76,6 +76,8 @@ TESTS = [
     ["harness.py", "cpakforeign", "--gfx", "angrylion"],
     ["harness.py", "cpakedge", "--gfx", "angrylion"],
     ["harness.py", "cpakfull", "--gfx", "angrylion"],
+    ["harness.py", "cpaklong", "--gfx", "angrylion"],
+    ["harness.py", "cpakmax", "--gfx", "angrylion"],
     ["harness.py", "cpakbad", "--gfx", "angrylion"],
     ["harness.py", "cpaknone", "--gfx", "angrylion"],
     ["harness.py", "cpakid", "--gfx", "angrylion"],
