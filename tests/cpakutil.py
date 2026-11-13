@@ -8,7 +8,7 @@ import trace
 from menunav import goto
 
 C_ALL = ("CUP", "CDOWN", "CLEFT", "CRIGHT")
-RECORDING_BUFFER = 0x80780000
+RECORDING_BUFFER = 0x807DC000
 
 
 def press(emu, *buttons):

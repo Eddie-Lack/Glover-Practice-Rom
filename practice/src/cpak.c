@@ -533,6 +533,9 @@ static u32 NoteHeader(void) {
     return used;
 }
 
+/* Returns 0 for a note that is damaged, 1 for a good one, or NOTE_TOO_LONG for a good one whose recording is longer
+ * than RECORDING_MAX game frames. */
+#define NOTE_TOO_LONG 2
 static int NoteValid(u32 used) {
     u32 stored = Be32(noteBuf + 8);
     u32 settingsSize = Be16(noteBuf + 0x0C);
@@ -561,8 +564,11 @@ static int NoteValid(u32 used) {
             }
             frames += r[i * RECORDING_RUN_SIZE + 4];
         }
-        if (frames != Be32(noteBuf + 0x14) || frames > RECORDING_MAX) {
+        if (frames != Be32(noteBuf + 0x14)) {
             return 0;
+        }
+        if (frames > RECORDING_MAX) {
+            return NOTE_TOO_LONG;
         }
     }
     return 1;
@@ -1188,8 +1194,10 @@ static int Advance(void) {
                 Finish(FailStatus(xfer.result));
                 return 1;
             }
-            if (!NoteValid(used)) {
-                Finish(CPAK_BAD_NOTE);
+            int valid = NoteValid(used);
+
+            if (valid != 1) {
+                Finish(valid == NOTE_TOO_LONG ? CPAK_TOO_LONG : CPAK_BAD_NOTE);
                 return 1;
             }
             ApplyNote();
@@ -1261,6 +1269,7 @@ static const char *const statusText[CPAK_STATUS_COUNT] = {
     "This pak has more than one bank. Not supported.", "The pak's tables are valid. Nothing was changed.",
     "This is not a Controller Pak. Nothing was changed.", "The pak's notes overlap or repeat. Nothing was changed.",
     "The save failed. The practice note may be damaged.", "The damaged copies were written again.",
+    "The recording is longer than 30 minutes. Nothing was loaded.",
 };
 
 static void Ask(int op) {
@@ -1422,7 +1431,8 @@ static void ViewDraw(Gfx **dl) {
     } else if (cpak.status != CPAK_NONE) {
         int bad = cpak.status == CPAK_NO_PAK || cpak.status == CPAK_NOT_FORMATTED || cpak.status == CPAK_NO_ROOM ||
                   cpak.status == CPAK_ERROR || cpak.status == CPAK_BAD_NOTE || cpak.status == CPAK_UNSUPPORTED ||
-                  cpak.status == CPAK_NOT_A_PAK || cpak.status == CPAK_INCONSISTENT || cpak.status == CPAK_ERROR_NOTE;
+                  cpak.status == CPAK_NOT_A_PAK || cpak.status == CPAK_INCONSISTENT || cpak.status == CPAK_ERROR_NOTE ||
+                  cpak.status == CPAK_TOO_LONG;
 
         TextPrint(dl, x, y, 1, bad ? 0xFF9060FF : 0x80D080FF, statusText[cpak.status % CPAK_STATUS_COUNT]);
     } else {

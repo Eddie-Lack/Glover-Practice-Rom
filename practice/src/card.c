@@ -562,10 +562,13 @@ enum {
     LOAD_FAILED,     /* the card failed */
     LOAD_NOT_LOADED, /* the state code refused (a title, the EEPROM) */
     LOAD_DAMAGED,    /* failed after the game's memory changed */
+    LOAD_TOO_LONG,   /* a recording file with more than RECORDING_MAX game frames: nothing was loaded */
 };
 
 /* Reads the first sector of the file and compares its header with this build. Returns 0, 1 for a file that is not a
  * usable state, or -1 if the card failed. */
+static u32 headerFrames; /* the game frames that the header of the file says it records */
+
 static int CheckHeader(const FatEntry *e, StateMeta *m) {
     StateMeta mine;
     FatReader rd;
@@ -585,6 +588,7 @@ static int CheckHeader(const FatEntry *e, StateMeta *m) {
     m->song = (s32)Get32(h + 12);
     m->bytes = Get32(h + 16);
     m->layout = Get32(h + 20);
+    headerFrames = Get32(h + 24);
     return Get32(h) != MAGIC || h[5] != VERSION || h[7] != HEADER_SIZE || m->level >= NUM_LEVELS ||
                    m->chunks != mine.chunks || m->bytes != mine.bytes || m->layout != mine.layout
                ? 1
@@ -637,6 +641,10 @@ static int LoadFile(int n, StateMeta *m) {
     }
     /* The header first: a file from another build is refused before the long pass over the CRC. */
     r = CheckHeader(&e, m);
+    if (r == 0 && n == 0 && headerFrames > RECORDING_MAX) {
+        SdClose();
+        return LOAD_TOO_LONG;
+    }
     if (r == 0) {
         r = CheckCrc(&e);
     }
@@ -715,6 +723,9 @@ static void DoLoad(int rec) {
             break;
         case LOAD_BAD_FILE:
             Format(message, sizeof(message), n ? "card file %d is not a usable state" : "the recording file is not usable", n);
+            break;
+        case LOAD_TOO_LONG:
+            Format(message, sizeof(message), "the recording file is longer than 30 minutes: not loaded");
             break;
         case LOAD_FAILED:
             Format(message, sizeof(message), "not loaded: %s", cardStatus == CARD_READY || cardStatus == CARD_UNCHECKED ? "card error" : WhyNot());

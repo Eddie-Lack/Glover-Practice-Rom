@@ -25,7 +25,7 @@ from stateutil import hud_message
 from tools import C_ALL, press, wait_for
 
 ACTION_RECORD, ACTION_PLAY = 10, 11
-RECORDING_BUFFER = 0x80780000
+RECORDING_BUFFER = 0x807DC000
 FRAMES = 120
 BESTS = {0: 1234, 7: 999, 29: 65535}
 

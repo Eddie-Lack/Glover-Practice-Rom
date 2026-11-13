@@ -1,15 +1,18 @@
 """Input recording and playback. In Atlantis 1, Record saves a state and records the route's random input
 (tests/trace.py) for RUN game frames. Play loads the state and plays the input back, with nothing held on the
 controller. The state must be the same on every game frame, and the playback must end by itself. A save into the
-chosen slot between the two does not change where Play starts."""
+chosen slot between the two does not change where Play starts. A recording stops at RECORDING_MAX with a message."""
 import layout
 import trace
+from stateutil import hud_message
 from tools import C_ALL, press, wait_for
 
 RUN = 150
 ACTION_SAVE_STATE = 8
 ACTION_RECORD = 10
 ACTION_PLAY = 11
+RECORDING_MAX = 36000       # practice/include/recording.h: 30 minutes at 20 game frames a second
+RECORDING_BUFFER = 0x807DC000
 
 
 def run(emu, sym, args):
@@ -86,3 +89,20 @@ def run(emu, sym, args):
     if bad:
         f = bad[0]
         emu.fail(f"in the playback, game frame {f} differs: {sorted(first[f])[0]} and {sorted(second[f])[0]}")
+
+    # The limit: the count is set to three game frames below RECORDING_MAX while recording.
+    marker = RECORDING_BUFFER + RECORDING_MAX * 4
+    emu.w32(marker, 0xDEADBEEF)
+    request(ACTION_RECORD)
+    yield from wait_for(emu, lambda: emu.r8(rec), 100, "the recording to start")
+    emu.w32(rec + 4, RECORDING_MAX - 3)
+    yield from wait_for(emu, lambda: not emu.r8(rec), 200, "the recording to stop at the limit")
+    yield 2
+    message = hud_message(emu, sym)
+    print(f"recording: at the limit: {emu.r32(rec + 4)} game frames; \"{message}\"")
+    if emu.r32(rec + 4) != RECORDING_MAX:
+        emu.fail(f"the recording stopped at {emu.r32(rec + 4)} game frames, not {RECORDING_MAX}")
+    if message != "recording stopped: 30 minutes is the limit":
+        emu.fail(f"the message at the limit: \"{message}\"")
+    if emu.r32(marker) != 0xDEADBEEF:
+        emu.fail("the recording wrote behind its buffer's limit")

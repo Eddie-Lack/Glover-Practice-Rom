@@ -6,6 +6,7 @@
 #include "earlytitle.h"
 #include "fmt.h"
 #include "game.h"
+#include "ghost.h"
 #include "hud.h"
 #include "lz.h"
 #include "noclip.h"
@@ -93,7 +94,7 @@ _Static_assert(WORK_KEPT + KEPT_SIZE <= STATE_WORK_SIZE, "the work tables fit th
 #define lzWork ((u16 *)(STATE_WORK + WORK_LZ))
 #define blockA ((u8 *)STATE_SCRATCH)
 #define blockB ((u8 *)(STATE_SCRATCH + LZ_BLOCK_MAX))
-_Static_assert(STATE_SCRATCH + 2 * LZ_BLOCK_MAX <= 0x80700000, "the scratch blocks must stay clear of the ghosts");
+_Static_assert(STATE_SCRATCH + 2 * LZ_BLOCK_MAX <= GHOST_BUFFER, "the scratch blocks must stay clear of the ghosts");
 
 static u32 autoStart;            /* practice.levelStarts at the last automatic save */
 

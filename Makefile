@@ -140,7 +140,7 @@ $(TEST_LD): FORCE tools/mkld.py $(GW)/build/NGVE.elf
 
 $(TEST_ELF): $(GW_OBJS) $(ASSETS_OBJ) $(LOADER_OBJS) $(TEST_OBJS) $(TEST_LD)
 	$(LD) -T $(TEST_LD) -T $(GW)/undefined_syms_auto.txt -T $(GW)/undefined_funcs_auto.txt -T $(GW)/symbols.ld \
-	      -Map $(TEST_DIR)/glover-practice-test.map --no-check-sections --defsym=sdMailbox=0x806EC000 -o $@
+	      -Map $(TEST_DIR)/glover-practice-test.map --no-check-sections --defsym=sdMailbox=0x80748000 -o $@
 
 $(TEST_ROM): $(TEST_ELF) tools/mkrom.py tools/checklayout.py
 	$(OBJCOPY) -O binary --pad-to=$(ROM_SIZE) --gap-fill=0x00 $< $@

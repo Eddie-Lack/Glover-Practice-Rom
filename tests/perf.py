@@ -207,11 +207,11 @@ def memory_map(elf=None, map_path=None):
               f"The other {bss - big:,} bytes are in smaller symbols.", ""]
     lines += ["### The rest of the expansion RAM", "",
               "| Range | Use |", "| --- | --- |",
-              "| 0x80480000 to 0x806EBFFF | the savestate pool (2.4 MB) |",
-              "| 0x806EC000 to 0x806EFFFF | the SD card test mailbox (test ROM only) |",
-              "| 0x806F0000 to 0x806FFFFF | the work of a save and a load, the card stage (two blocks of 16 KB) |",
-              "| 0x80700000 to 0x8077FFFF | the ghosts (four slots of 128 KB) |",
-              "| 0x80780000 to 0x807FFFFF | the input recording (512 KB) |", ""]
+              "| 0x80480000 to 0x80747FFF | the savestate pool (2.8 MB) and its work tables |",
+              "| 0x80748000 to 0x8074BFFF | the SD card test mailbox (test ROM only) |",
+              "| 0x8074C000 to 0x8075BFFF | the work of a save and a load, the card stage (two blocks of 16 KB) |",
+              "| 0x8075C000 to 0x807DBFFF | the ghosts (four slots of 128 KB) |",
+              "| 0x807DC000 to 0x807FFFFF | the input recording (144 KB) |", ""]
     return lines, {"by_obj": by_obj, "totals": totals, "symbols": symbols}
 
 

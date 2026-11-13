@@ -73,6 +73,7 @@ enum {
     CPAK_INCONSISTENT,  /* two practice notes, or pages that two notes share: nothing was changed */
     CPAK_ERROR_NOTE,    /* a save over the note's own pages failed: the note may be damaged */
     CPAK_REPAIRED,      /* the damaged copies of the ID block and the index table were written again */
+    CPAK_TOO_LONG,      /* the note's recording is longer than RECORDING_MAX game frames: nothing was loaded */
     CPAK_STATUS_COUNT
 };
 
