@@ -9,8 +9,9 @@
  * that has neither. A write never leaves the pak's tables inconsistent (see "Operations").
  *
  * An operation (check, save, load, delete, repair, format) is a list of steps. The controller thread runs them from
- * CPakService: blocks of 32 bytes for at most 25 ms in each game frame. A game frame that moves blocks takes
- * longer, and the game's next controller read has to send its command again. */
+ * CPakService: blocks of 32 bytes in each game frame, for at most 25 ms while the menu pauses the game and at most
+ * 8 ms while the game runs. A game frame that moves blocks takes longer, and the game's next controller read has to
+ * send its command again. */
 #include "besttimes.h"
 #include "actions.h"
 #include "cpak.h"
@@ -33,8 +34,12 @@ extern u8 __osContLastCmd;
 
 #define COUNTER_RATE 46875000u
 /* The most that one game frame spends on transfers: the controller thread waits for the serial interface most of that
- * time, and a game frame lasts 50 ms. */
-#define BUDGET (COUNTER_RATE / 40) /* 25 ms */
+ * time, and a game frame lasts 50 ms. While the game runs, the budget is smaller so that the controller read is
+ * late by less. A block (32 bytes) takes an unmeasured millisecond or two on a console, so 8 ms moves several
+ * blocks, and Pump always moves at least one. */
+#define BUDGET_PAUSED (COUNTER_RATE / 40) /* 25 ms */
+#define BUDGET_RUNNING (COUNTER_RATE / 125) /* 8 ms */
+#define BUDGET Budget()
 #define SI_WRITE 1                  /* RDRAM to the PIF */
 #define SI_READ 0
 
@@ -698,6 +703,11 @@ static void StartXfer(int write, const u8 *pages, int first, int end, u8 *buf) {
     xfer.end = (u16)end;
     xfer.buf = buf - first * BLOCK;
     xfer.result = 0;
+}
+
+/* The game is paused while the practice menu is open and its pause setting is on (PracticeClearText). */
+static u32 Budget(void) {
+    return (menuOpen && settings.menuPauses) ? BUDGET_PAUSED : BUDGET_RUNNING;
 }
 
 /* Moves blocks until the transfer is done or the time is up. Returns 1 when it ended (xfer.result 0 or an error). */

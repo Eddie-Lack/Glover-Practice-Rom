@@ -1195,12 +1195,15 @@ second, independent reading of the layout). The driver has not run on a console.
   is left out when it alone does not fit ("saved, the recording does not fit").
 - **Time.** An operation is a list of steps run by `CPakService`, which the controller thread calls after its
   read, as it calls `SettingsService`. It waits while the game has an EEPROM request waiting. Each call moves
-  blocks for at most 25 ms (the thread mostly waits for the serial interface; a game frame lasts 50 ms) and goes on
-  in the next game frame. In the emulator a block takes under a millisecond. On a console a block should take
+  blocks for at most 25 ms while the menu pauses the game, and for at most 8 ms while the game runs (the thread
+  mostly waits for the serial interface; a game frame lasts 50 ms). It goes on in the next game frame. The check
+  comes before each block, so at least one block moves per call. In the emulator a block takes under a millisecond. On a console a block should take
   a millisecond or two (not measured). A note of one page (about 100 blocks with the checks) then takes a few
   game frames, and a recording that fills the pak (123 pages, 984 blocks of data) a few seconds. While the
-  thread moves blocks, the controller read of that game frame is late by up to 25 ms, which can show as lag when
-  the game runs (the menu pauses it by default), and the game's next controller read has to send its command
+  thread moves blocks, the controller read of that game frame is late by up to 25 ms (8 ms when the game runs; both
+  limits are untested on a console). The game thread is not starved, since the thread waits for the serial
+  interface. The delay can show as lag when the game runs (the menu pauses it by default). Operations take more
+  game frames when the game runs, and the game's next controller read has to send its command
   again (the block in the PIF is not its own). The view says so. With no request, a game frame costs one test of
   two bytes. Nothing happens at boot.
 - **The view.** Settings, last item. Rows: the controller with the pak (1 or 2), Check, Save, Load, Save the
