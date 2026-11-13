@@ -30,7 +30,7 @@
 #define MAX_RECORDS 160
 #define MAX_STATIC 96 /* matrices of landscape actors, which never move */
 #define CACHE_VTX 2688
-#define CACHE_GFX 1920
+#define CACHE_GFX 1792 /* the survey's highest use is 1,541 (tests/perf.py --survey) */
 #define MAX_MESH_FACES 1024
 #define ACTOR_SLOTS 512 /* the hash table from an actor's address to its record */
 /* The game's collision lists are walked at most this far. */
@@ -60,7 +60,7 @@ enum Group { GROUP_FLAT = COLL_KIND_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING
 /* Each frame. */
 #define MAX_MOVING 64  /* platforms drawn */
 #define SCENE_SIZE 896
-#define MAX_SPHERES 32 /* the glove's and the ball's first, then the enemies' */
+#define MAX_SPHERES 24 /* the glove's and the ball's first, then the enemies'; the survey's highest use is 17 */
 #define SPHERE_VERTS 12
 #define SPHERE_FACES 20
 #define MAX_CONTACTS 9 /* 8 touched faces and the face at the screen's centre */
@@ -84,6 +84,7 @@ enum Group { GROUP_FLAT = COLL_KIND_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING
 #define HOLE_HALF_WIDTH 1.5f
 #define HOLE_RGBA 0xB050FFFF
 #define HOLE_VERTS 4
+#define HOLE_DRAW_MAX 40 /* posts drawn; the survey's highest use is 9, the painter holds up to HOLE_MAX */
 #define HOLE_BATCH 7
 
 /* The alpha of faces: the front, and the back in "faint" (as a fraction of 255 of the front's). */
@@ -121,6 +122,18 @@ enum Group { GROUP_FLAT = COLL_KIND_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING
 #define VP_Z 511
 
 CollStats collStats;
+
+/* Publishes a frame's stats. The peaks carry over from the last frame. */
+static void PublishStats(const CollStats *s) {
+    CollStats old = collStats;
+
+    collStats = *s;
+    collStats.peakMoving = old.peakMoving;
+    collStats.peakHoles = old.peakHoles;
+    collStats.peakSpheres = old.peakSpheres;
+    collStats.peakScene = old.peakScene;
+    collStats.fullEver = old.fullEver | s->full;
+}
 
 typedef struct Shape {
     const Mesh *mesh;
@@ -187,7 +200,7 @@ static Gfx extra[2][EXTRA_SIZE] __attribute__((aligned(16)));
 static Mtx movingMtx[2][MAX_MOVING] __attribute__((aligned(16)));
 static Mtx sphereMtx[2][MAX_SPHERES] __attribute__((aligned(16)));
 static Vtx contactVtx[2][MAX_CONTACTS * 3] __attribute__((aligned(16)));
-static Vtx holeVtx[2][HOLE_MAX * HOLE_VERTS] __attribute__((aligned(16)));
+static Vtx holeVtx[2][HOLE_DRAW_MAX * HOLE_VERTS] __attribute__((aligned(16)));
 static Mtx gloverMtx[2] __attribute__((aligned(16)));
 static Mtx projection[2] __attribute__((aligned(16)));
 static Vp viewport[2] __attribute__((aligned(16)));
@@ -1444,7 +1457,7 @@ static int AddHoles(const Frame *fr, Vtx *out) {
     if (!stable) {
         return 0;
     }
-    for (int i = 0; i < local.count && i < HOLE_MAX; i++) {
+    for (int i = 0; i < local.count && i < HOLE_DRAW_MAX; i++) {
         f32 p0[3], p1[3];
 
         if (!ReadVec(local.p[i], p0)) {
@@ -1900,7 +1913,7 @@ void CollViewDraw(void) {
     fr.stats.infoCounts = run.collInfo ? collStats.infoCounts : 0; /* CollInfoUpdate ran before */
     if (!FrameReady(b, fr.c, fr.cam)) {
         fr.stats.state = cacheState;
-        collStats = fr.stats;
+        PublishStats(&fr.stats);
         return;
     }
     if (!icoMade) {
@@ -1945,8 +1958,10 @@ void CollViewDraw(void) {
         edgesWereOn = run.collEdges;
     }
     int drawScene = fr.g != scene[b];
+    int sceneUsed = 0;
     if (drawScene) {
         *fr.g++ = GfxEndDisplayList();
+        sceneUsed = fr.g - scene[b];
         osWritebackDCache(scene[b], (fr.g - scene[b]) * sizeof(Gfx));
         osWritebackDCache(movingMtx[b], fr.moving * sizeof(Mtx));
         lastDrawn = practice.drawFrames;
@@ -2075,6 +2090,18 @@ void CollViewDraw(void) {
     osWritebackDCache(&viewport[b], sizeof(Vp));
     *glistp++ = GfxDisplayList(extra[b]);
     fr.stats.counts = osGetCount() - fr.start;
-    collStats = fr.stats;
+    PublishStats(&fr.stats);
+    if (fr.moving > collStats.peakMoving) {
+        collStats.peakMoving = fr.moving;
+    }
+    if (holes > collStats.peakHoles) {
+        collStats.peakHoles = holes;
+    }
+    if (fr.stats.spheres > collStats.peakSpheres) {
+        collStats.peakSpheres = fr.stats.spheres;
+    }
+    if (sceneUsed > collStats.peakScene) {
+        collStats.peakScene = sceneUsed;
+    }
 }
 

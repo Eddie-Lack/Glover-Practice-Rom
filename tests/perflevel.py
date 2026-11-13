@@ -108,6 +108,9 @@ def scenarios():
     out += [S("rec", "recording", special="record", lag=True), S("rec", "playback", special="play"),
             S("rec", "ghost", {"ghost": 1}, special="ghost")]
     out += [S("off", "off (again)")]
+    # The survey of the collision view's buffers: only when PERF_ONLY names it (tests/perf.py --survey).
+    out += [S("survey", "survey: everything", {**view, "collSpheres": 1, "collEnemies": 1, "collEdges": 1, "collHoles": 1,
+                                               "collWire": 1, "collInfo": 1, "collColour": 2, "trainers": 8}, cache=True)]
     return out
 
 
@@ -262,7 +265,7 @@ def run(emu, sym, args):
               f"{r['frames_mean']} game frames, {missed} missed of {count}")
 
     # ---- the scenarios ----
-    todo = [s for s in scenarios() if only is None or s.group in only]
+    todo = [s for s in scenarios() if (only is None and s.group != "survey") or (only is not None and s.group in only)]
     if not practice_rom:
         todo = [s for s in todo if s.group == "off"][:1]
     yield from settle(60)
@@ -351,6 +354,15 @@ def run(emu, sym, args):
                 yield from wait_cache()
         yield from settle()
         r = yield from measure(sc.name, sc.group)
+        if sc.group == "survey" and practice_rom:
+            # collStats: peaks since boot (0x28 on), and what the cache holds now.
+            result["survey"] = {"moving": emu.r16(stats + 0x28), "holes": emu.r16(stats + 0x2A),
+                                "spheres": emu.r16(stats + 0x2C), "scene": emu.r16(stats + 0x2E),
+                                "fullEver": emu.r8(stats + 0x30), "shapes": emu.r16(stats + 0x12),
+                                "records": emu.r16(stats + 0x14), "vertices": emu.r16(stats + 0x16),
+                                "commands": emu.r16(stats + 0x18), "faces": emu.r16(stats),
+                                "cacheState": emu.r8(stats + 0x10)}
+            print(f"perf survey: {result['survey']}")
         if sc.lag and practice_rom:
             yield from lag_trials(sc.name)
         if sc.special == "record":

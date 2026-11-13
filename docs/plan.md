@@ -286,7 +286,8 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 - Collision view, face info and wireframe: done (`Run.collInfo`, `Run.collWire`;
   [build.md](build.md#face-info), `tests/collinfo.py`). The wireframe draws the scene again in a render mode that
   shows only the pixels an edge crosses, so it needs no data.
-- Overlay list size: measured. The most one frame used was 3,811 of 6,000 commands; `OVERLAY_SIZE` is 4,800
+- Overlay list size: measured. The most one frame used was 3,811 of 6,000 commands (4,611 with every trainer and the
+  frame log on as well, so 4,800 stays); `OVERLAY_SIZE` is 4,800
   ([build.md](build.md#hiding-objects), `tests/overlay.py`).
 - Hide objects (Inspect, "Hide objects"): done. Fifteen kinds, one bit each in `Run.hide`. The game's drawing
   functions still run; their drawing commands become no-ops ([build.md](build.md#hiding-objects)). `tests/hide.py`.

@@ -630,9 +630,13 @@ where it is, also far from Glover, where the game's own faces are out of date.
   (`CACHE_WAIT_FRAMES`, 3 frames after the last one that drew the cache). What changes each frame (the scene
   list, the platform and sphere matrices, the touched faces, the holes, the projection, the viewport) has one set
   for each frame buffer. A build only appends to the cache, which frames in flight do not read past.
-- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 1,920 commands (15 KB) for the cache, 96
+- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 1,792 commands (14 KB) for the cache, 96
   landscape matrices, 128 shapes and 160 records; for each frame buffer a scene list of 896 commands, an extra list
-  of 232, 64 platform matrices and 32 sphere matrices. One byte for each face of the mesh being built
+  of 232, 64 platform matrices, 24 sphere matrices and 40 hole posts (`HOLE_DRAW_MAX`; the painter itself holds
+  `HOLE_MAX`, 64). `tests/perf.py --survey` found the highest use in the 42 levels with the whole-level view and
+  every switch on: 2,493 vertices, 1,541 commands, 108 shapes (Space 2A), 126 records, 546 scene commands, 17 spheres
+  and 9 holes at the start of a level. Atlantis Bonus uses all 64 platform matrices and sets `full` bit 2, so 64
+  is too few there. The caps of vertices, shapes, records, scene and platform matrices stay as they are. One byte for each face of the mesh being built
   (`faceBytes`) holds a face build's groups or an edge build's open edges: only one build runs. Face info and the
   wireframe took the room for their code from the cache's commands (2,048 before; Atlantis 3's faces need 1,193)
   and from the sphere matrices (40 before). The faces alone of the largest level (Atlantis 3) take
@@ -848,7 +852,10 @@ The overlay lists (`overlayList`, practice.c) hold only text: the HUD, the menu 
 view and the ghost have lists of their own. The most commands one frame used was 3,811, with the menu on its HUD page
 in Out of this World 3 and every HUD item, every collision view switch and face info on (`tests/overlay.py`, which
 also visited the menu's other pages and views in Atlantis 3, Carnival 1, Pirates 3 and Out of this World 3). The
-level does not change it: the HUD and face info use about 1,900 commands, and a menu page about as many. `OVERLAY_SIZE`
+level does not change it: the HUD and face info use about 1,900 commands, and a menu page about as many. With every
+trainer and the frame log on from the start of the level as well, the menu's busiest pages reached 4,611 commands
+(96% of 4,800) in one run and 4,289 (89%) in the test's combined pass. Ten percent over that is more than 4,800, so
+the list cannot shrink to 4,096. The test checks that pass separately and requires 150 commands to be left. `OVERLAY_SIZE`
 went from 6,000 to 4,800 commands for each of the two lists, which frees 19 KB. The text writers stop at the end of
 the list (`Room` in text.c) and `Practice.overlayFull` counts the frames on which one stopped; the test requires 0.
 

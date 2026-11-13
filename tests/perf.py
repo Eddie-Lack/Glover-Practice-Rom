@@ -18,6 +18,7 @@ game frame is late. The emulator (gloveworld/tools/emu/setup.sh) and a display o
 mupen64plus, which counts the CPU's instructions and does not model the RSP, the RDP or memory waits. A console is
 not measured."""
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -400,6 +401,49 @@ def quick_check(results, desired):
     return errors
 
 
+# Every level that has a world to draw: the Level enum of gloveworld (enums.h), HUB1 to SPACEBONUS.
+SURVEY_LEVELS = [("Hub %d" % (i + 1), i) for i in range(8)] + [("Cave", 8), ("A course", 9)] + [
+    (n, 10 + i) for i, n in enumerate(
+        "Atlantis 1,Atlantis 2,Atlantis 3,Atlantis boss,Atlantis bonus,Carnival 1,Carnival 2,Carnival 3,Carnival boss,"
+        "Carnival bonus,Pirates 1,Pirates 2,Pirates 3,Pirates boss,Pirates bonus,Prehistoric 1,Prehistoric 2,"
+        "Prehistoric 3,Prehistoric boss,Prehistoric bonus,Fear 1,Fear 2,Fear 3,Fear boss,Fear bonus,Space 2A,Space 2B,"
+        "Space 3,Space boss 1,Space boss tween,Space boss 3,Space bonus".split(","))]
+SURVEY_KEYS = ("moving", "holes", "spheres", "scene", "shapes", "records", "vertices", "commands", "faces")
+
+
+def survey(a):
+    """One run of the 'survey' scenario in each level: the peaks of what the collision view's fixed buffers hold. Writes a
+    table, and the highest value of each column, to the --md file."""
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    want = [w.strip().lower() for w in a.levels.split(",")] if a.levels else None
+    rows, failed = [], []
+    for name, number in SURVEY_LEVELS:
+        if want and not any(name.lower().startswith(w) for w in want):
+            continue
+        print(f"perf survey: {name} (level {number})", flush=True)
+        try:
+            with open("/tmp/emu.lock", "w") as lock:  # one level at a time, so other emulator jobs can run between
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                res = run_level(number, a.gfx, "survey", a.window if a.window != 120 else 300, a.rom, a.elf)
+        except SystemExit as e:
+            failed.append((name, str(e).splitlines()[0]))
+            print(f"perf survey: {name} failed: {failed[-1][1]}", flush=True)
+            continue
+        if "survey" in res:
+            rows.append((name, res["survey"]))
+    lines = ["# Collision view buffers: the survey", "",
+             "Whole-level view with every switch on. Peaks over the run of each level.", "",
+             "| Level | " + " | ".join(SURVEY_KEYS) + " | full |", "| --- | " + " | ".join("---:" for _ in SURVEY_KEYS) + " | ---: |"]
+    for name, r in rows:
+        lines.append(f"| {name} | " + " | ".join(str(r[k]) for k in SURVEY_KEYS) + f" | {r['fullEver']} |")
+    top = {k: max((r[k] for _, r in rows), default=0) for k in SURVEY_KEYS}
+    lines.append("| **highest** | " + " | ".join(f"**{top[k]}**" for k in SURVEY_KEYS) + " | |")
+    lines += ["", "Failed: " + (", ".join(f"{n} ({why})" for n, why in failed) if failed else "none")]
+    open(a.md, "w").write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--levels", default=None, help="names, comma list (first letters are enough)")
@@ -410,6 +454,10 @@ def main():
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--memory", action="store_true", help="only write the memory map")
     ap.add_argument("--no-retail", action="store_true")
+    ap.add_argument("--rom", default=None, help="--survey: a practice ROM other than build/glover-practice.z64")
+    ap.add_argument("--elf", default=None, help="--survey: the ELF of --rom")
+    ap.add_argument("--survey", action="store_true",
+                    help="the peaks of the collision view's buffers in every level (whole-level view, every switch on)")
     a = ap.parse_args()
     os.makedirs(os.path.dirname(a.md), exist_ok=True)
     if a.memory:
@@ -417,6 +465,8 @@ def main():
         open(a.md, "w").write("\n".join(lines) + "\n")
         print("\n".join(lines))
         return 0
+    if a.survey:
+        return survey(a)
     levels = LEVELS
     only = a.only
     if a.quick:
