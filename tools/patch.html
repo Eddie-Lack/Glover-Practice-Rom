@@ -40,6 +40,9 @@ h1 {
   color: var(--yellow); letter-spacing: 1px; text-transform: uppercase;
   text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #000000, -1px -1px 0 #ff8000;
 }
+/* The version under the logo, like a site's "last updated" line. */
+.version { margin: 0; padding: 0 8px 10px; text-align: center; background: var(--deep);
+  font: bold 13px/1.2 Verdana, Tahoma, Arial, sans-serif; color: #c0c0ff; letter-spacing: 2px; text-transform: uppercase; }
 h1 .glove { display: inline-block; width: 40px; height: 32px; vertical-align: -4px; margin: 0 8px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 16' shape-rendering='crispEdges'%3E%3Cpath d='M1 5h4V4h2V3h4v2h8v3h-8v2h-1v2h-1v2H4v-2H3v-2H1z' fill='%23ffffff' stroke='%23000000' stroke-width='1'/%3E%3C/svg%3E") no-repeat center / contain; }
 h1 .glove.left { transform: scaleX(1); }
@@ -106,6 +109,7 @@ ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
 <body>
 <main>
   <h1><span class="glove left" aria-hidden="true"></span>Glover Practice Patcher<span class="glove right" aria-hidden="true"></span></h1>
+  <p class="version" id="version" hidden></p>
   <hr class="rainbow">
 
   <label class="drop" id="drop">
@@ -151,6 +155,10 @@ const VERSION = "";
 
 const $ = (id) => document.getElementById(id);
 let result = null;
+if (VERSION) {
+  $("version").textContent = "Version " + VERSION;
+  $("version").hidden = false;
+}
 let patch = PATCH ? Uint8Array.from(atob(PATCH), (c) => c.charCodeAt(0)) : null;
 
 function step(id, state, detail) {
