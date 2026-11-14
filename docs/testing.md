@@ -225,8 +225,12 @@ Each scenario writes a switch in RAM, waits 30 interrupts and measures 120 (40 g
   thread at the start of a message and around `ProcessInput`, the draw thread after the game's `PrintTimers` and for the
   whole list, and the controller thread without the game's own read. They only record. A thread that runs above another
   adds its time to the other's maximum.
-- **Pace.** A histogram of the video interrupts between game frames (3 when nothing is late), and the same from
-  `frameCount` and `__osViIntrCount` on the retail ROM.
+- **Pace.** The harness polls `frameCount` and `__osViIntrCount` on every video interrupt, on both ROMs, and counts the
+  video interrupts between game frames (3 when nothing is late). This is the count of late game frames. The practice
+  ROM's own histogram (`perf.interval`) is taken where the practice hook runs in the frame. That point can move by one
+  interrupt from frame to frame, which gives pairs of 2 and 4 with no late frame; it is not used for the count. The
+  report lists the retail ROM's late frames of the same level beside the practice ROM's. The emulator gives the same
+  result on most runs, so a rare late frame needs many windows to see (`PERF_REPEAT`, `PERF_WINDOW`).
 - **Input lag.** C-up is held and the trial counts the interrupts and game frames until `pad[0]` shows it. The harness's
   callbacks are phase-locked to the game frame, so only whole frames of lag show.
 - **Others.** Savestate save and load ticks, the collision cache's build after a restart, and the views' own counters.
