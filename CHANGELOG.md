@@ -1,6 +1,6 @@
 # Changelog
 
-## Not yet released
+## 0.9.31 (2026-11-13)
 
 - The patch page at glover.love shows the version under its title.
 
