@@ -23,6 +23,7 @@ handed out as a patch that players apply to their own ROM. Read this file first,
   to a game function. `tools/checklayout.py` fails the build if a game symbol moves (docs/build.md, "Hooks").
 - **Write all prose (docs, comments, commits, PR text) in plain language** (ISO 24495-1): short sentences, one
   idea each, terms defined on first use. No em dashes. No AI model names. Times in UTC-7 Yukon time.
+- **No `Co-Authored-By` lines** in commit messages, PR text or files.
 - **Do not end sentences with a purpose clause** that explains why the preceding detail matters, such as "so
   that X instead of Y". State the fact and stop.
 - **Files for human readers say only what those readers need.** The README is for players and contributors: what
