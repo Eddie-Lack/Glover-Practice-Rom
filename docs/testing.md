@@ -97,7 +97,7 @@ the other tests run on `build/glover-practice.z64`.
 | `faithful.py [--with-features] [--reuse-retail]` | the retail ROM and the practice ROM give the same game, frame by frame (below) |
 | `perf.py --survey` | the highest use of the collision view's fixed buffers in each of the 42 levels (whole-level view, every switch on, Moon Pound aim on): `CollStats` peaks and the cache's size; writes `build/perf/baseline.md` (or `--md`); about 1 minute a level |
 | `perf.py [--quick]` | the practice code's time and the game's pace in the heaviest levels (below); `--quick` is part of `make test` and fails over fixed limits |
-| `node tests/patchpage.js` | the patch page turns a `.v64` copy of the ROM into the same 8 MiB practice ROM as `make`, and says "8 MiB" |
+| `node tests/patchpage.js` | the patch page turns a `.v64` copy of the ROM into the same 8 MiB practice ROM as `make`, says "8 MiB", and shows "Version" and the version under its title |
 
 The page test needs Playwright (`npm install playwright`, or `NODE_PATH` set to a folder that has it) and
 `make patch`.

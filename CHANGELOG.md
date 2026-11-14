@@ -1,5 +1,9 @@
 # Changelog
 
+## Not yet released
+
+- The patch page at glover.love shows the version under its title.
+
 ## 0.9.30 (2026-11-13)
 
 - Input recording: it keeps up to 30 minutes (it was 109). A longer recording on a Controller Pak or an SD card is refused. The savestates hold four levels with their own base (it was three).

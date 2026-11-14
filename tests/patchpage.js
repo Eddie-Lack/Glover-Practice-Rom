@@ -22,6 +22,10 @@ const root = path.resolve(__dirname, "..");
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("file://" + path.join(root, "build", "glover-practice.html"));
+  const subtitle = await page.evaluate(() => {
+    const el = document.getElementById("version");
+    return el.hidden ? null : { text: el.textContent, version: VERSION };
+  });
   await page.setInputFiles("#file", path.join(tmp, "glover.v64"));
   await page.waitForFunction(() => !document.getElementById("save-rom").disabled || document.querySelector("[data-state=fail]"),
     null, { timeout: 60000 });
@@ -38,11 +42,13 @@ const root = path.resolve(__dirname, "..");
   const problem = errors.length ? errors.join("; ")
     : saved.length !== 0x800000 ? "the saved ROM is " + saved.length.toString(16) + " bytes, not 800000"
     : !applied.startsWith("8 MiB") ? "the page reports '" + applied + "', not 8 MiB"
+    : !subtitle || !subtitle.version || subtitle.text !== "Version " + subtitle.version
+      ? "the page does not show 'Version " + (subtitle && subtitle.version) + "' under its title"
     : !same ? "the saved ROM differs from build/glover-practice.z64"
     : "";
   if (problem) {
     console.log("FAIL patchpage: " + problem);
     process.exit(1);
   }
-  console.log("PASS patchpage: the page made the same 8 MiB ROM from a .v64 copy");
+  console.log("PASS patchpage: the page made the same 8 MiB ROM from a .v64 copy, and shows " + subtitle.text);
 })();
