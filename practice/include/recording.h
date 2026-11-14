@@ -7,8 +7,9 @@
  * Play loads the state and gives the game that input again. Both need full speed: frame advance, slow motion
  * or the practice menu stops them, because the controller thread then reads the controller on frames that the
  * game does not run. */
-#define RECORDING_BUFFER 0x80780000
-#define RECORDING_MAX (0x80000 / 4) /* game frames: 109 minutes at 20 a second */
+#define RECORDING_BUFFER 0x807DC000
+#define RECORDING_BUFFER_SIZE 0x24000 /* 144 KB, the end of the Expansion Pak's memory */
+#define RECORDING_MAX (30 * 60 * 20) /* game frames: 30 minutes at 20 a second; 4 bytes each fill 140.6 KB */
 
 typedef struct Recording {
     u8 recording;

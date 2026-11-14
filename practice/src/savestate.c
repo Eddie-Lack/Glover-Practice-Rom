@@ -6,6 +6,7 @@
 #include "earlytitle.h"
 #include "fmt.h"
 #include "game.h"
+#include "ghost.h"
 #include "hud.h"
 #include "lz.h"
 #include "noclip.h"
@@ -76,16 +77,24 @@ u32 stateVerifyList[8]; /* the addresses of the first of them in the last save *
 /* A base keeps a 64-bit hash of each chunk of its state (LzHash). A chunk of the live state with the same hash as
  * the base's is stored as "the same" without decoding the base's chunk: most chunks of a state are. A load also
  * skips the base's chunk when the live chunk has its hash already. */
-#define STATE_CHUNKS_MAX 160
-_Static_assert(STATE_CHUNKS <= STATE_CHUNKS_MAX, "baseSums has room for STATE_CHUNKS_MAX chunks");
+#define STATE_CHUNKS_MAX STATE_CHUNKS
+/* The work tables lie at STATE_WORK, below the pool's end (savestate.h): the compressor's table, the chunk sums of
+ * each base and of the state being made, and the game's save data that a load keeps. StateInit clears them. */
+#define WORK_SUMS_BYTES (STATE_CHUNKS * 2 * sizeof(u32))
+#define WORK_LZ 0
+#define WORK_BASE_SUMS (WORK_LZ + LZ_WORK_ENTRIES * sizeof(u16))
+#define WORK_NEW_SUMS (WORK_BASE_SUMS + STATE_BASES * WORK_SUMS_BYTES)
+#define WORK_KEPT (WORK_NEW_SUMS + WORK_SUMS_BYTES)
+#define HISCORE_TABLE_SIZE 48
+#define KEPT_SIZE (sizeof(saveSlot) + sizeof(bestTimes) + sizeof(eepromCRCS) + HISCORE_TABLE_SIZE)
 _Static_assert(STATE_CHUNK_BYTES == LZ_BLOCK_MAX, "tools/mkstate.py counts the chunks of LZ_BLOCK_MAX bytes");
-static u32 baseSums[STATE_BASES][STATE_CHUNKS_MAX][2];
-static u32 newSums[STATE_CHUNKS_MAX][2]; /* the base that WriteState(-1) is making, or the live state's */
-
-static u16 lzWork[LZ_WORK_ENTRIES] __attribute__((aligned(8)));
+_Static_assert(WORK_KEPT + KEPT_SIZE <= STATE_WORK_SIZE, "the work tables fit their memory");
+#define baseSums ((u32 (*)[STATE_CHUNKS][2])(STATE_WORK + WORK_BASE_SUMS))
+#define newSums ((u32 (*)[2])(STATE_WORK + WORK_NEW_SUMS))
+#define lzWork ((u16 *)(STATE_WORK + WORK_LZ))
 #define blockA ((u8 *)STATE_SCRATCH)
 #define blockB ((u8 *)(STATE_SCRATCH + LZ_BLOCK_MAX))
-_Static_assert(STATE_SCRATCH + 2 * LZ_BLOCK_MAX <= 0x80700000, "the scratch blocks must stay clear of the ghosts");
+_Static_assert(STATE_SCRATCH + 2 * LZ_BLOCK_MAX <= GHOST_BUFFER, "the scratch blocks must stay clear of the ghosts");
 
 static u32 autoStart;            /* practice.levelStarts at the last automatic save */
 
@@ -151,6 +160,12 @@ static void Copy(u32 *dst, const u32 *src, u32 bytes) {
     }
     while (n-- > 0) {
         *dst++ = *src++;
+    }
+}
+
+void StateInit(void) {
+    for (u32 *p = (u32 *)STATE_WORK; p < (u32 *)(STATE_WORK + STATE_WORK_SIZE); p++) {
+        *p = 0;
     }
 }
 
@@ -700,7 +715,7 @@ static int SaveInto(int slot) {
                 stateBases[fresh].item.addr = start;
                 stateBases[fresh].item.size = (u32)(end - start + 3) & ~3u;
                 stateBases[fresh].level = (u8)level;
-                CopyBytes((u8 *)baseSums[fresh], (u8 *)newSums, sizeof(newSums));
+                CopyBytes((u8 *)baseSums[fresh], (u8 *)newSums, WORK_SUMS_BYTES);
                 statePoolEnd = start + stateBases[fresh].item.size;
                 start = statePoolEnd;
                 end = WriteSameSlot();
@@ -957,14 +972,13 @@ int StateLoadReady(int slot) {
 
 /* The game's RAM copy of the save, which a level start does not touch. The instant reset keeps it as it is. */
 extern u8 hiscoreTable[];
-#define HISCORE_TABLE_SIZE 48
 
 /* The card file being loaded, or NULL: Load decodes it in place of a slot's item (savestate.h, CardSource). */
 static CardSource *cardIn;
 static int cardInFailed;
 
 static int Load(Slot *s, const char *name, int instant) {
-    static u8 kept[sizeof(saveSlot) + sizeof(bestTimes) + sizeof(eepromCRCS) + HISCORE_TABLE_SIZE] __attribute__((aligned(8)));
+    u8 *kept = (u8 *)(STATE_WORK + WORK_KEPT);
     int level = gameInfo.level;
     OSPri pri;
     u32 t;

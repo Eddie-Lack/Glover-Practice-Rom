@@ -4,7 +4,8 @@
    empty. The good file loads: the three times are back.
 2. Load recording from card, through the menu: the level is Atlantis 1, the recording holds the same game frames and
    the same input as before, and Play recording gives the same game on every game frame as the first run's playback.
-3. A recording file with a damaged byte is refused before the game's memory changes. The card code writes nothing in
+3. A recording file whose header says more than RECORDING_MAX game frames (30 minutes) is refused before the game's
+   memory changes, with its own message. A recording file with a damaged byte is refused before the game's memory changes. The card code writes nothing in
    any of this (the test changes bytes of the image itself)."""
 # The ROM with the test mailbox for a cart (make testrom).
 TEST_BUILD = True
@@ -25,8 +26,10 @@ FIRST = os.path.join(ROOT, "build", "tests", "sdrecording")
 ACTION_PLAY = 11
 ACTION_WARP = 1
 RUN_WARP_LEVEL = 4
-RECORDING_BUFFER = 0x80780000
+RECORDING_BUFFER = 0x807DC000
 OTHER_LEVEL = 30
+RECORDING_MAX = 36000     # practice/include/recording.h
+HEADER_FRAMES = 24        # the header's game frames (u32, big-endian)
 
 
 def run(emu, sym, args):
@@ -86,6 +89,17 @@ def scenario(emu, sym, args, box, image):
             f.write(bytes([b[0] ^ 0xFF]))
         box.switch(image)
 
+    def patch(name, offset, data):
+        """Writes DATA into a file on the card; returns the bytes it replaced."""
+        lba, _ = named_file_place(image, name)
+        with open(image, "r+b") as f:
+            f.seek(lba * 512 + offset)
+            old = f.read(len(data))
+            f.seek(lba * 512 + offset)
+            f.write(data)
+        box.switch(image)
+        return old
+
     for i in layout.SETTINGS_BINDINGS:
         emu.w8(sym("settings") + i, 0)
     emu.w8(sym("sdBackend"), 1)
@@ -127,6 +141,17 @@ def scenario(emu, sym, args, box, image):
         yield 3
         box.check(emu)
         yield 10
+
+    # The header says RECORDING_MAX + 1 game frames: refused at once, the level and the buffer stay.
+    marker = RECORDING_BUFFER + RECORDING_MAX * 4
+    emu.w32(marker, 0xDEADBEEF)
+    old = patch("RECORD.GRC", HEADER_FRAMES, (RECORDING_MAX + 1).to_bytes(4, "big"))
+    yield from load_recording()
+    if (level() != OTHER_LEVEL or count() != 0 or emu.r32(marker) != 0xDEADBEEF
+            or hud_message(emu, sym) != "the recording file is longer than 30 minutes: not loaded"):
+        emu.fail(f"a recording file of too many frames: level {level()}, {count()} frames, \"{hud_message(emu, sym)}\"")
+    patch("RECORD.GRC", HEADER_FRAMES, old)
+    print("sdrecording load: a recording file longer than 30 minutes is refused")
 
     _, size = named_file_place(image, "RECORD.GRC")
     flip("RECORD.GRC", size - 9)

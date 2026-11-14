@@ -16,6 +16,7 @@
 #include "missedtaps.h"
 #include "noclip.h"
 #include "paddisplay.h"
+#include "perf.h"
 #include "practice.h"
 #include "recording.h"
 #include "saveedit.h"
@@ -93,6 +94,8 @@ static void DebugPad(void) {
 }
 
 static void Frame(u8 cntlr, void (*read)(u8)) {
+    u32 t0 = osGetCount();
+
     if (run.frameLog) {
         frameLogReads++;
     } else if (frameLogReads) {
@@ -143,7 +146,9 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
         demo.all = 0;
     }
     RecordingFrame(cntlr);
+    u32 t1 = osGetCount();
     read(cntlr);
+    u32 t2 = osGetCount();
     if (run.freeCam | freeCam.active) {
         FreeCamRead();
     }
@@ -156,6 +161,7 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
     SettingsService();
     SaveEditService();
     CPakService();
+    PerfAdd(PERF_CTRL, t1 - t0 + (osGetCount() - t2));
 }
 
 void PracticeReadController(u8 cntlr) {

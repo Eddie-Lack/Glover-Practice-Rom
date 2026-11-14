@@ -24,36 +24,37 @@
 #include "trainers.h"
 #include "version.h"
 
-#define ITEM(label, kind, lo, hi, ptr, sub, fn, names, info, arg, bind) \
-    { label, kind, lo, hi, ptr, sub, fn, names, info, arg, bind, NULL, NULL }
-#define TOGGLE(label, ptr) ITEM(label, ITEM_TOGGLE, 0, 1, ptr, NULL, NULL, NULL, NULL, 0, -1)
-#define NUMBER(label, ptr, lo, hi) ITEM(label, ITEM_NUMBER, lo, hi, ptr, NULL, NULL, NULL, NULL, 0, -1)
-#define CHOICE(label, ptr, names, n) ITEM(label, ITEM_CHOICE, 0, (n) - 1, ptr, NULL, NULL, names, NULL, 0, -1)
-#define SUBMENU(label, menu) ITEM(label, ITEM_SUBMENU, 0, 0, NULL, &menu, NULL, NULL, NULL, 0, -1)
-#define ACTION(label, fn, arg) ITEM(label, ITEM_ACTION, 0, 0, NULL, NULL, fn, NULL, NULL, arg, -1)
+/* Rows are written with designated initializers: the union members (value, submenu, view; names, info) each
+ * take one, so a row cannot set two that share a word. */
+#define ITEM(l, k, lo, hi, a, fn, ...) \
+    { .label = l, .kind = k, .min = lo, .max = hi, .arg = a, .action = fn, __VA_ARGS__ }
+#define TOGGLE(label, ptr) ITEM(label, ITEM_TOGGLE, 0, 1, 0, NULL, .value = ptr)
+#define NUMBER(label, ptr, lo, hi) ITEM(label, ITEM_NUMBER, lo, hi, 0, NULL, .value = ptr)
+#define NUMBER_FN(label, ptr, lo, hi, fn) ITEM(label, ITEM_NUMBER, lo, hi, 0, fn, .value = ptr)
+#define CHOICE(label, ptr, nm, n) ITEM(label, ITEM_CHOICE, 0, (n) - 1, 0, NULL, .value = ptr, .names = nm)
+/* A choice that counts from lo to hi, with an action that runs after a change. */
+#define CHOICE_FN(label, ptr, lo, hi, nm, fn) ITEM(label, ITEM_CHOICE, lo, hi, 0, fn, .value = ptr, .names = nm)
+#define SUBMENU(label, menu) ITEM(label, ITEM_SUBMENU, 0, 0, 0, NULL, .submenu = &menu)
+#define ACTION(label, fn, a) ITEM(label, ITEM_ACTION, 0, 0, a, fn)
 /* A quick action: its binding shows next to it. */
-#define QUICK(label, action) ITEM(label, ITEM_ACTION, 0, 0, NULL, NULL, Request, NULL, NULL, action, action)
+#define QUICK(label, a) ITEM(label, ITEM_QUICK, 0, 0, a, Request)
 /* A quick action with a note in place of the key help while it is selected. */
-#define QUICK_HINT(label, action, hint) \
-    { label, ITEM_ACTION, 0, 0, NULL, NULL, Request, NULL, NULL, action, action, NULL, hint }
-#define STATE(label, fn, info, arg) ITEM(label, ITEM_ACTION, 0, 0, NULL, NULL, fn, NULL, info, arg, -1)
+#define QUICK_HINT(label, a, h) ITEM(label, ITEM_QUICK, 0, 0, a, Request, .hint = h)
+#define STATE(label, fn, inf, a) ITEM(label, ITEM_ACTION, 0, 0, a, fn, .info = inf)
 /* A state item with a warning in place of the key help while it is selected. */
-#define WARN_STATE(label, fn, info, arg, hint) \
-    { label, ITEM_ACTION, 0, 0, NULL, NULL, fn, NULL, info, arg, -1, NULL, hint }
-#define INFO(label, fn) ITEM(label, ITEM_INFO, 0, 0, NULL, NULL, NULL, NULL, fn, 0, -1)
-#define BIND(label, action) ITEM(label, ITEM_BIND, 0, 0, NULL, NULL, NULL, NULL, NULL, action, -1)
-#define VIEW(label, v) { label, ITEM_VIEW, 0, 0, NULL, NULL, NULL, NULL, NULL, 0, -1, &v, NULL }
+#define WARN_STATE(label, fn, inf, a, h) ITEM(label, ITEM_ACTION, 0, 0, a, fn, .info = inf, .hint = h)
+#define INFO(label, fn) ITEM(label, ITEM_INFO, 0, 0, 0, NULL, .info = fn)
+#define BIND(label, a) ITEM(label, ITEM_BIND, 0, 0, a, NULL)
+#define VIEW(label, v) ITEM(label, ITEM_VIEW, 0, 0, 0, NULL, .view = &v)
 /* A toggle with a warning in place of the key help while it is selected. */
-#define WARN(label, ptr, hint) { label, ITEM_TOGGLE, 0, 1, ptr, NULL, NULL, NULL, NULL, 0, -1, NULL, hint }
+#define WARN(label, ptr, h) ITEM(label, ITEM_TOGGLE, 0, 1, 0, NULL, .value = ptr, .hint = h)
 /* A choice with a warning in place of the key help while it is selected. */
-#define WARN_CHOICE(label, ptr, names, n, hint) \
-    { label, ITEM_CHOICE, 0, (n) - 1, ptr, NULL, NULL, names, NULL, 0, -1, NULL, hint }
+#define WARN_CHOICE(label, ptr, nm, n, h) ITEM(label, ITEM_CHOICE, 0, (n) - 1, 0, NULL, .value = ptr, .names = nm, .hint = h)
 /* An action with a warning in place of the key help while it is selected. */
-#define WARN_ACTION(label, fn, arg, hint) \
-    { label, ITEM_ACTION, 0, 0, NULL, NULL, fn, NULL, NULL, arg, -1, NULL, hint }
+#define WARN_ACTION(label, fn, a, h) ITEM(label, ITEM_ACTION, 0, 0, a, fn, .hint = h)
 /* A view with a warning in place of the key help while it is selected. */
-#define WARN_VIEW(label, v, hint) { label, ITEM_VIEW, 0, 0, NULL, NULL, NULL, NULL, NULL, 0, -1, &v, hint }
-#define MENU(name, title, items) const Menu name = { title, items, ARRAY_COUNT(items) }
+#define WARN_VIEW(label, v, h) ITEM(label, ITEM_VIEW, 0, 0, 0, NULL, .view = &v, .hint = h)
+#define MENU(name, title, items) const Menu name = { title, items, ARRAY_COUNT(items), 0 }
 
 static void Request(int action) {
     ActionRequest(action);
@@ -98,10 +99,7 @@ static void GameTimerText(char *buf, int size, int arg) {
            h / 6000, h / 100 % 60, h % 100);
 }
 
-/* The splits: the level that each one ended, and its time. Filled in by MenusInit. */
-static char splitLabels[SPLITS_MAX][4];
-static MenuItem splitItems[SPLITS_MAX];
-static MENU(splitMenu, "Splits", splitItems);
+/* The splits: the level that each one ended, and its time. One repeated row for each split so far. */
 
 static void SplitText(char *buf, int size, int arg) {
     s8 level = gameTimer.splitLevel[arg];
@@ -115,6 +113,11 @@ static void SplitText(char *buf, int size, int arg) {
     Format(buf, size, "%s  %d:%02d.%02d", level >= 0 && level < NUM_LEVELS ? levelInfo[level].name : "?",
            h / 6000, h / 100 % 60, h % 100);
 }
+
+static const MenuItem splitItems[] = {
+    ITEM("", ITEM_INFO, 0, 0, 0, NULL, .info = SplitText, .value = &gameTimer.splitCount),
+};
+static const Menu splitMenu = { "Splits", splitItems, 0, 1 };
 
 static const MenuItem gameTimerItems[] = {
     TOGGLE("Show the full-game timer", &settings.hud[HUD_GAME].on),
@@ -269,7 +272,7 @@ static const MenuItem cardItems[] = {
 static MENU(cardMenu, "SD card", cardItems);
 
 static const MenuItem stateItems[] = {
-    ITEM("Slot", ITEM_CHOICE, 0, STATE_USER_SLOTS - 1, &stateSlot, NULL, SlotChanged, slotNames, NULL, 0, -1),
+    CHOICE_FN("Slot", &stateSlot, 0, STATE_USER_SLOTS - 1, slotNames, SlotChanged),
     QUICK_HINT("Save state", ACTION_SAVE_STATE, "Stops the game 0.4 s (1.5 s at first)"),
     QUICK_HINT("Load state", ACTION_LOAD_STATE, "Stops the game 0.4 to 0.5 s"),
     QUICK_HINT("Record input", ACTION_RECORD, "Saves a state first: stops the game"),
@@ -418,7 +421,7 @@ static void PlayerEdited(int arg) {
     BestTimesTaint(BT_OTHER);
 }
 
-#define NUMBER_TAINT(label, ptr, lo, hi) ITEM(label, ITEM_NUMBER, lo, hi, ptr, NULL, PlayerEdited, NULL, NULL, 0, -1)
+#define NUMBER_TAINT(label, ptr, lo, hi) NUMBER_FN(label, ptr, lo, hi, PlayerEdited)
 
 static const MenuItem trainerItems[] = {
     STATE("L mash timing", TrainersToggle, TrainersText, TRAINER_LMASH),
@@ -509,11 +512,11 @@ static const MenuItem settingsItems[] = {
     ACTION("Default settings", SettingsAction, 2),
     INFO("Status", SettingsStatusText),
     TOGGLE("Pause game in this menu", &settings.menuPauses),
-    ITEM("Menu opacity", ITEM_CHOICE, 1, MENU_OPACITY_STEPS, &settings.menuOpacity, NULL, NULL, opacityNames, NULL, 0, -1),
-    ITEM("Menu position across", ITEM_CHOICE, 1, 3, &settings.menuAcross, NULL, NULL, acrossNames, NULL, 0, -1),
-    ITEM("Menu position down", ITEM_CHOICE, 1, 3, &settings.menuDown, NULL, NULL, downNames, NULL, 0, -1),
-    ITEM("Trainer log length", ITEM_CHOICE, 1, TRAINER_LOG_STEPS, &settings.trainerLog, NULL, NULL, trainerLogNames, NULL, 0, -1),
-    ITEM("Trainer result hold", ITEM_CHOICE, 1, TRAINER_HOLD_STEPS, &settings.trainerHold, NULL, NULL, trainerHoldNames, NULL, 0, -1),
+    CHOICE_FN("Menu opacity", &settings.menuOpacity, 1, MENU_OPACITY_STEPS, opacityNames, NULL),
+    CHOICE_FN("Menu position across", &settings.menuAcross, 1, 3, acrossNames, NULL),
+    CHOICE_FN("Menu position down", &settings.menuDown, 1, 3, downNames, NULL),
+    CHOICE_FN("Trainer log length", &settings.trainerLog, 1, TRAINER_LOG_STEPS, trainerLogNames, NULL),
+    CHOICE_FN("Trainer result hold", &settings.trainerHold, 1, TRAINER_HOLD_STEPS, trainerHoldNames, NULL),
     CHOICE("Hi Scores screen shows", &bestTimesState.showGame, hiscoreNames, 2),
     WARN_ACTION("Clear practice best times", BestTimesAction, 0, "Forgets every practice best time"),
     WARN_ACTION("Save best times to card", CardAction, CARD_REQ_SAVE_BESTS, "Writes BESTS.GRB on the SD card"),
@@ -693,11 +696,6 @@ static const MenuItem rootItems[] = {
 MENU(rootMenu, "Glover Practice", rootItems);
 
 void MenusInit(void) {
-    for (int i = 0; i < SPLITS_MAX; i++) {
-        Format(splitLabels[i], sizeof(splitLabels[i]), "%d", i + 1);
-        splitItems[i] = (MenuItem)INFO(splitLabels[i], SplitText);
-        splitItems[i].arg = i;
-    }
     for (int i = 0; i < WARP_LEVELS; i++) {
         levelNames[i] = levelInfo[i].name;
     }

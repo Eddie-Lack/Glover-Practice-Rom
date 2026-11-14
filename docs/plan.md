@@ -72,9 +72,10 @@ code, and nothing ties unmatched code to the old compiler ([build.md](build.md#c
 | 0x80000000 to 0x803FFFFF | the game, as in retail: every symbol at its retail address |
 | 0x80380000 to about 0x80381000 | the loader, during boot only; then it is cleared and the game's heap takes it back |
 | 0x80400000 to about 0x8047FFFF | practice code, data and settings (target: at most 512 KB) |
-| 0x80480000 to 0x806FFFFF | the savestate pool (2.5 MB): compressed bases and slots ([build.md](build.md#savestates)) |
-| 0x80700000 to 0x8077FFFF | the ghosts: four slots of 0x20000 bytes ([build.md](build.md#the-ghost)) |
-| 0x80780000 to 0x807FFFFF | the input recording (512 KB: 131072 game frames, 109 minutes) |
+| 0x80480000 to 0x80747FFF | the savestate pool (2.8 MB) and its work tables: compressed bases and slots ([build.md](build.md#savestates)) |
+| 0x80748000 to 0x8075BFFF | the test mailbox (test ROM only), the work of a save and a load, the card's stage and data |
+| 0x8075C000 to 0x807DBFFF | the ghosts: four slots of 0x20000 bytes ([build.md](build.md#the-ghost)) |
+| 0x807DC000 to 0x807FFFFF | the input recording (144 KB: 36000 game frames, 30 minutes) |
 | ROM 0x000000 to 0x77DE1F | the retail ROM's layout and data |
 | ROM 0x780000 to 0x7FFFFF | the free end of the 8 MiB: the loader, then the practice segment, copied to 0x80400000 at boot |
 
@@ -92,7 +93,7 @@ more need fast compression (zero runs and a simple LZ pass) or leaving out the d
 beyond that are a decision (decisions.md). A state as built is 1.9 MB, without the display
 list buffers, the thread stacks and the music driver. The pool of compressed states is described in [build.md](build.md#savestates).
 
-The recording is 512 KB (109 minutes, at 20 game frames a second). A ghost keeps 6.8 minutes.
+The recording is 144 KB (30 minutes, at 20 game frames a second; the owner's decision, docs/decisions.md). A ghost keeps 6.8 minutes.
 
 ## Hooks
 
@@ -263,7 +264,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 
 - A pool of compressed states in the upper 4 MB: done ([build.md](build.md#savestates)). A state is 1.9 MB raw: the
   game's data and bss, the heap and the texture buffers. The first state in a level takes about 0.6 MB (a base), each
-  further state in the level some kilobytes. Ten slots and up to three bases; a load gives the same game again on every
+  further state in the level some kilobytes. Ten slots and up to four bases; a load gives the same game again on every
   game frame (`tests/savestate.py`, `tests/slots.py`). A save or a load stops the game for about 0.4 s (1.5 s for a base),
   and the frame before shows "saving..." or "loading...".
 - Save and load on bindings (stick fully left plus D-pad up or down) and in the menu, with a short note on screen:
@@ -286,7 +287,8 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
 - Collision view, face info and wireframe: done (`Run.collInfo`, `Run.collWire`;
   [build.md](build.md#face-info), `tests/collinfo.py`). The wireframe draws the scene again in a render mode that
   shows only the pixels an edge crosses, so it needs no data.
-- Overlay list size: measured. The most one frame used was 3,811 of 6,000 commands; `OVERLAY_SIZE` is 4,800
+- Overlay list size: measured. The most one frame used was 3,811 of 6,000 commands (4,611 with every trainer and the
+  frame log on as well, so 4,800 stays); `OVERLAY_SIZE` is 4,800
   ([build.md](build.md#hiding-objects), `tests/overlay.py`).
 - Hide objects (Inspect, "Hide objects"): done. Fifteen kinds, one bit each in `Run.hide`. The game's drawing
   functions still run; their drawing commands become no-ops ([build.md](build.md#hiding-objects)). `tests/hide.py`.
@@ -308,7 +310,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   face that each touched on the last game frame.
 - Input recording and playback in the game's `.moo` format, plus a richer format with the stick, for checking a
   trick frame by frame. Done in the practice ROM's own form: Record saves a state and keeps each game frame's
-  buttons and stick (4 bytes; up to 109 minutes at 0x80780000); Play loads the recording's own state (a pool slot) and gives the input
+  buttons and stick (4 bytes; up to 30 minutes at 0x807DC000); Play loads the recording's own state (a pool slot) and gives the input
   back. Recordings survive a power-off on a SummerCart64's SD card (Savestate, SD card, "Save recording to card" and
   "Load recording from card": RECORD.GRC, [build.md](build.md#savestates-on-the-sd-card); `tests/sdrecording.py`,
   `tests/sdrecordingload.py`). The practice ROM does not write the game's `.moo` format (buttons

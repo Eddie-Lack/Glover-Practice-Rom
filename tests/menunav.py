@@ -3,10 +3,12 @@ cursors, the Menu and MenuItem tables of practice/include/menu.h), so a test doe
 items."""
 from tools import press
 
-# MenuItem: label 0, kind 4, min 5, max 6, value 8, submenu 12, action 16, names 20, info 24, arg 28, bind 29,
-# view 32, hint 36; 40 bytes. Menu: title 0, items 4, count 8.
-ITEM_SIZE = 40
-(ITEM_SUBMENU, ITEM_TOGGLE, ITEM_CHOICE, ITEM_NUMBER, ITEM_ACTION, ITEM_INFO, ITEM_BIND, ITEM_VIEW) = range(8)
+# MenuItem: label 0, kind 4, min 5, max 6, arg 7, value / submenu / view 8, action 12, names / info 16, hint 20;
+# 24 bytes. Menu: title 0, items 4, count 8, repeat 9. A repeating menu (the splits page) has one item, whose value
+# points to the live row count; its row N is labelled "N".
+ITEM_SIZE = 24
+(ITEM_SUBMENU, ITEM_TOGGLE, ITEM_CHOICE, ITEM_NUMBER, ITEM_ACTION, ITEM_INFO, ITEM_BIND, ITEM_VIEW,
+ ITEM_QUICK) = range(9)
 MENU_ROWS = 14
 
 
@@ -31,10 +33,14 @@ class Page:
         self.title = cstr(emu, emu.r32(self.menu))
         items = emu.r32(self.menu + 4)
         self.count = emu.r8(self.menu + 8)
+        repeat = emu.r8(self.menu + 9)
+        if repeat:
+            self.count = emu.r8(emu.r32(items + 8))
         self.items = []
         for i in range(self.count):
-            a = items + i * ITEM_SIZE
-            self.items.append((cstr(emu, emu.r32(a)), emu.r8(a + 4), emu.r32(a + 12), a))
+            a = items + (0 if repeat else i * ITEM_SIZE)
+            label = str(i + 1) if repeat else cstr(emu, emu.r32(a))
+            self.items.append((label, emu.r8(a + 4), emu.r32(a + 8), a))
 
     def labels(self):
         return [it[0] for it in self.items]

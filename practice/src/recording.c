@@ -16,8 +16,9 @@ typedef struct RecordedInput {
     s8 stickY;
 } RecordedInput;
 
-_Static_assert(RECORDING_BUFFER >= STATE_POOL_END && RECORDING_BUFFER + RECORDING_MAX * 4 <= 0x80800000,
-               "the recording must not overlap the savestate pool");
+_Static_assert(RECORDING_BUFFER >= GHOST_BUFFER + GHOST_SLOTS * GHOST_SLOT_BYTES && RECORDING_MAX * 4 <= RECORDING_BUFFER_SIZE &&
+                   RECORDING_BUFFER + RECORDING_BUFFER_SIZE == 0x80800000,
+               "the recording lies behind the ghosts and ends with the Expansion Pak's memory");
 
 Recording recording;
 
@@ -75,7 +76,12 @@ void RecordingFrame(u8 cntlr) {
             HudMessage("playback done");
         }
     } else if (recording.recording) {
-        if (!FullSpeed() || recording.count >= RECORDING_MAX) {
+        if (recording.count >= RECORDING_MAX) {
+            recording.recording = 0;
+            HudMessage("recording stopped: 30 minutes is the limit");
+            return;
+        }
+        if (!FullSpeed()) {
             recording.recording = 0;
             HudMessage("recording stopped");
             return;

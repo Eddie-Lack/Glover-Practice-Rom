@@ -88,6 +88,12 @@ typedef struct CollStats {
     /* 0x1C */ u32 counts;  /* CPU counts (46.875 MHz) of the view's work on the draw thread this frame */
     /* 0x20 */ u32 buildCounts; /* CPU counts of the last cache build, over all its frames */
     /* 0x24 */ u32 infoCounts;  /* CPU counts of the face info this frame */
+    /* The peaks since boot. They are the only fields that a frame does not write afresh. */
+    /* 0x28 */ u16 peakMoving;  /* most platform matrices used in one frame */
+    /* 0x2A */ u16 peakHoles;   /* most hole posts drawn in one frame */
+    /* 0x2C */ u16 peakSpheres; /* most collision spheres drawn in one frame */
+    /* 0x2E */ u16 peakScene;   /* most commands in one frame's scene list (its end command included) */
+    /* 0x30 */ u8 fullEver;     /* the bits of `full` that any frame set */
 } CollStats;
 
 extern CollStats collStats;

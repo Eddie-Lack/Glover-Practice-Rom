@@ -48,7 +48,7 @@ States are kept compressed in a pool of the Expansion Pak's memory
 - The first state saved in a level makes a base for that level, about 0.6 MB, and takes about 1.5 seconds.
 - Every further state in the same level is kept as its difference from the base. It takes some KBs and about 0.4 seconds.
 - A load takes about 0.4 seconds.
-- Up to three levels have a base. A state in a fourth level takes about 0.45 MB.
+- Up to four levels have a base. A state in a fifth level takes about 0.45 MB, or does not fit.
 
 The game stops meanwhile, and the frame before shows "saving..." or "loading...". A save that does not fit says "pool full". If the slot held a state, the save emptied it. Clear slots to make room.
 
@@ -71,7 +71,7 @@ _The driver has not been tried on a console yet. The tests use a stand-in for th
 
 ## Input recording
 
-Record input saves a state, then records what the game reads from the controller, for up to 109 minutes. Play recording loads the state and plays the inputs back
+Record input saves a state, then records what the game reads from the controller, for up to 30 minutes. At the limit, the recording stops and the game says so. Play recording loads the state and plays the inputs back
 
 The recording's state has a slot of its own. The slot chosen in the menu is not touched, and Load state still loads the chosen slot. If the state does not fit, the game says "recording not started: pool full".
 

@@ -146,10 +146,18 @@ thread after its read, when the game has no EEPROM request waiting, as the game 
 
 `practice/src/menu.c` draws and moves through the menus; `practice/src/menus.c` holds the tables. A menu shows at
 most `MENU_ROWS` (14) items. With the title row and the hint line the panel is 189 pixels high. A longer menu
-scrolls (the cheats, 26 items, the HUD layout, 22, and the splits, 48); the title row then shows the cursor's place
+scrolls (the cheats, 26 items, the HUD layout, 22, and the splits, up to 48); the title row then shows the cursor's place
 as "n/N". Every other menu has at most 14 items and fits as it is. Sub pages keep the first page to the items that
 are used most: Savestate > SD card, HUD > Counters, Game > Random numbers, Controller 2 and Movement and camera,
 and Inspect > Collision view (with its own sub page, Faces shown). `tests/menupages.py` walks every page and checks the frame buffer.
+
+A `MenuItem` is 24 bytes: the label, the kind, `min`, `max` and `arg` in one word, one pointer that the kind picks
+(`value`, `submenu` or `view`, a union), the action, one word for `names` (CHOICE) or `info` (ACTION, INFO; a union)
+and the hint. A quick action has its own kind, `ITEM_QUICK`: `arg` is the action and its binding shows. The rows in
+`menus.c` use designated initializers, so a row cannot set two members that share a word. The splits page is one
+`Menu` with `repeat` set: it has one item, whose `value` points to `gameTimer.splitCount`, and the page shows one row
+for each split ("N" and the split's level and time). `menu.c` pulls the cursor and the scroll back inside when the
+count drops. `tests/menunav.py` knows both layouts.
 
 The Settings menu has "Menu opacity" and "Menu position across" and "Menu position down". `menu.c` keeps the table of
 the nine places of the panel (x 12, 32 or 52; y 12, 28 or 36) and the six alpha values of the panel
@@ -187,24 +195,25 @@ The Expansion Pak's upper 4 MB is laid out as follows (docs/plan.md has the whol
 | Range | Use |
 | --- | --- |
 | 0x80400000 to 0x8047FFFF | the practice segment (code, data, bss) |
-| 0x80480000 to 0x806EBFFF | the pool (2.4 MB) |
-| 0x806EC000 to 0x806EFFFF | the SD card test mailbox, used only by the test ROM (`make testrom`) |
-| 0x806F0000 to 0x806FFFFF | the work of a save and a load: two blocks of 16 KB |
-| 0x80700000 to 0x8077FFFF | the ghosts |
-| 0x80780000 to 0x807FFFFF | the input recording (512 KB; it was 1 MB, and made room for the pool) |
+| 0x80480000 to 0x807453FF | the pool (2.8 MB, 2837 KB) |
+| 0x80745400 to 0x80747FFF | the savestate work tables (`STATE_WORK`, 11 KB): the compressor's table, the chunk sums of the bases and of the state being made, and the game's save data that a load keeps. `StateInit` clears them at boot |
+| 0x80748000 to 0x8074BFFF | the SD card test mailbox, used only by the test ROM (`make testrom`) |
+| 0x8074C000 to 0x8075BFFF | the work of a save and a load: two blocks of 16 KB, then the card's stage and data |
+| 0x8075C000 to 0x807DBFFF | the ghosts |
+| 0x807DC000 to 0x807FFFFF | the input recording (144 KB: 36000 game frames of 4 bytes, 30 minutes, fill 140.6 KB; it was 1 MB, then 512 KB, and made room for the pool) |
 
 The pool holds two kinds of item, one after the other from 0x80480000. A freed item closes its gap: the items
 behind it move down (a copy of at most a few hundred kilobytes). Free space is one block at the end.
 
-- A **base** is a whole state, compressed on its own. There are at most three (`STATE_BASES`), one for each level that
-  has states. A base takes about 0.6 MB and the pool is 2.4 MB. A fourth base never fits next to the other three.
+- A **base** is a whole state, compressed on its own. There are at most four (`STATE_BASES`), one for each level that
+  has states. A base takes about 0.6 MB and the pool is 2.8 MB. A fifth base never fits next to the other four.
 - A **slot** is a state stored as its difference from a base. There are twelve: ten that the player chooses
   (`stateSlot`, the Savestate menu's "Slot"), one for the input recording (`STATE_SLOT_RECORD`, the state that Record
   saves; the chosen slot is not touched) and one for the instant reset (`STATE_SLOT_AUTO`). A slot is a few kilobytes
   when its base is of the same level.
 
 The state is cut into chunks of at most 16 KB (`LZ_BLOCK_MAX`), each in one range; there are 145
-(`STATE_CHUNKS`, counted by `tools/mkstate.py`; a `_Static_assert` keeps it within `STATE_CHUNKS_MAX`, 160). A base
+(`STATE_CHUNKS`, counted by `tools/mkstate.py`; the work tables are sized from it). A base
 is a list of chunks, each compressed by `LzCompress` ([below](#the-compressor)) or, if that does not make it
 smaller, stored as it is. A slot is a list of chunks of four kinds, each with a 2-byte header (kind in the top 2
 bits, length in the other 14):
@@ -270,9 +279,9 @@ On a state of Atlantis 1 (game frame 300; `tests/slots.py` prints the same kind 
 | a slot, same level, 700 and 1200 game frames later | 6 to 15 KB |
 | a slot, another level's base | 400 to 650 KB (449 KB for a state of level 35 against the base of level 1) |
 
-Three levels' bases and ten slots take 1.97 MB of the 2.44 MB pool (`tests/slots.py`: 469 KB free). A fourth base does
-not fit, and `STATE_BASES` is 3. A state in a fourth level is stored as its difference from another level's base, which
-takes most of what is left. The level start slot in quick form adds up to 320 KB. The menu shows
+Four levels' bases and ten slots take 2.6 MB of the 2.8 MB pool (`tests/slots.py`: 185 KB free). A fifth base does
+not fit, and `STATE_BASES` is 4. A state in a fifth level is stored as its difference from another level's base, which
+takes most of what is left (in the test it does not fit). The level start slot in quick form adds up to 320 KB. The menu shows
 the used slots and the free kilobytes. The bytes of a state that do not
 compress (textures of 16 bits, vertex data, display lists) set the limit; the order-0 entropy of the literals is only
 6 percent below their size, and the cost is in 98,000 short matches.
@@ -459,11 +468,11 @@ card", "Load from card" and "Delete on card".
   a file of another size, magic, version or CRC and leaves the times as they are. Both files are in the folder `GLOVERPR`.
   `tests/sdrecording.py` saves them (and decodes them with `tests/sdutil.py`), `tests/sdrecordingload.py` loads them in
   another emulator run and finds the same game frames in the playback.
-- **The streams.** A save and a load never hold a whole file in memory. A 20 KB stage at 0x806F8000 (`CARD_STAGE`,
+- **The streams.** A save and a load never hold a whole file in memory. A 20 KB stage at 0x80754000 (`CARD_STAGE`,
   behind the two 16 KB work blocks) holds the records on their way to or from the card. The card code's own data
   (the `Fat` with its 8 KB FAT cache, the CRC table and a sector buffer, 10.1 KB) lives in 12 KB behind the stage
-  (`CARD_WORK`, 0x806FD000), which ends where the ghosts begin. The Controller Pak's note buffer (31 KB) uses the same 32 KB (`cpak.c`): the menu stays in the Controller Pak view while a pak operation runs, so the two never run together. A `_Static_assert` checks that the area ends at
-  0x80700000. The export fills it chunk by
+  (`CARD_WORK`, 0x80759000), which ends where the ghosts begin. The Controller Pak's note buffer (31 KB) uses the same 32 KB (`cpak.c`): the menu stays in the Controller Pak view while a pak operation runs, so the two never run together. A `_Static_assert` checks that the area ends at
+  0x8075C000. The export fills it chunk by
   chunk and hands whole sectors to the file system. The import keeps at least one record in it. A RAW record's data is
   aligned by the file's offset, and the stage keeps its addresses equal to the file's offsets modulo 4.
 - **Threads.** The menu only sets `cardWanted`. The game thread acts on it at the start of its next game frame
@@ -566,7 +575,7 @@ card", "Load from card" and "Delete on card".
 
 A recording starts with a savestate: Record saves into `STATE_SLOT_RECORD`, a pool slot of its own, and does not touch the slot that the player chose. Play loads that state. When the save does not fit, Record says "recording not started: pool full" and does not start. From the next game frame, `RecordingFrame` (in the controller thread,
 after the practice input layer and before the game's `ReadController`) keeps the buttons and the stick that the
-game is about to read, 4 bytes a game frame, from 0x80780000 (up to 131072 game frames at 20 a second, 109 minutes). Playback loads the state and writes each kept
+game is about to read, 4 bytes a game frame, from 0x807DC000 (up to 36000 game frames at 20 a second, 30 minutes; `RECORDING_MAX`). A recording that reaches the limit stops and says "recording stopped: 30 minutes is the limit". A recording in a Controller Pak note or on the SD card with more game frames than that is refused when it is read ("The recording is longer than 30 minutes. Nothing was loaded.", "the recording file is longer than 30 minutes: not loaded"), before anything is written to the buffer. Playback loads the state and writes each kept
 input into `controllerdata` at the same point. The game's `pad[]` is in the state. The game computes the same
 presses from the same reads.
 
@@ -630,9 +639,13 @@ where it is, also far from Glover, where the game's own faces are out of date.
   (`CACHE_WAIT_FRAMES`, 3 frames after the last one that drew the cache). What changes each frame (the scene
   list, the platform and sphere matrices, the touched faces, the holes, the projection, the viewport) has one set
   for each frame buffer. A build only appends to the cache, which frames in flight do not read past.
-- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 1,920 commands (15 KB) for the cache, 96
+- Memory, in the practice segment's bss: 2,688 vertices (42 KB) and 1,792 commands (14 KB) for the cache, 96
   landscape matrices, 128 shapes and 160 records; for each frame buffer a scene list of 896 commands, an extra list
-  of 232, 64 platform matrices and 32 sphere matrices. One byte for each face of the mesh being built
+  of 232, 64 platform matrices, 24 sphere matrices and 40 hole posts (`HOLE_DRAW_MAX`; the painter itself holds
+  `HOLE_MAX`, 64). `tests/perf.py --survey` found the highest use in the 42 levels with the whole-level view and
+  every switch on: 2,493 vertices, 1,541 commands, 108 shapes (Space 2A), 126 records, 546 scene commands, 17 spheres
+  and 9 holes at the start of a level. Atlantis Bonus uses all 64 platform matrices and sets `full` bit 2, so 64
+  is too few there. The caps of vertices, shapes, records, scene and platform matrices stay as they are. One byte for each face of the mesh being built
   (`faceBytes`) holds a face build's groups or an edge build's open edges: only one build runs. Face info and the
   wireframe took the room for their code from the cache's commands (2,048 before; Atlantis 3's faces need 1,193)
   and from the sphere matrices (40 before). The faces alone of the largest level (Atlantis 3) take
@@ -848,7 +861,10 @@ The overlay lists (`overlayList`, practice.c) hold only text: the HUD, the menu 
 view and the ghost have lists of their own. The most commands one frame used was 3,811, with the menu on its HUD page
 in Out of this World 3 and every HUD item, every collision view switch and face info on (`tests/overlay.py`, which
 also visited the menu's other pages and views in Atlantis 3, Carnival 1, Pirates 3 and Out of this World 3). The
-level does not change it: the HUD and face info use about 1,900 commands, and a menu page about as many. `OVERLAY_SIZE`
+level does not change it: the HUD and face info use about 1,900 commands, and a menu page about as many. With every
+trainer and the frame log on from the start of the level as well, the menu's busiest pages reached 4,611 commands
+(96% of 4,800) in one run and 4,289 (89%) in the test's combined pass. Ten percent over that is more than 4,800, so
+the list cannot shrink to 4,096. The test checks that pass separately and requires 150 commands to be left. `OVERLAY_SIZE`
 went from 6,000 to 4,800 commands for each of the two lists, which frees 19 KB. The text writers stop at the end of
 the list (`Room` in text.c) and `Practice.overlayFull` counts the frames on which one stopped; the test requires 0.
 
@@ -1002,8 +1018,8 @@ the glove's and the ball's place on every game frame of an input recording, draw
   for the parts that were readable. The game's glove model is not drawn: the glove is an icosahedron with a
   pyramid for its nose (forward is `(sin, cos)` of `rot.y`, as `spawn.c` uses it), the ball an icosahedron. Their
   sizes come from the first collision sphere of each actor (12 and 20 units if unreadable).
-- **Where.** Four slots of 0x20000 bytes (8192 game frames, 6.8 minutes) at 0x80700000, between the savestate pool
-  (ends at 0x806FFFFF) and the recording at 0x80780000 (`_Static_assert`s keep the slots clear of both). Each slot has a
+- **Where.** Four slots of 0x20000 bytes (8192 game frames, 6.8 minutes) at 0x8075C000, between the card's memory
+  (ends at 0x8075BFFF) and the recording at 0x807DC000 (`_Static_assert`s keep the slots clear of both). Each slot has a
   `GhostSlot` in the practice segment's bss (level, count, start, age). A new recording takes a free slot, or the
   oldest ghost's. The ghost of the same level that it will replace stays until the new one has kept a frame
   (`Finish`). A recording that fails to start does not lose the old ghost. Frames that the sampling did not reach
@@ -1195,12 +1211,15 @@ second, independent reading of the layout). The driver has not run on a console.
   is left out when it alone does not fit ("saved, the recording does not fit").
 - **Time.** An operation is a list of steps run by `CPakService`, which the controller thread calls after its
   read, as it calls `SettingsService`. It waits while the game has an EEPROM request waiting. Each call moves
-  blocks for at most 25 ms (the thread mostly waits for the serial interface; a game frame lasts 50 ms) and goes on
-  in the next game frame. In the emulator a block takes under a millisecond. On a console a block should take
+  blocks for at most 25 ms while the menu pauses the game, and for at most 8 ms while the game runs (the thread
+  mostly waits for the serial interface; a game frame lasts 50 ms). It goes on in the next game frame. The check
+  comes before each block, so at least one block moves per call. In the emulator a block takes under a millisecond. On a console a block should take
   a millisecond or two (not measured). A note of one page (about 100 blocks with the checks) then takes a few
   game frames, and a recording that fills the pak (123 pages, 984 blocks of data) a few seconds. While the
-  thread moves blocks, the controller read of that game frame is late by up to 25 ms, which can show as lag when
-  the game runs (the menu pauses it by default), and the game's next controller read has to send its command
+  thread moves blocks, the controller read of that game frame is late by up to 25 ms (8 ms when the game runs; both
+  limits are untested on a console). The game thread is not starved, since the thread waits for the serial
+  interface. The delay can show as lag when the game runs (the menu pauses it by default). Operations take more
+  game frames when the game runs, and the game's next controller read has to send its command
   again (the block in the PIF is not its own). The view says so. With no request, a game frame costs one test of
   two bytes. Nothing happens at boot.
 - **The view.** Settings, last item. Rows: the controller with the pak (1 or 2), Check, Save, Load, Save the
@@ -1356,7 +1375,12 @@ built. They read the game and draw. They write no game state, call no `Random` a
     frames. It starts at the first frame of each jump, when the glove is 24 units from the centre of the active buffer
     sideways or in height, every 100 game frames, and after a level start or a savestate load; two builds start at
     least 4 game frames apart. The job keeps the position of the actor list between frames and starts again if the
-    actor there changed. A face's corners are read and tested first. A full buffer keeps the nearest 192 faces.
+    actor there changed. A face's corners are read one axis at a time (x, then z, then y) and a face that lies outside
+    the box on an axis is dropped before the other axes are read. A full buffer keeps the nearest 192 faces.
+  - Memory: a buffer holds each face's box once, in `bb` (a face does not carry it as well). The distance keys of the
+    build are one array, as only the staging buffer uses them. The strip keeps a 56-byte summary of each slam
+    (`CellSum`) and plays every slam into one scratch `Sim`. The aim's bss is 12 KB smaller than before (practice
+    RAM left: 15.1 KB to 25.9 KB in the test build, 26.8 KB in the release build).
   - What a verdict needs: `cover` is the distance from the build centre within which every face is in the buffer
     (the reach, less when the buffer is full). A slam whose path, with the glove's radius, reaches beyond `cover`, or
     above 80 or below 330 units from the build centre's height, gets no verdict: its cell is grey and the zone search

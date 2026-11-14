@@ -14,7 +14,7 @@
  * old one. A ghost is not saved to the EEPROM.
  *
  * The frames are in the Expansion Pak's memory after the savestate pool, in front of the input recording. */
-#define GHOST_BUFFER 0x80700000
+#define GHOST_BUFFER 0x8075C000
 #define GHOST_SLOTS 4
 #define GHOST_SLOT_FRAMES 8192 /* game frames a ghost keeps: about 6.8 minutes */
 #define GHOST_SLOT_BYTES 0x20000

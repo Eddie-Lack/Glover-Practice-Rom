@@ -15,31 +15,36 @@
  * The slots are STATE_USER_SLOTS that the player chooses, one that a recording keeps its state in, and one that
  * the instant reset keeps the state of the level's first game frame in. */
 #define STATE_POOL 0x80480000
-#define STATE_POOL_END 0x806EC000
+/* The last 0x2C00 bytes below the test mailbox hold the work tables of the savestate code (savestate.c, STATE_WORK).
+ * They are not in the practice segment, which has little room. The pool ends where they begin. */
+#define STATE_WORK_SIZE 0x2C00
+#define STATE_POOL_END 0x80745400
+#define STATE_WORK STATE_POOL_END
 /* 16 KB behind the pool for the SD card test mailbox (sd.c, only in the test build, make testrom). It is reserved in
  * every build: the test ROM then has the release ROM's memory map, and the mailbox needs no room in the practice
  * segment. The test link sets the symbol sdMailbox to this address. */
-#define TEST_MAILBOX 0x806EC000
+#define TEST_MAILBOX 0x80748000
+_Static_assert(STATE_WORK + STATE_WORK_SIZE == TEST_MAILBOX, "the work tables end where the mailbox begins");
 #define TEST_MAILBOX_SIZE 0x4000
 /* 64 KB behind the pool for the work of a save and a load: two blocks of LZ_BLOCK_MAX bytes. They are not in the
  * practice segment, whose 512 KB is nearly full. */
-#define STATE_SCRATCH 0x806F0000
+#define STATE_SCRATCH 0x8074C000
 /* 20 KB behind them for the stream of a card file (card.h), and 12 KB after that for the card code's own data: the file
  * system's state, the CRC table and a sector buffer. The practice segment has little room for them. The area ends
  * where the ghosts begin. */
-#define CARD_STAGE 0x806F8000
+#define CARD_STAGE 0x80754000
 #define CARD_STAGE_SIZE 0x5000
-#define CARD_WORK 0x806FD000
+#define CARD_WORK 0x80759000
 #define CARD_WORK_SIZE 0x3000
-_Static_assert(CARD_STAGE + CARD_STAGE_SIZE == CARD_WORK && CARD_WORK + CARD_WORK_SIZE <= 0x80700000,
+_Static_assert(CARD_STAGE + CARD_STAGE_SIZE == CARD_WORK && CARD_WORK + CARD_WORK_SIZE <= 0x8075C000,
                "the card's memory lies between the scratch blocks and the ghosts");
 #define STATE_USER_SLOTS 10
 #define STATE_SLOT_RECORD 10
 #define STATE_SLOT_AUTO 11
 #define STATE_SLOTS 12
-/* A base takes about 0.6 MB and the pool is 2.4 MB: four bases never fit. A fourth level takes the closest base of
- * another level, and its states are larger. */
-#define STATE_BASES 3
+/* A base takes about 0.6 MB and the pool is 2.8 MB: four bases fit with room for the slots, five never do. A fifth
+ * level takes the closest base of another level, and its states are larger. */
+#define STATE_BASES 4
 
 /* The game thread, at the start of a game frame (ActionsGameFrame). Each returns 1 if it saved or loaded. The first
  * two use the slot that the player chose (stateSlot). */
@@ -66,6 +71,7 @@ int StateInstantReset(void);
 /* Empties a slot (STATE_SLOTS: every slot). The menu calls this from the controller thread, which runs only
  * while the game thread is not inside a save or a load. */
 void StateClear(int slot);
+void StateInit(void); /* clears the work tables; the boot calls it once */
 
 /* The menu's text for the chosen slot and for the pool. */
 void StateSlotText(char *buf, int size, int arg);

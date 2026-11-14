@@ -13,6 +13,7 @@ enum MenuKind {
     ITEM_INFO,    /* shows a line of text from a function */
     ITEM_BIND,    /* the binding of action arg: A waits for a new one, L clears it */
     ITEM_VIEW,    /* opens a tool with its own drawing and input */
+    ITEM_QUICK,   /* an action whose binding shows next to it; arg is both the action and what it is called with */
 };
 
 struct Menu;
@@ -25,26 +26,36 @@ typedef struct View {
     void (*draw)(Gfx **dl);
 } View;
 
+/* 24 bytes: the pointer that each kind needs shares one word, and the text or function that only some kinds need
+ * shares another. */
 typedef struct MenuItem {
     const char *label;
     u8 kind;
     u8 min;
     u8 max;
-    u8 *value;                  /* TOGGLE, CHOICE, NUMBER */
-    const struct Menu *submenu; /* SUBMENU */
-    void (*action)(int arg);    /* ACTION; CHOICE, NUMBER: called with arg after the value changed */
-    const char *const *names;   /* CHOICE: max + 1 names */
-    void (*info)(char *buf, int size, int arg);
-    s8 arg;                     /* ACTION, BIND: passed on; ACTION: the action whose binding shows, if >= 0 */
-    s8 bind;
-    const View *view;           /* VIEW */
-    const char *hint;           /* shown in place of the key help while the item is selected, or NULL */
+    s8 arg;                  /* ACTION, QUICK, BIND: passed on; QUICK: the action whose binding shows */
+    union {
+        u8 *value;                  /* TOGGLE, CHOICE, NUMBER; INFO of a repeated row: the number of rows */
+        const struct Menu *submenu; /* SUBMENU */
+        const View *view;           /* VIEW */
+    };
+    void (*action)(int arg); /* ACTION, QUICK; CHOICE, NUMBER: called with arg after the value changed */
+    union {
+        const char *const *names;                   /* CHOICE: max + 1 names */
+        void (*info)(char *buf, int size, int arg); /* INFO; ACTION: gives its value text */
+    };
+    const char *hint;        /* shown in place of the key help while the item is selected, or NULL */
 } MenuItem;
 
+_Static_assert(sizeof(MenuItem) == 24, "MenuItem is 24 bytes (tests/menunav.py knows the layout)");
+
+/* A menu with `repeat` set has one item, which stands for count rows. Its value points to the live row count
+ * (count is not used), the label of row N is "N", and its info function gets N as arg. */
 typedef struct Menu {
     const char *title;
     const MenuItem *items;
     u8 count;
+    u8 repeat;
 } Menu;
 
 extern u8 menuOpen;

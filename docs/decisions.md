@@ -62,19 +62,19 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
 - **More savestate slots.** One state is 1.9 MB; the space after the practice code (3.5 MB) held one. Run packing
   would give 1.24 MB, an LZ scheme about 0.5 MB (measured in Atlantis 1 with zlib). Recommendation: yes.
   **Yes, through the SD card** (above), with the strongest compression that is practical.
-  **Built for the RAM.** Ten slots in a pool of 2.4 MB (`practice/src/savestate.c`, `practice/src/lz.c`; numbers in
+  **Built for the RAM.** Ten slots in a pool of 2.4 MB (now 2.8 MB) (`practice/src/savestate.c`, `practice/src/lz.c`; numbers in
   [build.md](build.md#savestates)). The compressor is the practice code's own, an LZ with word-aligned matches
   (3.0 to 3.1 times on a state). A slot is stored as its difference from a base, the compressed state of its level, which
   takes some kilobytes instead of 0.6 MB. The cost is time: a first state in a level takes about 1.3 s on the console
   (by the emulator's count), a further one 0.4 to 0.7 s, a load 0.4 s. The recording (it was 1 MB) shrank to 512 KB
-  for the room. The SD card files (above) use the same compressor; a stronger one is an open entry above.
+  for the room, and later to 144 KB (30 minutes) for a fourth base. The SD card files (above) use the same compressor; a stronger one is an open entry above.
   Record input saves into a slot of its own and does not touch the chosen slot. Open for the owner: (1) the first state in a level takes 1.5 s (the compressor's
   work; a weaker one that takes 1.2 s makes the base 4 percent larger, and the decoder is the cost of a load, 0.4 s);
   I recommend keeping it. (2) When the pool is full, a save that does not fit empties the slot that it was meant for
-  (its old state is freed first, then the save is tried again); the other slots are never touched. (3) The fourth
+  (its old state is freed first, then the save is tried again); the other slots are never touched. (3) The fifth
   level's states take about 450 KB each, because they have no base of their own and are stored against the closest
-  base. Four bases need 2.53 MB and the pool is 2.44 MB. `STATE_BASES` is 3. A larger pool or a smaller ghost
-  buffer (512 KB for four ghosts) would hold a fourth base.
+  base. Four bases need 2.53 MB. The pool was 2.44 MB and held three bases; with the 30 minute recording it is
+  2.8 MB, and `STATE_BASES` is 4.
 - **More in the collision view.** Ideas from the design that were left out: the collision spheres of every
   enemy (their positions need the game's rotation code, which can stop the game on a bad value, so they need
   their own checked copy); platforms brought up to date from their mesh, position and rotation when far from
@@ -90,7 +90,7 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
   **Yes.**
   **Built.** Game menu, "Ghost" (`practice/src/ghost.c`, `tests/ghost.py`). Each input recording also keeps
   the glove's and the ball's place and the glove's heading on every game frame (16 bytes a frame, in the Expansion
-  Pak's memory from 0x80700000). With the switch on, a see-through yellow glove (with a white nose for its heading)
+  Pak's memory from 0x8075C000). With the switch on, a see-through yellow glove (with a white nose for its heading)
   and a pink ball are drawn at the places of the same game frame, counted from the recording's savestate. The
   glove model is not drawn: both are icosahedra. Four levels keep a ghost, each up to 8192 game frames (6.8
   minutes). Details in [build.md](build.md#the-ghost).
@@ -213,6 +213,13 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
 
 ## Saves and data
 
+- **An input recording is at most 30 minutes.** The buffer held 109 minutes (512 KB). 30 minutes is 36000 game
+  frames of 4 bytes, 144 KB (`RECORDING_MAX`, `RECORDING_BUFFER_SIZE`). **Yes** (the owner). **Built.** A recording
+  that reaches the limit stops with a message. A recording in a Controller Pak note or on the SD card that is longer
+  is refused. The 368 KB that this freed went to the savestate pool, which now holds a fourth base
+  ([build.md](build.md#the-pool)).
+- **The menu text keeps its shadow.** The practice menu's text is drawn twice, the second time as a shadow
+  (`textShadow`). Dropping the shadow would save display list commands and time. **Yes, keep it** (the owner).
 - **Save file editor.** Edit levels done, garibs, lives and best times in the game's own EEPROM save. Risk: the
   game saves the edit. Recommendation: yes, with a warning. **Yes.**
   **Built.** Settings menu, last item "Save file" (`practice/src/saveedit.c`, `tests/saveedit.py`). The warning
