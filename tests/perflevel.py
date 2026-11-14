@@ -1,7 +1,8 @@
 """One level of the performance baseline (tests/perf.py runs this for each level, and for the retail ROM).
 
 Environment: PERF_LEVEL (the level number to start; default 12, Atlantis 3), PERF_ONLY (a comma list of group names
-to run; default all), PERF_WINDOW (video interrupts measured for each scenario; default 120).
+to run; default all), PERF_WINDOW (video interrupts measured for each scenario; default 120), PERF_NAMES (a comma list of scenario names
+to run; default all of the groups), PERF_REPEAT (runs of each scenario, to see the noise; default 1).
 Writes OUT/perf.json.
 
 The level starts through the level select (gameInfo.mode 2), which the retail ROM has too. Each scenario writes the
@@ -190,9 +191,16 @@ def run(emu, sym, args):
         coll, hide, info = [], [], []
         seen = emu.r32(practice + 4) if practice_rom else 0
         n = 0
+        # The gaps between game frames, polled on every emulator frame: the same on the retail ROM and the practice ROM.
+        gaps, last_fc, last_vi = [0] * 8, fc(), vi()
         while vi() - a["vi"] < window:
             yield 1
             n += 1
+            f_now = fc()
+            if f_now != last_fc:
+                v_now = vi()
+                gaps[min(v_now - last_vi, 7)] += 1
+                last_fc, last_vi = f_now, v_now
             if n > window * 6:
                 emu.fail(f"{name}: the window did not pass ({vi() - a['vi']} interrupts in {n} frames)")
             if practice_rom:
@@ -205,6 +213,7 @@ def run(emu, sym, args):
         b = snap()
         r = {"name": name, "group": group, "vi": b["vi"] - a["vi"], "game_frames": b["fc"] - a["fc"]}
         r["vi_per_frame"] = r["vi"] / r["game_frames"] if r["game_frames"] else None
+        r["gaps"] = gaps
         if practice_rom:
             st = {}
             for i, sname in enumerate(STAGES):
@@ -223,6 +232,7 @@ def run(emu, sym, args):
         if practice_rom:
             h = r["hist"]
             late = f" hist {h}"
+        late += f" gaps {gaps}"
         print(f"perf {name}: {r['game_frames']} game frames in {r['vi']} interrupts"
               + (f" ({r['vi_per_frame']:.3f} each)" if r["vi_per_frame"] else "") + late)
         return r
@@ -268,6 +278,10 @@ def run(emu, sym, args):
     todo = [s for s in scenarios() if (only is None and s.group != "survey") or (only is not None and s.group in only)]
     if not practice_rom:
         todo = [s for s in todo if s.group == "off"][:1]
+    names = os.environ.get("PERF_NAMES")
+    if names:
+        todo = [s for s in todo if s.name in names.split(",")]
+    todo = [s for s in todo for _ in range(int(os.environ.get("PERF_REPEAT", "1")))]
     yield from settle(60)
     path = os.path.join(args.out, "perf.json")
 

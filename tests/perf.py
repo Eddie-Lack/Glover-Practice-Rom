@@ -38,16 +38,19 @@ STAGE_NAMES = {"clear": "game, start of a message", "input": "game, around Proce
                "draw": "draw, after PrintTimers", "draw_all": "draw, whole list", "ctrl": "controller"}
 # --quick fails over these limits (ticks): the mean practice work of a game frame in a scenario of the quick set, and the
 # longest single call of the draw thread's practice work.
+RETAIL_WINDOWS = 4  # windows of the retail ROM in each level, for the count of its late game frames
 QUICK_ONLY = "off,coll,hide,hud,tools,trainers"
 QUICK_MEAN_LIMIT = 700_000   # 15 ms of the 50 ms frame
 QUICK_CALL_LIMIT = 1_000_000
 
 
-def run_level(level, gfx, only, window, rom=None, elf=None):
+def run_level(level, gfx, only, window, rom=None, elf=None, repeat=1):
     out = os.path.join(ROOT, "build", "tests", "perf" + ("_retail_" if rom else "") + str(level))
     env = dict(os.environ, PERF_LEVEL=str(level), PERF_WINDOW=str(window), DISPLAY=os.environ.get("DISPLAY", ":99"))
     if only:
         env["PERF_ONLY"] = only
+    if repeat > 1:
+        env["PERF_REPEAT"] = str(repeat)
     cmd = [sys.executable, os.path.join(HERE, "harness.py"), "perflevel", "--gfx", gfx, "--out", out]
     if rom:
         cmd += ["--rom", rom, "--elf", elf]
@@ -69,7 +72,16 @@ def cost(r, desired=3):
 
 
 def late_frames(r, desired):
-    return sum(r["hist"][desired + 1:]) if "hist" in r else 0
+    """Game frames that started more than `desired` interrupts after the one before, polled by perflevel.py (the same
+    on the retail ROM). Older results have only the practice ROM's own histogram."""
+    h = r.get("gaps") or r.get("hist")
+    return sum(h[desired + 1:]) if h else 0
+
+
+def retail_late(retail_res, desired):
+    """(late frames, windows) of the retail ROM's runs of one level: the noise floor of the late game frames."""
+    runs = [s for s in retail_res["scenarios"] if "gaps" in s] if retail_res else []
+    return sum(late_frames(s, desired) for s in runs), len(runs)
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -326,16 +338,24 @@ def report(results, retail, desired, lines_out):
     # Pace.
     L += ["## Frame rate: late game frames", "",
           f"A game frame is late when it starts more than {desired} video interrupts after the one before. The count is "
-          f"over the window of each scenario ({lv(names[0])['window']} interrupts).", ""]
-    bad = []
+          f"over the window of each scenario ({lv(names[0])['window']} interrupts). The retail ROM's late frames in the "
+          f"same kind of window are the noise floor: the game itself is late there too. A scenario is listed when it "
+          f"has a late frame or an uneven pace.", ""]
+    lines, listed = [], 0
     for n in names:
+        rl, rw = retail_late(retail.get(n), desired)
+        if n in retail:
+            lines.append(f"- {n}, retail ROM: {rl} late in {rw} windows")
         for s in lv(n)["scenarios"]:
             if "hist" in s and (late_frames(s, desired) or (s["vi_per_frame"] and abs(s["vi_per_frame"] - desired) > 0.01
                                                            and s["game_frames"])):
-                bad.append(f"- {n}, {s['name']}: {s['game_frames']} game frames in {s['vi']} interrupts, "
-                           f"histogram of the gaps {s['hist']}, {late_frames(s, desired)} late")
-    L += bad if bad else [f"No scenario had a late game frame: every game frame came {desired} interrupts after the "
-                           f"one before, in every level."]
+                listed += 1
+                lines.append(f"- {n}, {s['name']}: {s['game_frames']} game frames in {s['vi']} interrupts, "
+                             f"histogram of the gaps {s.get('gaps', s['hist'])}, {late_frames(s, desired)} late")
+    if not listed:
+        lines.append(f"No scenario had a late game frame: every game frame came {desired} interrupts after the one "
+                     f"before, in every level.")
+    L += lines
     L.append("")
 
     # Input lag.
@@ -480,7 +500,8 @@ def main():
         print(f"perf: {name} (level {number})", flush=True)
         results[name] = run_level(number, a.gfx, only, a.window)
         if not a.no_retail and not a.quick:
-            retail[name] = run_level(number, a.gfx, "off", a.window, harness.RETAIL_ROM, harness.RETAIL_ELF)
+            retail[name] = run_level(number, a.gfx, "off", a.window, harness.RETAIL_ROM, harness.RETAIL_ELF,
+                                     repeat=RETAIL_WINDOWS)
     desired = 3
     lines = []
     budget = report(results, retail, desired, lines)
