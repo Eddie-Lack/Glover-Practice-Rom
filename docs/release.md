@@ -85,6 +85,11 @@ The version is `X.Y.Z` (major, minor, patch). The tag `vX.Y.Z` on HEAD sets it. 
    Publishing the release starts `.github/workflows/site.yml`. It downloads the release's patch page and publishes it
    at glover.love as `index.html` (GitHub Pages, source "GitHub Actions"). Beta releases count too. Check the run on the
    Actions tab. "Run workflow" there publishes the page of the newest release again, or of a tag that you give.
+
+   A run that starts from a release runs on the release's tag. The `github-pages` environment allows only `main`
+   until a tag rule is added: Settings, Environments, `github-pages`, "Deployment branches and tags", add a tag
+   rule `v*`. Without it the run fails with "Tag ... is not allowed to deploy to github-pages". "Run workflow" from
+   `main` still works.
 8. After the release, start the next changelog section and commit:
 
    ```sh
