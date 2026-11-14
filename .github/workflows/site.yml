@@ -1,11 +1,17 @@
-# Publishes the patch page of a release at glover.love (GitHub Pages, source "GitHub Actions").
-# It runs when a release is published, beta releases too. "Run workflow" on the Actions tab publishes the page
-# of the newest release, or of the tag given.
+# Publishes the patch page of a release at glover.love (GitHub Pages, source "GitHub Actions"), with the
+# Glovebox box beside the patcher (tools/mksite.py, site/glovebox.html).
+# It runs when a release is published, beta releases too, and once a day, which picks up a new Glovebox release.
+# "Run workflow" on the Actions tab publishes the page of the newest release, or of the tag given. A
+# repository_dispatch of type glovebox-release (sent by Glovebox's release with a token) publishes at once.
 name: Patch page site
 
 on:
   release:
     types: [published]
+  schedule:
+    - cron: "41 10 * * *"
+  repository_dispatch:
+    types: [glovebox-release]
   workflow_dispatch:
     inputs:
       tag:
@@ -29,6 +35,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # The site's files come from main, also when a release's tag starts the run.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
       - name: Get the patch page
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,12 +56,20 @@ jobs:
             echo "The release $TAG needs exactly one patch page (glover-practice-vX.Y.Z.html)" >&2
             exit 1
           fi
-          mkdir -p site
-          gh api -H "Accept: application/octet-stream" "$urls" > site/index.html
-          touch site/.nojekyll
+          mkdir -p out
+          gh api -H "Accept: application/octet-stream" "$urls" > patchpage.html
+      - name: Add the Glovebox box
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          # With no Glovebox release (or no answer), the box links to its releases page.
+          gh api repos/Eddie-Lack/glovebox/releases/latest > glovebox.json || echo '{}' > glovebox.json
+          python3 tools/mksite.py patchpage.html glovebox.json out/index.html
+          touch out/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: out
       - id: deployment
         uses: actions/deploy-pages@v4

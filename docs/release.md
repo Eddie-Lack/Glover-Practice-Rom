@@ -82,8 +82,10 @@ The version is `X.Y.Z` (major, minor, patch). The tag `vX.Y.Z` on HEAD sets it. 
    shows the `gh release create` command and asks. `--yes` skips the question. It attaches the patch, the patch page
    and `SHA1SUMS`, with the notes as the body. The ROM is never attached.
 
-   Publishing the release starts `.github/workflows/site.yml`. It downloads the release's patch page and publishes it
-   at glover.love as `index.html` (GitHub Pages, source "GitHub Actions"). Beta releases count too. Check the run on the
+   Publishing the release starts `.github/workflows/site.yml`. It downloads the release's patch page, adds the
+   Glovebox box beside the patcher (`tools/mksite.py`, `site/glovebox.html`, filled from Glovebox's newest release)
+   and publishes it at glover.love as `index.html` (GitHub Pages, source "GitHub Actions"). It also runs once a day,
+   which picks up a new Glovebox release. Beta releases count too. Check the run on the
    Actions tab. "Run workflow" there publishes the page of the newest release again, or of a tag that you give.
 
    A run that starts from a release runs on the release's tag. The `github-pages` environment allows only `main`
