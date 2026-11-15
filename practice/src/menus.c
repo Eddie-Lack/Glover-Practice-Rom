@@ -15,6 +15,7 @@
 #include "hud.h"
 #include "memview.h"
 #include "menu.h"
+#include "fearseed.h"
 #include "recording.h"
 #include "saveedit.h"
 #include "savestate.h"
@@ -678,6 +679,7 @@ static const MenuItem inspectItems[] = {
     WARN_VIEW("Spawn actor", spawnView, "Modified game! May crash. Edits your save"),
     WARN("Show missed taps", &run.missedTaps, "Timing changes! Needs the input display"),
     SUBMENU("Memory corruption", corruptMenu),
+    WARN("Force Fear boss seed", &fearSeedOn, "The Fear boss's burst ball hits the switch"),
 };
 static MENU(inspectMenu, "Inspect", inspectItems);
 

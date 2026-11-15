@@ -16,6 +16,7 @@
 #include "paddisplay.h"
 #include "perf.h"
 #include "practice.h"
+#include "fearseed.h"
 #include "saveedit.h"
 #include "savestate.h"
 #include "settings.h"
@@ -56,6 +57,7 @@ static u8 fogForced;
 void PracticeSendLastFrame(void) {
     perf.drawStart = osGetCount();
     SendLastFrame();
+    FearSeedDraw();
     if (run.fogOff && fog.on) {
         fogSaved = fog.on;
         fogForced = 1;
