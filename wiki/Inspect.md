@@ -17,6 +17,7 @@ Views of the game's state
 | Spawn actor | Spawn an actor, see below |
 | Show missed taps | Show taps that the game does not read, see below |
 | Memory corruption | _Sub menu_ |
+| Force Fear boss seed | `on` by default. In the Fear boss, the first burst of the ball gets a seed that hits the ball switch, see below |
 
 ## Actors
 
@@ -247,3 +248,9 @@ Each poke has a mode:
 - flip: one random bit of the low bits is flipped
 
 C left and right set the poke's size. C up and down set the bits. L and R set how often it acts. Writes only go to RAM, never to the practice code and its data. The game will probably crash
+
+## Force Fear boss seed
+
+At the Fear boss's start, Glover lobs the ball if you press A while the level loads. Frankie's aura then bursts it. With this on, the first burst after each start of the boss gets the RNG seed `8ba4feee`. With that seed the burst ball flies into the ball switch, and Frankie dies
+
+Turn it off for normal play. It changes nothing outside the Fear boss
