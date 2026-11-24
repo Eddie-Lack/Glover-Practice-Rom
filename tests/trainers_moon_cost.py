@@ -1,6 +1,6 @@
 """The cost of the Moon Pound aim (practice/include/trainers.h) in a level with many faces.
 
-The glove jumps over a grid of spots, with the stick moved on every frame (so that no slam is reused from the frame
+The glove jumps over a grid of spots, with the stick moved on every frame (no slam is reused from the frame
 before). The aim has a budget of about 4 ms of the CPU counter for each
 game frame (moonaim.c, STEP_COUNTS) and builds its buffer of faces over several game frames. MoonView.counts, the work of
 each frame (it also counts other threads' time), stays under a ceiling; the view says how many faces and candidates the

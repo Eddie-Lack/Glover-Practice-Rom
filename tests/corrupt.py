@@ -12,8 +12,8 @@
 5. Random (the low 8 bits) and flip (one bit of the low 4), every game frame and every 5th.
 6. Flip one random bit, for each region (glove, ball, level's actors, a range of 16 bytes from the memory view's
    address): with the game stopped (frame advance), exactly one bit of the region is different afterwards, and
-   it is the bit that the menu reports. The test puts the bit back. It sets the tool's seed so that an actor's bit
-   is in its numbers: a flip in a list link or a pointer can hang the game.
+   it is the bit that the menu reports. The test puts the bit back. It sets the tool's seed, which puts an actor's bit
+   in its numbers. A flip in a list link or a pointer can hang the game.
 7. Clear all pokes empties the list. The game keeps running."""
 import random
 
