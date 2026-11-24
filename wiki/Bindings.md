@@ -10,7 +10,7 @@ The default bindings are on the [Controls](Controls.md) page
 
 1. Select the action and press A
 2. Let go of every button
-3. Press the buttons you want, then let go of them all.
+3. Press the buttons you want, then let go of them all
 
 Combinations made on controller 1 include the stick direction that you hold, if any. If you don't press anything for a few seconds, the change is cancelled
 

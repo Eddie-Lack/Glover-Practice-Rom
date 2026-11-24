@@ -49,4 +49,4 @@ Controller 2 has more uses:
 - With moon jump on, you can also activate it with L on controller 2 _(see [Game](Game.md))_
 - With the free camera on, it flies the camera _(see [Game](Game.md))_
 
-You can only open the practice menu with controller 1.
+You can only open the practice menu with controller 1

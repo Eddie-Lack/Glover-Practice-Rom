@@ -20,13 +20,13 @@ Views of the game's state
 
 ## Actors
 
-Lists the level's actors with each actor's position, speed, rotation and state.
+Lists the level's actors with each actor's position, speed, rotation and state
 
 A page for one actor has options to:
 
 - move Glover to the actor,
 - move the actor to Glover (Z on its page),
-- edit the actor (Start on its page).
+- edit the actor (Start on its page)
 
 Editing: `Up` and `Down` choose a field, `Left` and `Right` change it, `C up` and `C down` change the step. Start leaves the editing
 
@@ -45,7 +45,7 @@ The moved actor goes in front of Glover. The HUD shows "MODIFIED actors" until t
 
 Spawn an actor that the level has (a garib, a power-up or an enemy) in front of Glover. The HUD shows "MODIFIED actors" until the level restarts or changes
 
-A spawned garib, power-up or enemy that Glover collects or beats adds to the score and to the garib count that the game saves at the end of the level. 
+A spawned garib, power-up or enemy that Glover collects or beats adds to the score and to the garib count that the game saves at the end of the level
 
 The menu has a warning - "Modified game! May crash. Edits your save"
 
@@ -60,7 +60,7 @@ For each game frame of the glove, the log records:
 - the buttons the game read (presses in yellow; buttons the game ignores until they are released in grey),
 - the glove's action and how long it has lasted,
 - the lock that keeps a new action from starting,
-- the time in which the game reads no buttons.
+- the time in which the game reads no buttons
 
 Turn on "Frame log records", do a trick, then open Frame log to see on which frame each input landed
 
@@ -216,7 +216,7 @@ Hidden kinds are not saved: they come back when the console restarts
 
 ## Show missed taps
 
-This needs the input display _(see [HUD](HUD.md))_.
+This needs the input display _(see [HUD](HUD.md))_
 
 The game reads the controller once a game frame. If a button tap starts and ends between two reads, it never reaches the game. With this on, the console also reads controller 1 about every 5 milliseconds. The input display shows the buttons of missed taps in orange, with a count
 
@@ -226,7 +226,7 @@ This changes the game's timing slightly. Use it for study and not for timed prac
 
 `"Modified game! May crash".`
 
-The HUD shows "MODIFIED pokes" until you load a state, use "Clear all pokes" or reset the console.
+The HUD shows "MODIFIED pokes" until you load a state, use "Clear all pokes" or reset the console
 
 | Option | What it does |
 | --- | --- |
