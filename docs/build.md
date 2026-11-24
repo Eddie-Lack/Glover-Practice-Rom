@@ -1618,7 +1618,7 @@ Reasons:
   (`-Wall -Wextra -Werror`).
 - Smaller and faster code than GCC 2.7.2. RAM in the Expansion Pak is plentiful, but the HUD runs every frame.
 - `-mfix4300` works around a multiplication bug of the VR4300 CPU.
-- The practice code is not matched against anything.
+- The practice code is not matched against anything. Nothing ties it to the old compiler.
 
 The practice code declares the few game types and functions that it uses itself (`practice/include/game.h`),
 and builds display list commands with its own functions (`practice/include/rdp.h`), from the public RDP and
