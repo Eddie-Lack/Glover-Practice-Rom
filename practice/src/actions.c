@@ -297,7 +297,7 @@ void ActionsGameFrame(void) {
         run.cheat = 0;
     }
     /* The menu (the controller thread) sets these at any time: they are taken with interrupts off, and only
-     * when one is set, so the game's frames do no more with every feature off. */
+     * when one is set. With every feature off, the game's frames do no more than before. */
     if (run.rngReset | run.rngCalls) {
         u32 mask = __osDisableInt();
         int rngReset = run.rngReset;
