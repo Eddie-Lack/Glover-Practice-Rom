@@ -113,7 +113,8 @@ With an older gloveworld, three labels at the end of the blob move up by that pa
 The free end holds 512 KB from 0x780000. The practice segment's RAM is also limited to 512 KB
 (0x80400000 to 0x80480000, code, data and bss). The ROM space is enough as long as that limit stands. The link
 fails with a message when the loader and the practice segment would end past the ROM, and `tests/romlayout.py`
-tests this. The loader and the practice segment take 130 KB (25%) in October 2026; `make` prints the current size. If they ever outgrow the space, the ROM
+tests this. In version 0.9.31 the loader and the practice segment take 201 KB (39%) of the free end, and the practice RAM area
+has 46.5 KB left (45.6 KB in the test build). `make` prints the current figures. If they ever outgrow the space, the ROM
 must grow again, which is a decision for the owner ([decisions.md](decisions.md)).
 
 The header checksum covers only ROM 0x1000 to 0x101000. The place of the loader does not change how the
@@ -546,8 +547,9 @@ card", "Load from card" and "Delete on card".
 - **Space.** The practice segment grew by about 19 KB of code (the file system 7.7 KB, the card code 6.7 KB, the
   driver 2 KB, the export and import 2 KB) and 1 KB of bss. The file system's state, the CRC table and a sector
   buffer are in the spare memory behind the stage (see "The streams"). `make` prints the practice RAM area's use next
-  to the ROM's: code and data 0x27AC0, bss 0x54D50, together 0x7C810 of 0x80000 bytes (97%), **14.0 KB left**
-  (`tools/checklayout.py`; the test build has 5.1 KB left, as the mailbox takes 8 KB of bss).
+  to the ROM's. After this change it printed: code and data 0x27AC0, bss 0x54D50, together 0x7C810 of 0x80000
+  bytes (97%), **14.0 KB left** (`tools/checklayout.py`; the test build had 5.1 KB left, as the mailbox takes 8 KB of
+  bss).
 - **Times.** In the emulator (the mailbox's thread answers, so the figures depend on the host) a save takes 1.5 s
   and a load 3.0 to 3.5 s, and about half of that is waiting for the mailbox. The console's own work is about 0.7 s
   for a save and 1.4 to 1.7 s for a load (`cardLastTicks` less `cardLastWait`: the CRC pass, the decoding of the chunks
@@ -1519,7 +1521,7 @@ built. They read the game and draw. They write no game state, call no `Random` a
   at the start of a bonus level (bonus.c sets 0). The camera snaps to its target there. The sideways turns (toward a moving glove, the C taps)
   are not changed, but the higher speed limit applies to them.
 - **Size.** The camera hook and icon take 1.0 KB of the practice RAM area. The trainer log and the result hold took 5.3 KB
-  (the views in `held` and the moon views, 1.1 KB of it bss); 3.7 KB are left.
+  (the views in `held` and the moon views, 1.1 KB of it bss); 3.7 KB were left after it.
 
 ## Game demos
 

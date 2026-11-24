@@ -13,7 +13,7 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
   past that the ROM must grow again. Recommendation: yes, until the practice segment outgrows the space. **Yes.**
   **Built.** The loader starts at ROM 0x780000, so the space is 512 KB (the practice segment's RAM limit is the
   same). The cost was more than one line: gloveworld's assets blob holds the zero padding, so the build cuts it
-  first (`tools/trimassets.py`). The loader and the practice segment took 47 KB then (130 KB in October 2026). See
+  first (`tools/trimassets.py`). The loader and the practice segment took 47 KB then (201 KB in version 0.9.31). See
   [build.md](build.md#the-free-end-of-the-rom).
 - **Send the hooks upstream to gloveworld.** **No.** The owner: treat gloveworld as a separate project, made by
   someone else. The hooks stay as patch files in `hooks/`. Changes that would help go in
@@ -50,7 +50,7 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
   same state, measured on a PC: deflate level 9 on the whole state 444,094 bytes (4.43 times); deflate level 9 on each
   16 KB chunk 470,212 (4.18); LZMA preset 6 333,000 (5.90). A deflate coder on the console (LZ77 with a hash chain and
   Huffman codes, in the public format of RFC 1951) would make files 26 to 30 percent smaller. Cost: about 5 KB of code in a
-  practice segment that has 8.7 KB left, 100 KB or more of scratch memory for the encoder's chains (the pool may be
+  practice segment that had 8.7 KB left at the time, 100 KB or more of scratch memory for the encoder's chains (the pool may be
   full, so the memory would come from a recording or ghost buffer or from a smaller pool), and about 3 s more for a
   save on the console (an estimate). A load would take about 1 s longer. Risk: more code that a console must run
   right. LZMA is out of reach for the console (about 25 s a save and a megabyte of dictionary). The gain is a shorter
