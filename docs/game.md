@@ -403,8 +403,10 @@ practice ROM's save file editor changes these fields ([build.md](build.md#the-sa
 
 ## Frames and lag
 
-- The scheduler sends the game frame message (9) every `desiredFrameRate` video frames (3 on NTSC) when no
-  graphics task is pending. RunGame, ControllerProc and DrawGraphics each act on it once.
+- The scheduler sends the game frame message (9) every `desiredFrameRate` video frames when no graphics task is
+  pending. The rate is 3 in a level and in the credits, and 2 in the front-end menu (`DoMenu`) and on the end of
+  level and end of world screens (`EndOfLevelScreen`, `EndOfWorldScreen`). A new rate takes effect at the next
+  game frame message (`newDesiredFrameRate`, sched.c). RunGame, ControllerProc and DrawGraphics each act on it once.
 - `frameCount` counts game frames since the level started and stops while paused; `frameCount2` does not
   stop. `dispFrameCount` counts drawn frames.
 - The draw thread builds a frame at the start of a game frame's message, before that message's logic runs. The
