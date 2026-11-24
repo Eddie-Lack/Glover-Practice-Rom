@@ -36,7 +36,7 @@ hooks/               the changes to gloveworld's source that the practice build 
   asm/               the boot hook
 tools/               the linker script maker, the layout check, the BPS patch maker, the browser patch page
 tests/               the emulator harness and the tests
-docs/                plan.md, decisions.md, build.md, testing.md, game.md
+docs/                plan.md, decisions.md, build.md, testing.md, game.md, release.md, gloveworld.md
 Makefile
 README.md            for players and contributors
 wiki/                the controls and the features, one page per menu
@@ -320,7 +320,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   nothing. The frame log is done (Inspect, Frame log): each game frame of the glove with the buttons read, the
   action, its time, its lock and the no-control time. The facts behind the trainers are in
   [game.md](game.md#tricks) and the models in `tools/tricks/`; the boss facts are in [game.md](game.md#the-bosses). The
-  owner named four tricks, and a fifth (boss windows) was added:
+  owner named four tricks. Boss windows, a metronome (since removed), a wall clip indicator and Moon Pound holes were added:
   - (a) L mash timing: done. Names each L press (stand or hold) with its gap to the press before and a verdict
     (on time, late, slow, rest), a strip of the last 24 game frames, the ball's move, its peak, the mean of the last 20
     and the target for a perfect mash with the pad held, and warnings (pad too weak, camera turning, pad released, in

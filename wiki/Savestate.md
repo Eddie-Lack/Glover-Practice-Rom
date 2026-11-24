@@ -58,7 +58,7 @@ The game stops meanwhile, and the frame before shows "saving..." or "loading..."
 
 States can be kept on the SD card of a flash cart. They stay when the console is switched off. The card must be FAT16 or FAT32 (a card of more than 32 GB is usually exFAT: format it as FAT32 or give it a FAT32 partition). The cart must not be in use by its menu: boot the ROM from the cart as usual
 
-- The files are in the folder `GLOVERPR` on the card, named `STATE001.GST` to `STATE100.GST`. Save makes the folder. The practice ROM only writes to the when you choose Save slot to card or Delete on card
+- The files are in the folder `GLOVERPR` on the card, named `STATE001.GST` to `STATE100.GST`. Save makes the folder. The practice ROM only writes to the card when you choose Save slot to card or Delete on card
 - Each file holds one state. It can be loaded after the pool was emptied or on another day. A file is about 0.63 MB, so 100 savestates take about 63 MB
 - Note: A file made by another version of the ROM may be refused ("not a usable state")
 - A save takes the pool slot chosen with Slot. Save the state into the pool first, then to the card
