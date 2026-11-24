@@ -61,12 +61,12 @@ The full-game timer times real time for a whole run. Realtimes Realtimes Realtim
 
 ## The in-game timer
 
-The in-game timer always starts at its normal point. 
+The in-game timer always starts at its normal point
 
-Note: In the original game, after playing a bonus level, the timer starts instantly (about 4 seconds early) in every level after. The practice ROM fixes this in every case.
+Note: In the original game, after playing a bonus level, the timer starts instantly (about 4 seconds early) in every level after. The practice ROM fixes this in every case
 
 ## Practice best times
 
-When the timer or the last level time is on the HUD, the end of a level shows whether the time is a new best.
+When the timer or the last level time is on the HUD, the end of a level shows whether the time is a new best
 
 _See [Settings](Settings.md) for the best times_

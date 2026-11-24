@@ -60,7 +60,7 @@ static void Commit(const Vec3 *pos, const Vec3 *dir) {
     __osRestoreInt(mask);
 }
 
-/* Turns a direction of length 1 so that it is never closer to straight up or down than MIN_FLAT of flat length. */
+/* Turns a direction of length 1 until it is no closer to straight up or down than MIN_FLAT of flat length. */
 static void KeepFlat(Vec3 *dir) {
     f32 flat = __builtin_sqrtf(dir->x * dir->x + dir->z * dir->z);
 

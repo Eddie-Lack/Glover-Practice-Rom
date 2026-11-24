@@ -34,7 +34,7 @@ extern u8 __osContLastCmd;
 
 #define COUNTER_RATE 46875000u
 /* The most that one game frame spends on transfers: the controller thread waits for the serial interface most of that
- * time, and a game frame lasts 50 ms. While the game runs, the budget is smaller so that the controller read is
+ * time, and a game frame lasts 50 ms. While the game runs, the budget is smaller and the controller read is
  * late by less. A block (32 bytes) takes an unmeasured millisecond or two on a console, so 8 ms moves several
  * blocks, and Pump always moves at least one. */
 #define BUDGET_PAUSED (COUNTER_RATE / 40) /* 25 ms */

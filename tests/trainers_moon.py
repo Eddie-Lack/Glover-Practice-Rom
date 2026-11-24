@@ -270,8 +270,8 @@ def clip_record(r, state, y, vy, n=10):
 
 
 def clip_run(r, state, y, vy, follow, z_cell):
-    """The same start. With FOLLOW the glove is moved by the aim's shift after the second frame. Z is pressed so that it
-    is read on the cell Z_CELL (1 to 7). Returns the glove's action and height after each following frame."""
+    """The same start. With FOLLOW the glove is moved by the aim's shift after the second frame. Z is pressed and
+    read on the cell Z_CELL (1 to 7). Returns the glove's action and height after each following frame."""
     yield from clip_start(r, state, y, vy)
     yield from step_len(r, ())      # frame j + 1: the hook ran before the glove was moved
     yield from step_len(r, ())      # frame f: the first one with a view of the new state

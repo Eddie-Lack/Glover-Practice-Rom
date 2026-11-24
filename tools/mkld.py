@@ -98,7 +98,7 @@ def main():
     ld = ld.replace(marker, added + marker)
     ld += f"\nosMemSize = 0x{OS_MEM_SIZE:08X};\n"
 
-    # Written only when it changes, so make relinks only when needed.
+    # Written only when it changes. Make then relinks only when needed.
     if not os.path.exists(a.out) or open(a.out).read() != ld:
         open(a.out, "w").write(ld)
 

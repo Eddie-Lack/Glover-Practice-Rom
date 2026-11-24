@@ -411,7 +411,7 @@ during one frame and sends it at the start of the next (`SendLastFrame`). Two th
 A load in the same level, without a reload in between, hid both problems: its old display list still pointed
 at the same data.
 
-The game's drawing code calls `Random`. The order of drawing and game frames decides the random numbers. A
+The game's drawing code calls `Random`. The random numbers depend on the order of drawing and game frames. A
 first fix stopped the drawing around a load with the game's `StopDrawing`; that changed this order, and a replay
 from a state no longer matched the first run. Emptying the held frame keeps the order: a save and a load leave
 the threads in the same state.
@@ -538,7 +538,7 @@ card", "Load from card" and "Delete on card".
   `sdMailbox`) with a command, a sector, a count and a status. The ROM writes the command last and waits for it to go
   to 0. `tests/sdutil.py` answers from a disk image in a thread of its own (the emulator calls the harness's frame
   callback only when the picture changes, and a save stops the picture). With `sdBackend` 0 the test build drives the
-  SummerCart64 driver, and finds no cart. The driver itself runs on no test.
+  SummerCart64 driver, and finds no cart. No test runs the driver itself.
 - **Faithfulness.** Nothing touches the cart at boot or while the card is not used: no register is read or written
   until the player presses Check card, Save, Load or Delete. Every game frame costs one test of one byte
   (`CardPending`). Check and Load never write to the card. Only Save and Delete write, and only for an item the player
@@ -745,7 +745,7 @@ screen's centre. It works with the view off. Two faces, in `collInfo` (`CollFace
   tested first. Each face's plane (`normal`, `d`) is read as bits and tested in a short loop: ahead of the eye and
   nearer than the best so far. Only then are the corners read, and the point is tested against each edge in the
   plane of the two axes along which the normal is shortest. The last walk's face is tried first, so most faces
-  fail at once. The ray ends at the far plane. It honours the face filter and "hide" back faces. The face is drawn
+  fail at once. The ray ends at the far plane. It applies the face filter and "hide" back faces. The face is drawn
   yellow among the touched faces (`MAX_CONTACTS` is 9).
 - The walk over the faces takes at most 0.75 ms of each frame (`INFO_COUNTS`, looked at every 16 faces) and goes
   on over the next frames from the actor and face where it stopped, with the ray of its first frame. `collInfo[1]`
@@ -1584,7 +1584,7 @@ The candidates, by size:
 | `ScreenShot` (personal.c) | 0x27C | strings, a double | gloveworld's `debugpad2.py` uses its space |
 | `ClearStaticMemory` (main.c) | 0x74 | none | used by the boot hook |
 
-A function with rodata cannot simply be removed: the data holds 1,280 raw pointers into the rodata (for example
+A function with rodata cannot be removed: the data holds 1,280 raw pointers into the rodata (for example
 the language string tables). The rodata must not move.
 
 ### Why `main` does not grow

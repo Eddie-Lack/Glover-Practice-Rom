@@ -8,7 +8,7 @@
    "solid" is exactly it.
 3. Menu position: at each of the nine places the panel's four edges are where the settings put them, and the tallest
    page (14 rows) ends inside the screen at the lowest place.
-Needs --gfx angrylion. The panel is made solid for 1 and 3 so that its colour is known."""
+Needs --gfx angrylion. The panel is made solid for 1 and 3. Its colour is then known."""
 import layout
 import menunav
 import trace

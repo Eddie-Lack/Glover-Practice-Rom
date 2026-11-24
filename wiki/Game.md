@@ -2,7 +2,7 @@
 
 _Back to the [Home page](Home.md)_
 
-Tools that change or read the game itself. Items that change how the game plays make the HUD show a red "MODIFIED" line, and the run does not count for a practice best time (see [Settings](Settings.md)).
+Tools that change or read the game itself. Items that change how the game plays make the HUD show a red "MODIFIED" line, and the run does not count for a practice best time (see [Settings](Settings.md))
 
 | Option | What it does |
 | --- | --- |
@@ -94,17 +94,17 @@ Choose a speed (2, 4, 8, 16 or 32 units a game frame). Use controller 2 to fly t
 - The C buttons turn and tilt
 - R is four times faster, Z is four times slower
 
-It also works while the game waits (frame advance, the menu).
+It also works while the game waits (frame advance, the menu)
 
 Quick actions on controller 2 that use these buttons do not fire while it is on. The game only draws what's near its own camera
 
 ## Ghost
 
-Each input recording also records where the glove and the ball were on every game frame. With the switch on, a see-through yellow glove (with a white nose that shows its heading) and a pink ball are drawn at those places, in step with your run. 
+Each input recording also records where the glove and the ball were on every game frame. With the switch on, a see-through yellow glove (with a white nose that shows its heading) and a pink ball are drawn at those places, in step with your run
 
 Game frame N of your run shows the ghost of game frame N since the recorded state. Load the state, run again and race it
 
-A new recording of the level replaces its ghost. You can keep up to four levels, each up to ~7 minutes. 
+A new recording of the level replaces its ghost. You can keep up to four levels, each up to ~7 minutes
 
 Ghosts are lost when the console is switched off. _See [Savestate](Savestate.md) for recording_
 
@@ -114,9 +114,9 @@ Choose a glove action from a list (idle, walk, duck, cartwheel and so on) and us
 
 The action starts on the next game frame
 
-The HUD shows "MODIFIED set action" for three seconds.
+The HUD shows "MODIFIED set action" for three seconds
 
-Some actions need a ledge, a block or a power-up. They may end at once or, rarely, crash the game. The menu warns "Modified game! May crash".
+Some actions need a ledge, a block or a power-up. They may end at once or, rarely, crash the game. The menu warns "Modified game! May crash"
 
 ## Chaos inputs
 
@@ -128,7 +128,7 @@ Now and then the tool adds a one-frame press of a random button, takes away your
 
 Rare, sometimes and often mean about every 10, 3 or 1 seconds
 
-The HUD shows "MODIFIED chaos" while it is on. 
+The HUD shows "MODIFIED chaos" while it is on
 
 Chaos doesn't do anything while you record or play back an input recording
 

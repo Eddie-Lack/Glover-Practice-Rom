@@ -25,13 +25,13 @@ Facts learned while building the practice ROM. Names are gloveworld's.
 - `timer321` is the countdown before the timer starts, in seconds. It is 4 at boot. `DoBoss` (boss.c) sets it
   on the first frame of a level: 4 in a Time Trial of a level without a bonus timer, 0 in a level with a bonus
   timer (`levelInfo[].bonusTime` is not -1: the six bonus levels). Nothing else sets it.
-- **The bug:** after any level with a bonus timer, `timer321` stays 0. In every later level the timer starts
+- The bug: after any level with a bonus timer, `timer321` stays 0. In every later level the timer starts
   on the level's first game frame instead of the 81st, 4 seconds early. It lasts until a Time Trial of a level
   without a bonus timer sets it back, or the console is switched off. Measured in the emulator: after Atlantis
   Bonus, `timer321` is 0; with 0, the retail timer in Atlantis 1 starts on game frame 1.
 - Time Trial alone does not cause it: a Time Trial of a normal level sets `timer321` to 4. Time Trials of bonus
   levels do cause it, and so do bonus levels played normally.
-- **The fix** in the practice ROM sets `timer321` to 4 at the start of every level (`PracticeSeedRandom`, in
+- The fix in the practice ROM sets `timer321` to 4 at the start of every level (`PracticeSeedRandom`, in
   `StartNewLevel`). `DoBoss` still sets it afterwards for bonus levels and Time Trials.
 - A finished level: `ExitLevel(type, pause, 1)` sets `gameInfo.exitFlags` bit 1 and computes `levelTime`
   (seconds, from `player.levelFrames`). `CheckForLevelCompleted` then updates the game's records for
@@ -118,7 +118,7 @@ Numbers come from Python models of one game frame, replayed against emulator log
 `tools/tricks/` (its README lists them). "Code" means read in gloveworld. "Measured" means seen in mupen64plus.
 "Model" means the output of a model. The trainers (docs/plan.md, "Trick trainers") use these facts.
 
-### One game frame, for the ball
+### The ball in one game frame
 
 - `MainGameLoop` saves `tempVect = ball.vel`, runs `UpdateActor` for the glove and the ball, then sets
   `ball.prevVel = tempVect`. `prevVel` is the ball's velocity at the start of the frame. Then come `ProcessInput`,
@@ -310,7 +310,7 @@ The camera has two stages (camera.c, `MoveCam`; actor.c, `UpdateActorPositionDep
 - Above 13.6 units a frame (a bounce MBZ-L reaches 14) the body is the limit: at 14 units a frame the camera ends 42 units
   behind its rest distance (51 at most).
 
-### Where the start of Atlantis 1 is
+### The start of Atlantis 1
 
 - The glove starts at (-653, -18, 335) in water. The ball waits at (0, 8, 122.3) on a flat floor. The tests of the
   trainers put the glove next to the ball there.
@@ -545,7 +545,7 @@ The Warp menu plays these recordings ([wiki/Warp.md](../wiki/Warp.md); `practice
 a level uses the Time Trial's restart exit and sets the demo up when mode 8 starts the level. The practice code
 sees a demo end by `autoPlayback` going back to 0 inside the playback hook. Playing the cutscene alone ends in
 mode 8 with level 40, where the practice code goes to the title as a quit does. The 176-byte placeholder is
-not offered: it is the same 18 seconds of a few presses in every level, a leftover, not a recording of that level.
+not offered: it is the same 18 seconds of a few presses in every level, a leftover and not a recording of that level.
 
 ## Checkpoints
 
@@ -718,7 +718,7 @@ The practice ROM's "Spawn actor" and "move actor" tools (`practice/include/spawn
   spawned garib adds to the garib count and the score, a collected power-up adds 300 to the score
   (`UpdatePickups`), and a beaten spawned enemy adds its score. These stay in the save once the level ends.
 
-### Editing an actor
+### Editing an actor's fields
 
 Inspect, Actors, an actor's page, Start (`practice/src/actorview.c`) changes the actor's `pos`, `vel` and `rot` floats
 (steps 0.01 to 100) and the `hits`, `damage` and `mode` of its state in place, while the menu holds the game. A float that

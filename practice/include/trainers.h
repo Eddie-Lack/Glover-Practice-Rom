@@ -7,7 +7,7 @@
 
 /* Trick trainers (Game menu, "Trainers"; Run.trainers, off at start, not saved). Each reads the game and draws
  * on the HUD. None writes to the game, calls Random or changes input. docs/plan.md ("Trick trainers") describes
- * the five; all five are built.
+ * them; all six are built.
  *
  * Run.trainers holds one bit for each trainer. With the byte at 0 the game thread does one test a call.
  *
@@ -205,7 +205,7 @@ typedef struct ClipView {
 typedef struct TrainerView {
     /* 0x00 */ u32 frame2;   /* frameCount2 of the game frame that made this view */
     /* 0x04 */ u8 on;        /* Run.trainers when it was made */
-    /* 0x05 */ u8 valid;     /* 0: the four trick trainers are quiet and draw nothing */
+    /* 0x05 */ u8 valid;     /* 0: the five trick trainers are quiet and draw nothing */
     /* 0x06 */ u8 mbzCount;  /* attempts in mbz[], newest first */
     /* 0x07 */ u8 pad07;
     /* 0x08 */ LMashView lmash;

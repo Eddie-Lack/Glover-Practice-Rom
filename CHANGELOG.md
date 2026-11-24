@@ -67,7 +67,7 @@ menu. The README links to it.
 
 ### Practice tools
 
-- Watch the game's demo recordings, one or all in order (Warp menu), including two the title never shows.
+- Watch the game's demo recordings, one or all in order (Warp menu). Two of them are never shown by the title.
 - Warp to any level, from a level or from the title screen, with a chosen difficulty. A warp from the game's title
   menu (not only from the flythrough) works.
 - The original team's early title menu (Warp menu): continue, new game and level select over a rotating view of a

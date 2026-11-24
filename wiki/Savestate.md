@@ -4,11 +4,11 @@
 
 _Back to the [Home page](Home.md)_
 
-Savestates are a snapshot of the level exactly as it was, with the in-game timer and its song. 
+Savestates are a snapshot of the level exactly as it was, with the in-game timer and its song
 
 Savestates can't be saved or loaded on the title screens
 
-States in the slots are lost when the console is switched off! Card files stay.
+States in the slots are lost when the console is switched off! Card files stay
 
 | Option | What it does |
 | --- | --- |
@@ -45,41 +45,41 @@ _The default bindings for the four quick actions are on the [Controls](Controls.
 
 States are kept compressed in a pool of the Expansion Pak's memory
 
-- The first state saved in a level makes a base for that level, about 0.6 MB, and takes about 1.5 seconds.
-- Every further state in the same level is kept as its difference from the base. It takes some KBs and about 0.4 seconds.
-- A load takes about 0.4 seconds.
-- Up to four levels have a base. A state in a fifth level takes about 0.45 MB, or does not fit.
+- The first state saved in a level makes a base for that level, about 0.6 MB, and takes about 1.5 seconds
+- Every further state in the same level is kept as its difference from the base. It takes some KBs and about 0.4 seconds
+- A load takes about 0.4 seconds
+- Up to four levels have a base. A state in a fifth level takes about 0.45 MB, or does not fit
 
-The game stops meanwhile, and the frame before shows "saving..." or "loading...". A save that does not fit says "pool full". If the slot held a state, the save emptied it. Clear slots to make room.
+The game stops meanwhile, and the frame before shows "saving..." or "loading...". A save that does not fit says "pool full". If the slot held a state, the save emptied it. Clear slots to make room
 
 ## States on the SD card
 
 ### Only the SummerCart64 works for now - in progress
 
-States can be kept on the SD card of a flash cart. They stay when the console is switched off. The card must be FAT16 or FAT32 (a card of more than 32 GB is usually exFAT: format it as FAT32 or give it a FAT32 partition). The cart must not be in use by its menu: boot the ROM from the cart as usual.
+States can be kept on the SD card of a flash cart. They stay when the console is switched off. The card must be FAT16 or FAT32 (a card of more than 32 GB is usually exFAT: format it as FAT32 or give it a FAT32 partition). The cart must not be in use by its menu: boot the ROM from the cart as usual
 
-- The files are in the folder `GLOVERPR` on the card, named `STATE001.GST` to `STATE100.GST`. Save makes the folder. The practice ROM only writes to the when you choose Save slot to card or Delete on card
-- Each file holds one state. It can be loaded after the pool was emptied or on another day. A file is about 0.63 MB, so 100 savestates take about 63 MB.
--   Note: A file made by another version of the ROM may be refused ("not a usable state").
-- A save takes the pool slot chosen with Slot. Save the state into the pool first, then to the card.
-- The game stops while the card is read or written, and a bar near the bottom of the screen shows the progress. The frame before shows "saving to card..." or "loading from card...", and the message afterwards gives the size and the time, for example "saved to card 1: 619 KB, 1.34 s". The console's own work is about 0.7 s for a save and 1.5 s for a load (an emulator's clock). The card's time comes on top. A load reads the file twice: the first time checks it. A damaged file is refused before the game changes. The first save on a large card that holds many files can take several seconds longer.
-- A save needs room on the card for the new file while the old file of that number is still there. Replacing a file on a nearly full card can say "the card is full" although the new file would fit in the old one's place. Delete the card file first (Delete on card), then save. A save that fails leaves the old file as it was.
-- A card that is not in the cart, a cart without a driver and a card that is not FAT16 or FAT32 each have a message. A cart that still has a save to write back to the card ("save writeback pending, try again": wait a moment and use the item again) and a card whose test read failed ("card read failed") also have messages.
-- The ROM touches the cart only when you use one of these items.
+- The files are in the folder `GLOVERPR` on the card, named `STATE001.GST` to `STATE100.GST`. Save makes the folder. The practice ROM only writes to the card when you choose Save slot to card or Delete on card
+- Each file holds one state. It can be loaded after the pool was emptied or on another day. A file is about 0.63 MB, so 100 savestates take about 63 MB
+- Note: A file made by another version of the ROM may be refused ("not a usable state")
+- A save takes the pool slot chosen with Slot. Save the state into the pool first, then to the card
+- The game stops while the card is read or written, and a bar near the bottom of the screen shows the progress. The frame before shows "saving to card..." or "loading from card...", and the message afterwards gives the size and the time, for example "saved to card 1: 619 KB, 1.34 s". The console's own work is about 0.7 s for a save and 1.5 s for a load (an emulator's clock). The card's time comes on top. A load reads the file twice: the first time checks it. A damaged file is refused before the game changes. The first save on a large card that holds many files can take several seconds longer
+- A save needs room on the card for the new file while the old file of that number is still there. Replacing a file on a nearly full card can say "the card is full" although the new file would fit in the old one's place. Delete the card file first (Delete on card), then save. A save that fails leaves the old file as it was
+- A card that is not in the cart, a cart without a driver and a card that is not FAT16 or FAT32 each have a message. A cart that still has a save to write back to the card ("save writeback pending, try again": wait a moment and use the item again) and a card whose test read failed ("card read failed") also have messages
+- The ROM touches the cart only when you use one of these items
 
-_The driver has not been tried on a console yet. The tests use a stand-in for the cart._
+_The driver has not been tried on a console yet. The tests use a stand-in for the cart_
 
 ## Input recording
 
 Record input saves a state, then records what the game reads from the controller, for up to 30 minutes. At the limit, the recording stops and the game says so. Play recording loads the state and plays the inputs back
 
-The recording's state has a slot of its own. The slot chosen in the menu is not touched, and Load state still loads the chosen slot. If the state does not fit, the game says "recording not started: pool full".
+The recording's state has a slot of its own. The slot chosen in the menu is not touched, and Load state still loads the chosen slot. If the state does not fit, the game says "recording not started: pool full"
 
-Recording and playback need the game at full speed. Frame advance, slow motion or the practice menu stops them. Chaos inputs do nothing while you record or play back.
+Recording and playback need the game at full speed. Frame advance, slow motion or the practice menu stops them. Chaos inputs do nothing while you record or play back
 
-The recording also keeps where the glove and the ball were on every game frame, for the ghost _(see [Game](Game.md))_. 
+The recording also keeps where the glove and the ball were on every game frame, for the ghost _(see [Game](Game.md))_
 
-A recording can be kept on a Controller Pak _(see [Settings](Settings.md))_.
+A recording can be kept on a Controller Pak _(see [Settings](Settings.md))_
 
 ### Recording on the SD card
 

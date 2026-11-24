@@ -52,9 +52,10 @@ The version is `X.Y.Z` (major, minor, patch). The tag `vX.Y.Z` on HEAD sets it. 
    make release
    ```
 
-   It refuses a tree with changes and a HEAD without a version tag. `make release ALLOW_UNTAGGED=1` is a trial run
-   on an untagged commit (development version, notes from "Not yet released"). `make release-check` runs only the
-   check. It then builds the ROM, runs `tools/checklayout.py`, builds the patch and the patch page, and checks that:
+   It stops with an error on a tree with changes and on a HEAD without a version tag. `make release ALLOW_UNTAGGED=1`
+   is a trial run on an untagged commit (development version, notes from "Not yet released"). `make release-check`
+   runs only the check. After the check, `make release` builds the ROM, runs `tools/checklayout.py`, builds the patch
+   and the patch page, and checks that:
 
    - the base ROM is the clean Glover (USA) ROM (`gloveworld/NGVE.sha1`),
    - the BPS patch applies to it and gives the built ROM, byte for byte,
