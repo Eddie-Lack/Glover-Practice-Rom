@@ -1,7 +1,7 @@
 # Plan
 
 This is the working plan for the practice ROM. Agents keep it current: mark what is done, and correct what turned
-out different. Ideas that need the owner's decision go in [decisions.md](decisions.md), not here.
+out different. Ideas that need the owner's decision go in [decisions.md](decisions.md).
 
 ## Facts to start from
 
@@ -186,7 +186,7 @@ The owner's rules for runs:
 
 ## Ball controls
 
-On Medium and Hard, the retail game reverses the stick while Glover stands on the ball; on Easy it does not. The
+On Medium and Hard, the retail game reverses the stick while Glover stands on the ball; on Easy it does not reverse it. The
 practice ROM uses the Easy direction at every difficulty by default. A setting in the practice menu ("Ball
 controls: Easy / Normal") turns on the retail behaviour, and it is saved with the settings. The test is in
 `ProcessInput` (controller.c): the ball-walk direction depends on `saveSlot[currentSaveSlot].difficultyLevel ==
@@ -202,7 +202,8 @@ The milestones 0 to 4 are done. What each one holds is in [build.md](build.md) a
 - The repository, the submodule and the build (Build, above). A ROM that boots to the title screen with a line of
   practice text on screen, and the Expansion Pak check.
 - The patch maker and the browser patch page.
-- The hook approach and the compiler choice for practice code, written down.- The emulator test harness wired up: boot, feed input, read RDRAM, compare with retail. `make test` runs the
+- The hook approach and the compiler choice for practice code, written down.
+- The emulator test harness wired up: boot, feed input, read RDRAM, compare with retail. `make test` runs the
   boot test, the test without the Expansion Pak and the faithfulness test ([testing.md](testing.md)).
 - The ROM keeps its 8 MiB: the loader and the practice segment sit in the retail ROM's empty end
   ([build.md](build.md#the-free-end-of-the-rom)). `tests/romlayout.py` tests it.
@@ -273,8 +274,8 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   frame.
 - States on a flash cart's SD card: done for the SummerCart64, untested on hardware ([build.md](build.md#savestates-on-the-sd-card)).
   Up to 100 files of 0.63 MB, each one state with no dependence on a base, in a folder of a FAT16 or FAT32 card, through
-  seven items on the Savestate menu's SD card page. Not built: a stronger compressor (about 4.4 times is within reach, the
-  files are 3.1 times) and an EverDrive 64 driver (docs/decisions.md).
+  seven items on the Savestate menu's SD card page. A stronger compressor (about 4.4 times is within reach, the
+  files are 3.1 times) and an EverDrive 64 driver are not built (docs/decisions.md).
 
 ### 4. Game science and glitch hunting (done)
 
@@ -410,7 +411,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   difficulty; per level the done flag, the all-garibs flag and the best time in whole seconds). The game's own copy
   in RAM changes only at Write, which asks first and uses the game's EEPROM requests (6, 4 and 11: files, best
   times, CRCs). Reload asks first, reads the cartridge into buffers and takes it over only when the game's CRC
-  check passes. The game keeps one all-garibs flag a level, not a count.
+  check passes. The game keeps one all-garibs flag a level and no count.
   [build.md](build.md#the-save-file-editor); [game.md](game.md#the-eeprom); `tests/saveedit.py`.
 
 - Controller Pak storage (done): Settings, last item, "Controller Pak". A small driver for the pak's serial
@@ -420,7 +421,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   input recording if it fits. Check, save, load, delete, repair (damaged copies of the tables) and format (only
   for a pak with no valid ID block or index table), for controller 1 or 2; saves, deletes, repairs and formats
   ask first. A save keeps the pak consistent after every write; a Rumble Pak is refused. With the pak unused there is no serial traffic and a
-  frame costs one byte test. Not built: the load at boot (docs/decisions.md). Untested on hardware.
+  frame costs one byte test. The load at boot is not built (docs/decisions.md). Untested on hardware.
   [build.md](build.md#the-controller-pak); `tests/cpak.py`, `cpakload.py`, `cpakforeign.py`, `cpakedge.py`,
   `cpakfull.py`, `cpakbad.py`, `cpaknone.py`, `cpakid.py`, `cpakindex.py`, `cpakcross.py`, `cpakdupe.py`,
   `cpakrumble.py`, `cpakfail.py`, `cpakfailfull.py`.

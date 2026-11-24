@@ -86,7 +86,7 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
   platforms" was built too and is gone again: the view now draws every platform where it is, from a cache of its
   mesh. Drawing every edge as a line is planned as the wireframe.
 - **Ghost of a recorded run.** Draw a see-through glove and ball from a recorded best run, in step with the live
-  run. Cost: recording positions every frame, drawing a second glove model. Risk: RDP time. Recommendation: yes,
+  run. Cost: recording positions every frame, drawing a second glove model. Risk: RDP time. Recommendation: yes.
   **Yes.**
   **Built.** Game menu, "Ghost" (`practice/src/ghost.c`, `tests/ghost.py`). Each input recording also keeps
   the glove's and the ball's place and the glove's heading on every game frame (16 bytes a frame, in the Expansion
@@ -202,7 +202,7 @@ gives what it is, the cost, the risks, and a recommendation. The owner marks an 
   real PAL console. Recommendation: no, support the PAL ROM instead if wanted. **No.**
 - **An auto-mash switch.** The tool presses L on every 2nd game frame. The player sees what the target looks like.
   It changes the input. It needs a "MODIFIED" marker and keeps best times out. Cost: small. Risk: a run on it is
-  not a run. Recommendation: a demo only, not a switch in the default build.
+  not a run. Recommendation: a demo only, with no switch in the default build.
 - **An auto C-tap assist, a yaw lock and camera swing off.** The assist taps C-left or C-right and keeps a diagonal
   line. The yaw lock stops the camera from turning with the walk. Camera swing off sets `camBehindSpeed` to 0 and
   adds 5 to the mash speed. All change the game. Cost: a day each. Risk: they teach habits that the retail game
