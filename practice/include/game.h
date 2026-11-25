@@ -655,7 +655,9 @@ typedef struct Overlay {
     /* 0x00 */ PAD(00)[0x0C];
     /* 0x0C */ f32 x;
     /* 0x10 */ f32 y;
-    /* 0x14 */ PAD(14)[0x0C];
+    /* 0x14 */ PAD(14)[0x04];
+    /* 0x18 */ s32 scaleX; /* 1024 is the picture's own size */
+    /* 0x1C */ s32 scaleY;
     /* 0x20 */ u8 r;
     /* 0x21 */ u8 g;
     /* 0x22 */ u8 b;

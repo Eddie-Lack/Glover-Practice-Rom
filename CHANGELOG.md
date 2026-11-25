@@ -20,6 +20,7 @@
 - HUD: a sign shows while you record or play back. Messages show over the menu when it is open. Held buttons have a box in the input display.
 - HUD: the input history uses the timer's frame and leaves out menu presses. The lag counter starts again with each level. The last level time shows the finished level from the exit onward.
 - Hide objects, HUD: the counters' numbers are hidden too.
+- HUD: "Controller display size", and places for the controller display and the trainer log on the Layout page. They are not saved.
 - Trainers: the panels stand in a column on each side, clear of each other and the game's HUD. Idle panels are hidden.
 - Memory view: the value has its own digit cursor, C-left and C-right choose 4, 2 or 1 bytes, watched words are green and poked words orange. An edit checks the allowed range.
 - Views ignore the menu's chord.

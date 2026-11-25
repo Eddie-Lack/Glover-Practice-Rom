@@ -7,11 +7,15 @@ With every trick trainer on, the log at 10 lines and the hold at 3 s:
    boxes that the draw thread used (trainerLayout) lie in the area that the game's HUD leaves free (x 16 to 304, y 44 to
    192), and no two of them overlap: panels, log lines, or a panel and a log line. Panels show while the attempts go on
    and while their results are held, more than one at a time.
+3. The log moved (run.logX and logY): its lines end at the new right edge and start at the new top, one under the
+   other.
 
 Picture: trainerlayout.png (needs --gfx angrylion)."""
 import os
 import struct
 import sys
+
+import layout as offsets
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "tricks"))
 from trainers import ACTOR_POS, RUN_TRAINERS, Rig, boot_to_atlantis, get_joined, mk_plan, step  # noqa: E402,F401
@@ -113,6 +117,23 @@ def run(emu, sym, args):
           f"and {len(lines)} log lines")
     if most < 2:
         emu.fail(f"never more than {most} panel at once: the test did not cover two panels")
+
+    # 3. The log moved: right edge x 224, top y 104.
+    if not lines:
+        emu.fail("no log lines at the end: the moved log cannot be checked")
+    emu.w8(r.run + offsets.RUN_LOG_X, 112)
+    emu.w8(r.run + offsets.RUN_LOG_Y, 52)
+    yield from step(r, ())
+    yield from drawn(r)
+    _, _, moved = layout(emu, sym)
+    if len(moved) < len(lines):
+        emu.fail(f"the moved log has {len(moved)} lines, not {len(lines)}")
+    for k, b in enumerate(moved):
+        if b[2] != 224 or b[1] != 104 + 9 * k:
+            emu.fail(f"line {k} of the moved log is at {b}, not ending at x 224 at y {104 + 9 * k}")
+    print(f"trainerlayout: the moved log draws {len(moved)} lines from x 224, y 104")
+    emu.w8(r.run + offsets.RUN_LOG_X, 152)
+    emu.w8(r.run + offsets.RUN_LOG_Y, 22)
     emu.w8(r.run + RUN_TRAINERS, 0)
     emu.w8(settings + SETTINGS_TRAINER_HOLD, 2)
     emu.w8(settings + SETTINGS_TRAINER_LOG, 2)

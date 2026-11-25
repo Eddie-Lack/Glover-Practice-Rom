@@ -8,13 +8,20 @@ in Atlantis 1.
    others stay dim. The stick held right moves the stick's picture right of its centre.
 3. Controller 2: C-up written into controllerdata[1] (the emulator has no controller in port 2) lights C-up, and A
    on controller 1 no longer lights A.
+   With the default place and size every picture is where the demos have it, 40 pixels higher. "Controller display
+   size" at 125% scales every picture and the gaps between them; the Layout page's "Controller display x" and "y" move
+   the whole display by 2 pixels a step.
 4. Off: the overlays are no longer drawn (A on controller 2 does not light A), and the next reset frees them."""
+import layout
 import trace
 from menunav import goto
 from tools import C_ALL, press, wait_for
 
 OVERLAY_SIZE = 0x74
-OL_X, OL_R, OL_BITMAPS = 0x0C, 0x20, 0x24
+OL_X, OL_Y, OL_SCALE, OL_R, OL_BITMAPS = 0x0C, 0x10, 0x18, 0x20, 0x24
+# The pictures' places in the demos (LoadLevel), as paddisplay.c has them.
+PARTS = [(46, 182), (94, 182), (92, 171), (85, 164), (70, 200), (99, 152), (99, 164), (93, 158), (105, 158),
+         (160, 150), (103, 142)]
 A, Z, CUP, R, STICK = 2, 4, 5, 10, 9
 CONT_A, CONT_CUP = 0x8000, 0x0008
 LIT, DIM = 255, 100
@@ -29,6 +36,8 @@ def run(emu, sym, args):
     bitmaps = lambda i: emu.r32(ol + i * OVERLAY_SIZE + OL_BITMAPS)  # noqa: E731
     colour = lambda i: emu.r8(ol + i * OVERLAY_SIZE + OL_R)  # noqa: E731
     xpos = lambda i: emu.rf(ol + i * OVERLAY_SIZE + OL_X)  # noqa: E731
+    ypos = lambda i: emu.rf(ol + i * OVERLAY_SIZE + OL_Y)  # noqa: E731
+    scale = lambda i: emu.r32(ol + i * OVERLAY_SIZE + OL_SCALE)  # noqa: E731
     rcdelay = emu.r16(sym("rcdelay"))
 
     def choose(steps):
@@ -94,6 +103,38 @@ def run(emu, sym, args):
     if xpos(STICK) <= centre + 1:
         emu.fail(f"the stick's picture is at x {xpos(STICK)}, not right of its centre {centre}")
     emu.release()
+    yield 12
+
+    # The place and the size. The stick's picture (9) has its own place.
+    for i, (x, y) in enumerate(PARTS):
+        if i != STICK and (abs(xpos(i) - x) > 0.01 or abs(ypos(i) - (y - 40)) > 0.01 or scale(i) != 1024):
+            emu.fail(f"picture {i} at {xpos(i)}, {ypos(i)} scale {scale(i)}, not at {x}, {y - 40} at 1024")
+    yield from press(emu, *C_ALL)
+    yield from goto(emu, sym, "HUD", "Controller display size", enter=False)
+    yield from press(emu, "RIGHT")
+    yield from press(emu, *C_ALL)
+    yield 12
+    for i, (x, y) in enumerate(PARTS):
+        want = (46 + (x - 46) * 1.25, 142 + (y - 182) * 1.25)
+        if i != STICK and (abs(xpos(i) - want[0]) > 0.01 or abs(ypos(i) - want[1]) > 0.01 or scale(i) != 1280):
+            emu.fail(f"at 125% picture {i} is at {xpos(i)}, {ypos(i)} scale {scale(i)}, not at {want} at 1280")
+    if emu.r8(sym("run") + layout.RUN_PAD_SIZE) != 3:
+        emu.fail("Controller display size did not choose 125%")
+    yield from press(emu, *C_ALL)
+    yield from goto(emu, sym, "HUD", "Layout", "Controller display x", enter=False)
+    for _ in range(5):
+        yield from press(emu, "RIGHT")
+    yield from press(emu, "DOWN")
+    for _ in range(3):
+        yield from press(emu, "LEFT")
+    yield from press(emu, *C_ALL)
+    yield 12
+    if abs(xpos(0) - 56) > 0.01 or abs(ypos(0) - 136) > 0.01 or abs(xpos(1) - (56 + 48 * 1.25)) > 0.01:
+        emu.fail(f"moved 5 steps right and 3 up, the pad is at {xpos(0)}, {ypos(0)}, not at 56, 136")
+    emu.shot("moved")
+    emu.w8(sym("run") + layout.RUN_PAD_X, 23)
+    emu.w8(sym("run") + layout.RUN_PAD_Y, 71)
+    emu.w8(sym("run") + layout.RUN_PAD_SIZE, 2)
     yield 12
 
     # 3. Controller 2.

@@ -16,7 +16,7 @@ _Back to the [Home page](Home.md)_
 | Trainer result hold | How long a trainer's panel keeps an attempt's result `off, 1 s, 2 s, 3 s`. Default 1 s |
 | Hi Scores screen shows | `practice bests` or `game records` |
 | Clear practice best times | Forget every practice best time. Hold A |
-| Save best times to card | Write the practice best times to the SD card file `BESTS.GRB`. SummerCart64 only |
+| Save best times to card | Write the practice best times to the SD card file `BESTS.GRB`. WIP: SummerCart64 only |
 | Load best times from card | Replace the practice best times with that file. Hold A |
 | Save file | _Sub menu_, see below |
 | Controller Pak | _Sub menu_, see below |
@@ -36,7 +36,7 @@ Menu opacity also sets the background of the tools' panels, like Face info in th
 | Controller 2: debug controls, and Controller 2: L marks all done (Game) | Save settings |
 | The trainer toggles, the Hi Scores choice, the practice best times, the input recording | A Controller Pak note, see below |
 | Savestates, the input recording, the practice best times | Card files on a SummerCart64's SD card _(see [Savestate](Savestate.md))_ |
-| Everything else: savestates in the slots, ghosts, cheats, noclip, moon jump, camera speed, chaos, free camera, fog, mute, the random numbers, the controller display, the collision view, hidden objects | Nothing: they are lost when the console is switched off |
+| Everything else: savestates in the slots, ghosts, cheats, noclip, moon jump, camera speed, chaos, free camera, fog, mute, the random numbers, the controller display with its place and size, the trainer log's place, the collision view, hidden objects | Nothing: they are lost when the console is switched off |
 
 Long menus (cheats, HUD layout) scroll
 

@@ -1560,6 +1560,9 @@ void TrainersText(char *buf, int size, int bit) {
 #define COL_LEFT 16
 #define COL_RIGHT 304
 #define COL_GAP 4
+/* The part of the screen that a TV shows, for a log that the player placed: as the HUD's (hud.c). */
+#define SCREEN_SAFE_TOP 16
+#define SCREEN_SAFE_BOTTOM 224
 #define LINE 10
 #define BOX 0x101418E0 /* the dark box behind coloured cells, which some skies hide */
 
@@ -2084,8 +2087,12 @@ static int CopyLog(void) {
     return 0;
 }
 
-static void DrawLog(Gfx **dl, const Layout *l, int y, int on, int max) {
-    for (int i = 0; i < TLOG_MAX && max > 0 && y + TLOG_PITCH <= COL_BOTTOM; i++) {
+/* RIGHT is the lines' right edge. With AVOID the log keeps clear of the panels (its own place); without it, it is drawn
+ * where the player put it, down to the screen's safe area. */
+static void DrawLog(Gfx **dl, const Layout *l, int right, int y, int on, int max, int avoid) {
+    int bottom = avoid ? COL_BOTTOM : SCREEN_SAFE_BOTTOM;
+
+    for (int i = 0; i < TLOG_MAX && max > 0 && y + TLOG_PITCH <= bottom; i++) {
         const TrainerLogLine *t = &logCopy.line[i];
         int w = 0;
 
@@ -2096,20 +2103,21 @@ static void DrawLog(Gfx **dl, const Layout *l, int y, int on, int max) {
             w++;
         }
         w *= TEXT_ADVANCE;
-        if (Crosses(l, COL_RIGHT - TEXT_ADVANCE, y, COL_RIGHT, y + TLOG_PITCH)) {
+        if (avoid && Crosses(l, right - TEXT_ADVANCE, y, right, y + TLOG_PITCH)) {
             break; /* a panel of the right column: the log ends above it */
         }
-        if (Crosses(l, COL_RIGHT - w, y, COL_RIGHT, y + TLOG_PITCH)) {
+        if (avoid && Crosses(l, right - w, y, right, y + TLOG_PITCH)) {
             max--;
             continue;
         }
-        LineRight(dl, COL_RIGHT, y, t->color, "%s", t->text);
+        /* A line that would start off the screen's left edge starts at it. */
+        LineRight(dl, right - w < COL_LEFT ? COL_LEFT + w : right, y, t->color, "%s", t->text);
         if (dl != NULL) {
             s16 *b = trainerLayout.box[trainerLayout.panels + trainerLayout.lines++];
 
-            b[0] = (s16)(COL_RIGHT - w);
+            b[0] = (s16)(right - w < COL_LEFT ? COL_LEFT : right - w);
             b[1] = (s16)y;
-            b[2] = COL_RIGHT;
+            b[2] = (s16)(right - w < COL_LEFT ? COL_LEFT + w : right);
             b[3] = (s16)(y + TLOG_PITCH);
         }
         y += TLOG_PITCH;
@@ -2184,10 +2192,19 @@ void TrainersDraw(Gfx **dl, Gfx *end) {
     if (settings.trainerLog < ARRAY_COUNT(lengths) && lengths[settings.trainerLog] > 0 && CopyLog()) {
         int max = lengths[settings.trainerLog];
 
-        if ((local.on & (TRAINER_MBZL | TRAINER_CLIP)) && max > TLOG_SHORT) {
-            max = TLOG_SHORT;
+        int own = run.logX == TLOG_X_DEFAULT && run.logY == TLOG_Y_DEFAULT;
+
+        if (!own) {
+            int right = run.logX * 2;
+
+            DrawLog(dl, &l, right < COL_LEFT + TEXT_ADVANCE ? COL_LEFT + TEXT_ADVANCE : right > COL_RIGHT ? COL_RIGHT
+                            : right, run.logY * 2 < SCREEN_SAFE_TOP ? SCREEN_SAFE_TOP : run.logY * 2, local.on, max, 0);
+        } else {
+            if ((local.on & (TRAINER_MBZL | TRAINER_CLIP)) && max > TLOG_SHORT) {
+                max = TLOG_SHORT;
+            }
+            DrawLog(dl, &l, COL_RIGHT, logTop, local.on, max, 1);
         }
-        DrawLog(dl, &l, logTop, local.on, max);
     }
     trainerLayout.frames++;
 }

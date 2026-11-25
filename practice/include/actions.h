@@ -86,6 +86,11 @@ typedef struct Run {
     u8 collWire;     /* it outlines every face: 0 off, 1 over the faces, 2 in place of them (collview.h) */
     u8 collInfo;     /* 1: it shows the face under Glover and the face at the screen's centre (collview.h) */
     u32 cheatToggles; /* the cheats to toggle on the next game frame, one bit each: the menu can choose several */
+    u8 padX;         /* the controller display's place, in units of 2 pixels (paddisplay.h) */
+    u8 padY;
+    u8 padSize;      /* its size: an index in paddisplay.c's sizes (PAD_SIZE_DEFAULT is the game's own size) */
+    u8 logX;         /* the trainer log's right edge, in units of 2 pixels (trainers.h) */
+    u8 logY;         /* its top, in units of 2 pixels */
 } Run;
 
 extern Run run;

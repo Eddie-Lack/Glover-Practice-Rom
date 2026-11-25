@@ -11,13 +11,14 @@ The HUD is what the practice ROM draws over the game. Only the in-game timer is 
 | Input display | The buttons and the stick that the game reads. A held button has a blue box behind it |
 | Input history | The last presses. Each shows the button, the timer's game frame of the press and how many game frames it was held. Presses in the practice menu are left out |
 | Controller display | The game's own controller picture from its demos: `off, controller 1, controller 2`. Shows from the next level start or reset |
+| Controller display size | `50%, 75%, 100%, 125%, 150%, 200%`. Default 100% |
 | Glove position and speed | Where the glove is and how fast it moves |
 | Ball position and speed | The same for the ball |
 | Glove action | The glove's current action |
 | Counters | _Sub menu_ |
 | Full-game timer | _Sub menu_ |
 | Text shadow | Shadow behind the HUD text |
-| Layout | A sub menu that sets the x and y place of each item. Places are in units of 2 pixels, x up to 160 and y up to 120. An item always stays inside the screen, 16 pixels from each edge. An x near the right edge puts the item's end at that edge |
+| Layout | A sub menu that sets the x and y place of each item. Places are in units of 2 pixels, x up to 160 and y up to 120. An item always stays inside the screen, 16 pixels from each edge. An x near the right edge puts the item's end at that edge. The last rows place the controller display and the trainer log, see below |
 | Hide HUD | Hide or show the HUD. Quick action |
 
 A "MODIFIED" line in red shows at the top right when the attempt does not count for a practice best time. It stays until the level starts again. For some tools a word after it names the tool _(see [Settings](Settings.md#practice-best-times))_
@@ -35,6 +36,10 @@ The game draws this controller in its demos. Turn it on and you get it while you
 - A, B, Z, R and the C buttons light up when pressed, and the stick moves
 - The D-pad, L and Start don't light up
 
+Its place is set on the Layout page ("Controller display x" and "y", default 23 and 71). That is the place of the pad's left half. The size grows the picture from there
+
+The place and the size are not saved
+
 Note: it doesn't show in the game's demos, which have their own
 
 ## Counters
@@ -48,7 +53,7 @@ Note: it doesn't show in the game's demos, which have their own
 
 ## Full-game timer
 
-The full-game timer times real time for a whole run
+The full-game timer times real time for a whole run. Realtimes Realtimes Realtimes
 
 - Starts the first frame after you select the difficulty to start a new game
 - Stops when Glover enters the fountain with the last crystal

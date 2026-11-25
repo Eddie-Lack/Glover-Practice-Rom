@@ -2,7 +2,7 @@
 
 _Back to the [Home page](Home.md) or the [Game](Game.md) page_
 
-Six trainers for tricks, in the Game menu under "Trainers". They were tested in an emulator only
+WIP - six trainers for tricks, in the Game menu under "Trainers"
 
 Trainers only read the game and draw on the screen. They don't change anything
 
@@ -28,6 +28,8 @@ You can keep them on a Controller Pak _(see [Settings](Settings.md))_
 A list of your last attempts, newest first, at the top right of the screen. In the boss fights it's under the boss panel
 
 Each line starts with the trainer: `LM, MB, LK, MP, BW, WC`
+
+Its place is set in _HUD, Layout_ ("Trainer log x" and "y", default 152 and 22): x is where the lines end, y is the top line. At any other place the log can cover the panels. The place is not saved
 
 How many lines show is set in _Settings_ ("Trainer log length", `off, 5, 6, 8, 10`, default 5)
 

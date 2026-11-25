@@ -15,6 +15,7 @@
 #include "hud.h"
 #include "memview.h"
 #include "menu.h"
+#include "paddisplay.h"
 #include "recording.h"
 #include "saveedit.h"
 #include "savestate.h"
@@ -81,6 +82,9 @@ static const MenuItem layoutItems[] = {
     PLACE("Ball", HUD_BALL),     PLACE("Action", HUD_ACTION),       PLACE("Frame counter", HUD_FRAMES),
     PLACE("Lag counter", HUD_LAG),     PLACE("Random seed", HUD_RNG),     PLACE("Last level time", HUD_LAST),
     PLACE("Full-game timer", HUD_GAME), PLACE("Watch list", HUD_WATCH),
+    /* These two are not saved, like the controller display and the trainers' switches. */
+    NUMBER("Controller display x", &run.padX, 0, 160), NUMBER("Controller display y", &run.padY, 0, 120),
+    NUMBER("Trainer log x", &run.logX, 0, 160), NUMBER("Trainer log y", &run.logY, 0, 120),
 };
 /* Compact: the items stay in sight behind the panel while they move. */
 static const Menu layoutMenu = { "HUD layout", layoutItems, ARRAY_COUNT(layoutItems), 0, 1 };
@@ -148,6 +152,7 @@ static const MenuItem hudItems[] = {
     TOGGLE("Input display", &settings.hud[HUD_INPUT].on),
     TOGGLE("Input history", &settings.inputHistory),
     WARN_CHOICE("Controller display", &run.padDisplay, padDisplayNames, 3, "From the next level start or reset"),
+    CHOICE("Controller display size", &run.padSize, padSizeNames, PAD_SIZES),
     TOGGLE("Glove position and speed", &settings.hud[HUD_GLOVE].on),
     TOGGLE("Ball position and speed", &settings.hud[HUD_BALL].on),
     TOGGLE("Glove action", &settings.hud[HUD_ACTION].on),

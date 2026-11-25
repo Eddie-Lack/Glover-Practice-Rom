@@ -232,6 +232,10 @@ _Static_assert(sizeof(LMashView) == 0x30 && sizeof(MbzAttempt) == 0x2C && sizeof
  * "Trainer result hold" (1 to 3 s, in game frames) and the trainer goes on running unseen. Another attempt that ends
  * during the hold puts its view in place and starts the time again. Nothing is queued. */
 #define TLOG_MAX 10
+/* The log's place (run.logX, run.logY), in units of 2 pixels: its right edge and its top. At this place it keeps
+ * clear of the panels; anywhere else it is drawn where it is put. */
+#define TLOG_X_DEFAULT 152
+#define TLOG_Y_DEFAULT 22
 #define TLOG_TEXT 32 /* characters of a line with its end */
 
 typedef struct TrainerLogLine {

@@ -19,7 +19,7 @@ Tools that change or read the game itself. Items that change how the game plays 
 | Set action | A sub menu |
 | Chaos inputs | Random disturbances, see below |
 | Ghost | A ghost of a recorded run, see below |
-| Trainers | _Sub menu (see [Trainers](Trainers.md))_ |
+| Trainers | WIP - _Sub menu (see [Trainers](Trainers.md))_ |
 
 Lives and health changed during a level, a frozen or changed random seed, a power-up given from the menu and any cheat other than level select and open portals and levels all stop a run from counting for a best time
 
@@ -129,7 +129,7 @@ Some actions need a ledge, a block or a power-up. They may end at once or, rarel
 
 ## Chaos inputs
 
-Practice having dropped or random inputs
+Practice having dropped or random inputs. This one is awesome
 
 Choices: `off, rare, sometimes, often.`
 

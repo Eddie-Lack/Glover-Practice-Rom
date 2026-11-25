@@ -1,6 +1,8 @@
 /* The quick actions that change the game: reset, warp, frame advance and slow motion. */
 #include "actions.h"
 #include "besttimes.h"
+#include "paddisplay.h"
+#include "trainers.h"
 #include "chaos.h"
 #include "collview.h"
 #include "demo.h"
@@ -56,7 +58,8 @@ _Static_assert(__builtin_offsetof(Run, setGlove) == 0x36 && __builtin_offsetof(R
 _Static_assert(__builtin_offsetof(Run, warpLives) == 0x49 && __builtin_offsetof(Run, warpPower) == 0x4B,
                "tests/warpgive.py has the offsets");
 
-Run run = { .warpLevel = LEVEL_ATLANTIS1, .warpDifficulty = 1, .noclipSpeed = 2 };
+Run run = { .warpLevel = LEVEL_ATLANTIS1, .warpDifficulty = 1, .noclipSpeed = 2, .padX = PAD_X_DEFAULT,
+            .padY = PAD_Y_DEFAULT, .padSize = PAD_SIZE_DEFAULT, .logX = TLOG_X_DEFAULT, .logY = TLOG_Y_DEFAULT };
 
 static volatile u16 requests; /* one bit per action */
 static u8 warpGive;          /* 1: give the Warp menu's lives, garibs and power-up once the new level has started */
