@@ -10,12 +10,9 @@ Patch your ROM in your browser at [glover.love](https://glover.love)
 
 Or get the patch from the [releases page](https://github.com/Eddie-Lack/Glover-Practice-Rom/releases)
 
-Open the `.html` file in a browser and follow the instructions.
-You can also apply the `.bps` file with any BPS patcher to the ROM in `.z64` byte order.
-
 ## Controls and features
 
-Press all four C buttons to open or close the practice menu. The wiki describes the controls and each menu:
+Press all four C buttons to open or close the practice menu. 
 
 - [Home](wiki/Home.md)
 - [Controls](wiki/Controls.md)
