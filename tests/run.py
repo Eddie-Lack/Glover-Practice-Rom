@@ -30,6 +30,7 @@ TESTS = [
     ["lzhost.py"],
     ["fathost.py"],
     ["releasehost.py"],
+    ["sitehost.py"],
     ["harness.py", "savestate", "--gfx", "angrylion"],
     ["harness.py", "slots", "--gfx", "angrylion"],
     ["harness.py", "instantreset", "--gfx", "angrylion"],
