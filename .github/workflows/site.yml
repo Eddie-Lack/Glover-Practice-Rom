@@ -36,7 +36,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       # The site's files come from main, also when a release's tag starts the run.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main
       - name: Get the patch page
@@ -67,9 +67,9 @@ jobs:
           gh api repos/Eddie-Lack/glovebox/releases/latest > glovebox.json || echo '{}' > glovebox.json
           python3 tools/mksite.py patchpage.html glovebox.json out/index.html
           touch out/.nojekyll
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: out
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
