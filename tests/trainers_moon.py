@@ -3,7 +3,8 @@
 1. With the glove in JUMP above the dome's tip: the strip, the fall column, the hole's centre and the distance that the
    trainer shows follow the model (tools/tricks/moonpound_trainer.py, cone.py) on every frame, and the vertex is the tip.
 2. Following the aim: the model finds a start where the shift that the aim shows makes a later cell clip. From a savestate,
-   the glove moved by that shift and Z pressed on that cell falls through the dome; with no shift it lands on it.
+   the glove moved by that shift and Z pressed on that cell falls through the dome; with no shift it lands on it. The
+   trainer log's slam line says CLIP in green, then LAND in red (the panel's colours).
 3. Grey cells for A and for the action lock; silent in water, with Hercules, and with the trainer off.
 4. The stick that the aim shows moves the column onto the hole (within 30 percent).
 
@@ -23,6 +24,8 @@ from tools import press, wait_for  # noqa: E402
 from trainers import ACTOR_POS, ACTOR_ROT, ACTOR_VEL, RUN_TRAINERS, TR_MOON, Rig, step  # noqa: E402
 from trainers2 import read_view  # noqa: E402
 from trainerlog import log_state  # noqa: E402
+
+LOG_GREEN, LOG_RED = 0x60FF60FF, 0xFF5050FF  # trainers.c
 
 TIP = (-7.3284173, 60.6500015, -1347.3238525)   # the Space portal dome's tip in the hub levels (docs/game.md)
 HUB = 1
@@ -350,7 +353,11 @@ def clip_check(r):
         want = "CLIP" if follow else "LAND"
         if not mp or want not in mp[0][1]:
             emu.fail(f"{name}: the trainer log's newest slam line is {mp[:1]}, not {want}")
-        print(f"trainers2: {name}: the trainer log says {mp[0][1]!r}")
+        # The panel's colours: a clip is green, a landing red.
+        want_colour = LOG_GREEN if follow else LOG_RED
+        if mp[0][2] != want_colour:
+            emu.fail(f"{name}: the slam line's colour is {mp[0][2]:#010x}, not {want_colour:#010x}")
+        print(f"trainers2: {name}: the trainer log says {mp[0][1]!r} in {'green' if follow else 'red'}")
         if os.environ.get("TRAINERS_DEBUG"):
             print([(m, round(h, 1)) for m, h in path])
     if not (results["following the aim"][1] and results["following the aim"][0] < TIP[1] - 20):

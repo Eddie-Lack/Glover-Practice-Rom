@@ -3,8 +3,8 @@ trainer.
 
 1. The pad at the hook against the pad at ProcessInput, over 1,500 game frames of random presses (the open point of
    docs/plan.md, "Trick trainers").
-2. Quiet: with the switch off nothing is computed or drawn; in a pause, under the free camera and in noclip the
-   view is empty.
+2. Quiet: with the switch off nothing is computed or drawn; an idle trainer draws nothing, a mash run draws its
+   panel and marks the view active; in a pause, under the free camera and in noclip the view is empty.
 3. L mash: patterns of L presses at chosen gaps with the diagonal D-pad. The verdict of every press and the
    target are compared with the tables of docs/game.md, computed from the frame log (an independent record).
 4. MBZ-L: B and A attempts with chosen Z and L timing, against the windows of docs/game.md, speeds and verdict numbers.
@@ -25,6 +25,7 @@ from framelog import read_log  # noqa: E402
 from tools import C_ALL, press, wait_for  # noqa: E402
 
 RUN_FRAME_LOG, RUN_TRAINERS, RUN_MOON_JUMP, RUN_NOCLIP, RUN_FREE_CAM = 0x31, 0x48, 0x33, 0x34, 0x46
+SETTINGS_TRAINER_LOG = 0x4E  # 1: the log off
 TR_LMASH, TR_LINE, TR_MBZL, TR_MOON = 1, 2, 4, 8
 VIEW_SIZE = 0x24C
 LM_STRIP_CELLS = 24
@@ -96,13 +97,13 @@ class Rig:
         """The newest TrainerView as a dict."""
         seq = self.emu.r32(self.sym("trainerViewSeq"))
         raw = bytes(self.emu.read(self.sym("trainerViews") + (seq & 1) * VIEW_SIZE, VIEW_SIZE))
-        frame2, on, valid, mbz_count = struct.unpack_from(">IBBB", raw, 0)
-        kind, verdict, gap, over, warn, cells, lmode = struct.unpack_from(">7B", raw, 8)
+        frame2, on, valid, mbz_count, held = struct.unpack_from(">IBBBB", raw, 0)
+        kind, verdict, gap, over, warn, cells, lmode, active = struct.unpack_from(">8B", raw, 8)
         strip = list(raw[0x10:0x28])
         move, peak, avg20, target = struct.unpack_from(">4f", raw, 0x28)
-        v = dict(seq=seq, frame2=frame2, on=on, valid=valid, mbz_count=mbz_count,
+        v = dict(seq=seq, frame2=frame2, on=on, valid=valid, mbz_count=mbz_count, held=held,
                  lmash=dict(kind=kind, verdict=verdict, gap=gap, over=over, warn=warn, cells=cells, mode=lmode,
-                            strip=strip, move=move, peak=peak, avg20=avg20, target=target), mbz=[])
+                            active=active, strip=strip, move=move, peak=peak, avg20=avg20, target=target), mbz=[])
         for i in range(mbz_count):
             o = 0x38 + i * 0x2C
             (k, ver, zkind, n, zf, aim, cancel, lf, lt, sflags, air, done, bmask, zmask, lmask,
@@ -283,10 +284,25 @@ def quiet_check(r):
     v = r.view()
     if not v["valid"]:
         emu.fail("the view is empty with the glove in a level")
+    # An idle trainer draws nothing; a mash run draws its panel. (The log is off here: it draws while it has lines.)
+    log_len = emu.r8(r.sym("settings") + SETTINGS_TRAINER_LOG)
+    emu.w8(r.sym("settings") + SETTINGS_TRAINER_LOG, 1)
     t0 = text_frames()
     yield 30
+    if text_frames() - t0 >= 2:
+        emu.fail("text is drawn with the trainers on and idle")
+    t0 = text_frames()
+    rows = yield from mash(r, set(gaps_to_presses(0, (2,), 12)), 12, warm=2)
+    if not rows[-1]["view"]["lmash"]["active"]:
+        emu.fail("the L mash view is not active during a mash")
     if text_frames() - t0 < 2:
-        emu.fail("no text is drawn with the trainers on")
+        emu.fail("no text is drawn while an L mash goes on")
+    emu.w8(r.sym("settings") + SETTINGS_TRAINER_LOG, log_len)
+    for _ in range(14):
+        view = yield from step(r, ())
+    if view["lmash"]["active"]:
+        emu.fail("the L mash view is still active 14 game frames after the last press")
+    yield from get_joined(r)
     # Each switch is a byte in memory: the Run switches, and the game's pause flag (the game thread goes on and the game
     # frames do not: the pause is waited out in video frames).
     paused = r.sym("gamePaused")
@@ -327,10 +343,10 @@ def expected_verdicts(entries):
             verdict, over = LMV_EARLY, 0
         elif gap == 2:
             verdict, over = LMV_ON_TIME, 0
-        elif kind == 1:
-            verdict, over = LMV_LATE, gap - 2
         elif gap >= 9:
             verdict, over = LMV_REST, 0
+        elif kind == 1:
+            verdict, over = LMV_LATE, gap - 2
         else:
             verdict, over = LMV_SLOW, gap - 2
         out.append((idx, kind, verdict, gap, over))
@@ -588,8 +604,11 @@ def mbz_check(r):
         emu.hold("UP", "Z")
         emu.load(state)
         yield 3
-        for b in plan:
+        for k, b in enumerate(plan):
             view = yield from stepper(b)
+            if name == "B perfect" and k == 12:
+                # The panel shows from the aim until the speeds are in (the hold is off here).
+                r.picture("trainers_mbz")
         a = view["mbz"][0] if view["mbz"] else None
         if a is None:
             emu.fail(f"MBZ {name}: no attempt shown")
@@ -611,8 +630,6 @@ def mbz_check(r):
                 emu.fail(f"MBZ {name}: speed {v0:.2f} to {sp:.2f}, docs/game.md gives 7.00 to {speed}")
             if abs(best - 10.43) > 0.07:
                 emu.fail(f"MBZ {name}: the best speed is {best:.2f}, not 10.43")
-        if name == "B perfect":
-            r.picture("trainers_mbz")
 
     # From a bounce (B pressed while the glove holds the ball; the ball then flies at 8): the aim starts from BOUNCE.
     yield from get_joined(r)

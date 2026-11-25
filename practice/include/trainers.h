@@ -52,7 +52,7 @@ typedef struct LMashView {
     /* 0x04 */ u8 warn;       /* LMW_ bits */
     /* 0x05 */ u8 cells;      /* valid cells of strip */
     /* 0x06 */ u8 mode;       /* the glove's mode in the newest cell: HAND_JOINED, HAND_BALLWALK or 0 */
-    /* 0x07 */ u8 pad07;
+    /* 0x07 */ u8 active;     /* 1: a mash run goes on (2 presses or more, the last one less than LM_RUN_GAP ago) */
     /* 0x08 */ u8 strip[LM_STRIP]; /* oldest first: 1 holding (J), 2 stood on (B), 0 other; bit 0x80 an L press */
     /* 0x20 */ f32 move;      /* the ball's move in the last game frame */
     /* 0x24 */ f32 peak;      /* the largest move since the attempt began */
@@ -207,7 +207,7 @@ typedef struct TrainerView {
     /* 0x04 */ u8 on;        /* Run.trainers when it was made */
     /* 0x05 */ u8 valid;     /* 0: the five trick trainers are quiet and draw nothing */
     /* 0x06 */ u8 mbzCount;  /* attempts in mbz[], newest first */
-    /* 0x07 */ u8 pad07;
+    /* 0x07 */ u8 held;      /* the trainer bits whose part is a held result (ApplyHold) */
     /* 0x08 */ LMashView lmash;
     /* 0x38 */ MbzAttempt mbz[MBZ_KEEP];
     /* 0xE8 */ LineView line;
@@ -232,7 +232,7 @@ _Static_assert(sizeof(LMashView) == 0x30 && sizeof(MbzAttempt) == 0x2C && sizeof
  * "Trainer result hold" (1 to 3 s, in game frames) and the trainer goes on running unseen. Another attempt that ends
  * during the hold puts its view in place and starts the time again. Nothing is queued. */
 #define TLOG_MAX 10
-#define TLOG_TEXT 32 /* characters of a line with its end (27 are drawn: from x 158 to the screen's edge) */
+#define TLOG_TEXT 32 /* characters of a line with its end */
 
 typedef struct TrainerLogLine {
     /* 0x00 */ u32 color;
@@ -253,6 +253,20 @@ _Static_assert(sizeof(TrainerLogLine) == 0x24 && sizeof(TrainerLog) == 0x178, "t
 extern TrainerLog trainerLog;
 /* The game thread: BIT's trainer ends an attempt. Adds a line to the log and starts the result hold. */
 void TrainerResult(int bit, u32 color, const char *fmt, ...);
+
+/* What the draw thread placed in its last frame, for the tests (tests/trainerlayout.py): the panels' boxes, then the
+ * log lines' boxes. A box is x0, y0, x1, y1 on the 320 x 240 screen, x1 and y1 not included. */
+#define TRAINER_BOXES 18
+
+typedef struct TrainerLayout {
+    /* 0x00 */ u32 frames; /* frames drawn */
+    /* 0x04 */ u8 panels;
+    /* 0x05 */ u8 lines;
+    /* 0x06 */ u16 pad06;
+    /* 0x08 */ s16 box[TRAINER_BOXES][4];
+} TrainerLayout;
+
+extern TrainerLayout trainerLayout;
 
 /* Counters for the test of the pad at the hook (docs/testing.md, "Trainers"). They count only while a trainer is on. */
 typedef struct TrainerDiag {

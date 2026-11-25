@@ -97,7 +97,7 @@ The sub menu "Collision view" has these options:
 | Wireframe | Outline every face: off, over faces or alone |
 | Face info | Show the face under the glove and the face in the middle of the screen |
 | Faces drawn | How many faces are drawn right now |
-| Collision spheres | Draw the glove's (white) and the ball's (yellow) collision spheres |
+| Collision spheres | Draw the glove's (cyan) and the ball's (blue) collision spheres |
 | Enemy collision spheres | Draw the spheres of the enemies, in orange |
 | Open collision edges | Draw edges that belong to one face only, as pink bands |
 | Moon Pound holes | Draw a violet post on each hole where a falling glove touches no face |
@@ -106,7 +106,7 @@ It draws the faces that the game collides with: the level's landscape and its pl
 
 "See-through" draws the faces over everything. "On surfaces" draws a face only where nothing in front of it hides it
 
-When you enter a level, the view takes a second or two to read the level's collision. "Faces drawn" shows "building" until it's done
+When you enter a level, the view takes a second or two to read the level's collision. "Faces drawn" shows "building" until it's done. Outside a level it shows nothing
 
 "Radius" counts an object when any part of it comes that close to Glover, so faces further away can show up too
 
@@ -127,7 +127,7 @@ When you enter a level, the view takes a second or two to read the level's colli
 
 "By kind" draws floors green, walls blue and ceilings red, whatever the terrain
 
-"By object" gives each object its own colour. Use it to see where one object ends and the next starts
+"By object" gives each object its own colour, never yellow or white, which mean the touched and the centre face. Use it to see where one object ends and the next starts
 
 In every mode:
 
@@ -144,7 +144,7 @@ A floor is a face that can carry Glover. A face steeper than about 73 degrees is
 
 A face is solid from one side only. You see its back when you look at it from the inside of a wall or from below a floor
 
-- "faint" draws the back of a face lighter
+- "faint" draws the back of a face more see-through
 - "hide" doesn't draw it
 - "same" draws it like the front
 
@@ -161,7 +161,7 @@ Draws the edges of every face as thin lines, in the face's colour
 
 ### Face info
 
-A panel at the top right shows two faces:
+A panel near the top right shows two faces:
 
 - "Glove": the face Glover stands on. In the air it shows the last one in grey
 - "Centre": the face in the middle of the screen, under the small cross. With the collision view on it's drawn yellow. In big levels it takes a few frames to catch up when the camera turns
@@ -171,8 +171,10 @@ For each face:
 | Line | What it shows |
 | --- | --- |
 | first | the kind (flat floor, steep floor, wall or ceiling) and the slope in degrees. "(back)" if you see it from behind |
-| second | its terrain number and type, and for "Centre" how far away it is |
+| second | its terrain number and type, and for "Centre" how far away it is, in units |
 | third | landscape or platform, the object's model name, and the face's number in that object |
+
+The panel hides while the practice menu is open. Its background follows the Menu opacity setting
 
 "Centre" only finds faces that the view shows: the "Faces shown" menu and "Back faces: hide" leave faces out. It also works with the collision view off. With the free camera it looks where the free camera looks
 

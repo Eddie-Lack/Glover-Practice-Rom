@@ -205,7 +205,7 @@ def line_check(r):
     line = read_view(r)["line"]
     if line["live"] or line["why"] != LKW_NO_STICK:
         emu.fail(f"the line keeper is not silent on a straight D-pad: live {line['live']} why {line['why']}")
-    lk = [l for l in log_state(emu, r.sym)[3] if l[1].startswith("LK ") and "DRIFT" in l[1]]
+    lk = [l for l in log_state(emu, r.sym)[3] if l[1].startswith("LK ") and " OFF " in l[1]]
     if not lk:
         emu.fail(f"the end of a walk left no line in the trainer log: {log_state(emu, r.sym)[3]}")
     print(f"trainers2: the walk's end is in the trainer log: {lk[0][1]!r}")

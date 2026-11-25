@@ -631,10 +631,8 @@ void BossFillView(BossView *out) {
 #define YELLOW 0xFFE070FF
 #define RED 0xFF5050FF
 
-/* The panel is under the garib counter, right of the line keeper and above the MBZ-L panel (x 156, y 92). It holds 26
- * characters. The last 8 events are two rows of four in the free band at the top of the screen. */
-#define BW_X 164
-#define BW_Y 44
+/* The trainers place the panel (trainers.c, "Drawing"): at the top of the right column. It holds 24 characters. The
+ * last 8 events are two rows of four in the free band at the top of the screen. */
 #define BW_HIST_X 8
 #define BW_HIST_Y 3
 #define LINE 10
@@ -644,6 +642,9 @@ static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     char buf[48];
     va_list args;
 
+    if (dl == NULL) {
+        return;
+    }
     va_start(args, fmt);
     FormatV(buf, sizeof(buf), fmt, args);
     va_end(args);
@@ -783,7 +784,9 @@ static void DrawWindow(Gfx **dl, int x, int y, const BossWin *w) {
     char a[16];
     u32 color = WindowText(a, sizeof(a), w);
 
-    TextPrint(dl, x, y, 2, color, a);
+    if (dl != NULL) {
+        TextPrint(dl, x, y, 2, color, a);
+    }
 }
 
 /* A Space part's row: its name, its health and its window. */
@@ -794,13 +797,13 @@ static void DrawPart(Gfx **dl, int x, int y, const char *name, int health, const
     Line(dl, x, y, color, "%-5s %d  %s", name, health, a);
 }
 
-void BossDraw(Gfx **dl, const BossView *v) {
-    int x = BW_X, y = BW_Y;
+int BossDraw(Gfx **dl, int x, int y, const BossView *v) {
+    int y0 = y;
     char buf[40];
     int fresh;
 
     if (!v->live) {
-        return;
+        return 0;
     }
     /* The last 8 events, newest first. */
     for (int i = 0; i < v->nEvents && i < BOSS_EVENTS; i++) {
@@ -811,11 +814,12 @@ void BossDraw(Gfx **dl, const BossView *v) {
         case BOSS_ATLANTIS: {
             static const char *const names[] = { "WHALE", "CRAB", "FISH", "DEAD" };
 
-            Line(dl, x, y, LABEL, "ATLANTIS %s  HITS %d/%d", names[v->phase & 3], v->hits, v->maxHits);
+            /* The hits made: the boss's own count goes down. */
+            Line(dl, x, y, LABEL, "ATLANTIS %s  HITS %d/%d", names[v->phase & 3], v->maxHits - v->hits, v->maxHits);
             break;
         }
         case BOSS_PREHIST:
-            Line(dl, x, y, LABEL, "PREHISTORIC  HITS %d/%d", v->hits, v->maxHits);
+            Line(dl, x, y, LABEL, "PREHISTORIC  HITS %d/%d", v->maxHits - v->hits, v->maxHits);
             break;
         default:
             Line(dl, x, y, LABEL, "SPACE  L%d R%d HEAD %d", v->part[0], v->part[1], v->part[2]);
@@ -912,4 +916,5 @@ void BossDraw(Gfx **dl, const BossView *v) {
         }
         Line(dl, x, y, v->reload > 0 ? YELLOW : GREEN, "RELOAD %d  SHOTS %d", v->reload, v->shots);
     }
+    return y + LINE - y0;
 }

@@ -89,10 +89,13 @@ enum Group { GROUP_FLAT = COLL_KIND_FLAT, GROUP_STEEP, GROUP_WALL, GROUP_CEILING
 
 /* The alpha of faces: the front, and the back in "faint" (as a fraction of 255 of the front's). */
 #define FACE_ALPHA 0x60
-#define BACK_ENV 0x6B /* 0x60 * 0x6B / 255 is about 0x28 */
+#define BACK_ENV 0x40 /* 0x60 * 0x40 / 255 is 0x18: a quarter of the front's */
 #define CONTACT_ALPHA 0xA0
 #define CENTRE_RGBA 0xFFE040A0 /* the face at the screen's centre, with face info on: yellow */
 #define ENEMY_RGBA 0xFF603000
+#define GLOVE_SPHERE_RGB 0x30F0F0 /* cyan */
+#define BALL_SPHERE_RGB 0x4050FF  /* blue */
+#define SPHERE_ALPHA 0x90
 
 /* Vertices that are made each frame (the touched faces, the holes) are in half units around Glover, as s16. */
 #define SCALE 2.0f
@@ -1024,9 +1027,10 @@ typedef struct Frame {
 
 static const s16 radii[COLL_RADIUSES] = { 0, 1000, 500, 250 };
 
-/* The colours of the "one colour per object" mode. */
-static const u32 objectColours[] = { 0xFF5050, 0x50E050, 0x5080FF, 0xFFD040, 0xE050E0, 0x40E0E0,
-                                     0xFF9030, 0xA070FF, 0xA0FF60, 0xFF70B0, 0x70B0FF, 0xE0E0E0 };
+/* The colours of the "one colour per object" mode. Yellow and white are left out: they mark the centre face and
+ * the touched faces in every mode. */
+static const u32 objectColours[] = { 0xFF5050, 0x50E050, 0x5080FF, 0xE050E0, 0x40E0E0,
+                                     0xFF9030, 0xA070FF, 0xFF70B0, 0x70B0FF, 0x309070 };
 
 static u32 GroupColour(const Record *r, int g) {
     static const u32 slope[GROUPS] = { 0x40E040, 0xC0E030, 0x4070FF, 0xFF4040 };
@@ -1249,7 +1253,7 @@ static void Rotate(const f32 *q, const f32 *v, f32 *out) {
  * icosahedron with its own matrix. G is the extra list. Returns the number drawn. The game turns a point with
  * GetRotationFromQuaternion, which takes acos of a value that can stray from range and give NaN; this copy turns
  * by the unit quaternion directly and leaves out a sphere whose actor has a quaternion far from unit size. */
-static int AddSpheres(Frame *fr, Gfx **gp, const Actor *a, u32 rgb) {
+static int AddSpheres(Frame *fr, Gfx **gp, const Actor *a, u32 rgb, u32 alpha) {
     const ActorObject *o = a->obj;
     f32 q[4], pos[3];
     int added = 0;
@@ -1304,7 +1308,7 @@ static int AddSpheres(Frame *fr, Gfx **gp, const Actor *a, u32 rgb) {
         }
         mf[3][3] = 1.0f;
         Mtx *m = &sphereMtx[fr->b][fr->stats.spheres];
-        u32 colour = rgb << 8 | ((sp->flags & 4) ? 0x30 : FACE_ALPHA);
+        u32 colour = rgb << 8 | ((sp->flags & 4) ? 0x30 : alpha);
         guMtxF2L(mf, m);
         *g++ = GfxMatrix(m, MTX_LOAD);
         if (colour != fr->sphereColour) {
@@ -1343,7 +1347,7 @@ static void AddEnemySpheres(Frame *fr, Gfx **g) {
                 continue;
             }
         }
-        fr->stats.enemies += AddSpheres(fr, g, a, ENEMY_RGBA >> 8);
+        fr->stats.enemies += AddSpheres(fr, g, a, ENEMY_RGBA >> 8, FACE_ALPHA);
     }
 }
 
@@ -1861,13 +1865,15 @@ static void InfoLines(Gfx **dl, int x, int y, const char *title, const CollFaceI
     TextPrint(dl, x, y + 2 * TEXT_LINE, 1, colour, buf);
 }
 
-/* Text is 6 px a character: 37 fit between INFO_X and the screen edge, and the longest line is 36. */
-#define INFO_X 96
-#define INFO_Y 40
-#define INFO_W 222
+/* Text is 6 px a character. The longest line is 35 ("Centre: steep floor 45.0 deg (back)"): it ends at x 304, 16
+ * pixels from the screen's edge. The panel starts under the game's counters. */
+#define INFO_X 94
+#define INFO_Y 44
+#define INFO_W 213
 
 void CollInfoDraw(Gfx **dl) {
-    if (!infoShown) {
+    /* Under an open menu the panel's text would mix with the menu's, at a low menu opacity. */
+    if (!infoShown || menuOpen) {
         return;
     }
     TextRect(dl, INFO_X - 3, INFO_Y - 3, INFO_X + INFO_W, INFO_Y + 6 * TEXT_LINE + 3, MenuPanelColor(0));
@@ -2041,8 +2047,9 @@ void CollViewDraw(void) {
     }
     /* The spheres. */
     if (run.collSpheres) {
-        AddSpheres(&fr, &g, &hand, 0xFFFFFF);
-        AddSpheres(&fr, &g, &ball, 0xFFE040);
+        /* Colours that the white glove and the yellow and red ball do not have, and more solid than the faces. */
+        AddSpheres(&fr, &g, &hand, GLOVE_SPHERE_RGB, SPHERE_ALPHA);
+        AddSpheres(&fr, &g, &ball, BALL_SPHERE_RGB, SPHERE_ALPHA);
     }
     if (run.collEnemies) {
         AddEnemySpheres(&fr, &g);

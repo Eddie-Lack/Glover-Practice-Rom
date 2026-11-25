@@ -21,7 +21,7 @@ _Static_assert(__builtin_offsetof(Ghost, writing) == 0x30 && __builtin_offsetof(
                    __builtin_offsetof(Ghost, drawnHand) == 0x48 && __builtin_offsetof(Ghost, list) == 0x58 &&
                    __builtin_offsetof(Ghost, drawFrame) == 0x60 &&
                    __builtin_offsetof(Ghost, liveHand) == 0x64 && __builtin_offsetof(Ghost, liveBall) == 0x70 &&
-                   __builtin_offsetof(Ghost, lastFrame) == 0x7C,
+                   __builtin_offsetof(Ghost, lastFrame) == 0x7C && __builtin_offsetof(Ghost, hidden) == 0x84,
                "tests/ghost.py has the offsets");
 
 Ghost ghost = { .writing = -1 };
@@ -301,6 +301,39 @@ static void Translate(Mtx *m, const s16 *pos) {
     guMtxF2L(mf, m);
 }
 
+/* 1: the stored place P lies within R of actor A's live place. */
+static int OnLive(const Actor *a, const s16 *p, f32 r) {
+    f32 d2 = 0.0f;
+
+    for (int i = 0; i < 3; i++) {
+        f32 v;
+
+        if (!ReadFloat(&(&a->pos.x)[i], &v)) {
+            return 0;
+        }
+        v -= p[i];
+        d2 += v * v;
+    }
+    return d2 < r * r;
+}
+
+/* What the draw thread saw, for the tests. */
+static void Note(s32 index, const GhostFrame *f, int slot, int hasHand, int hasBall) {
+    /* The live places, copied as bits: the draw thread's view of the game, which the ghost is in step with. */
+    for (int i = 0; i < 3; i++) {
+        ((volatile u32 *)ghost.liveHand)[i] = ((const volatile u32 *)&hand.pos.x)[i];
+        ((volatile u32 *)ghost.liveBall)[i] = ((const volatile u32 *)&ball.pos.x)[i];
+    }
+    ghost.drawIndex = index;
+    for (int i = 0; i < 3; i++) {
+        ghost.drawnHand[i] = hasHand ? f->hand[i] : 0;
+        ghost.drawnBall[i] = hasBall ? f->ball[i] : 0;
+    }
+    ghost.drawnYaw = f->yaw;
+    ghost.drawnFlags = f->flags;
+    ghost.drawnSlot = slot;
+}
+
 void GhostDraw(void) {
     int b = draw_buffer & 1;
     Gfx *g = lists[b];
@@ -330,6 +363,19 @@ void GhostDraw(void) {
     hasBall = (f->flags & GHOST_BALL) != 0;
     if (!hasHand && !hasBall) {
         return;
+    }
+    {
+        int showHand = hasHand && !OnLive(&hand, f->hand, Radius(&hand, HAND_RADIUS));
+        int showBall = hasBall && !(ball.active && OnLive(&ball, f->ball, Radius(&ball, BALL_RADIUS)));
+
+        if (!showHand && !showBall) {
+            Note(index, f, slot, hasHand, hasBall);
+            ghost.hidden++;
+            return;
+        }
+        Note(index, f, slot, hasHand, hasBall);
+        hasHand = showHand;
+        hasBall = showBall;
     }
 
     guPerspective(&projection[b], &perspNorm, fieldOfView, 4.0f / 3.0f, nearPlaneDist, farPlaneDist, 1.0f);
@@ -405,19 +451,6 @@ void GhostDraw(void) {
     osWritebackDCache(&viewport[b], sizeof(Vp));
     *glistp++ = GfxDisplayList(lists[b]);
 
-    /* The live places, copied as bits: the draw thread's view of the game, which the ghost is in step with. */
-    for (int i = 0; i < 3; i++) {
-        ((volatile u32 *)ghost.liveHand)[i] = ((const volatile u32 *)&hand.pos.x)[i];
-        ((volatile u32 *)ghost.liveBall)[i] = ((const volatile u32 *)&ball.pos.x)[i];
-    }
-    ghost.drawIndex = index;
-    for (int i = 0; i < 3; i++) {
-        ghost.drawnHand[i] = hasHand ? f->hand[i] : 0;
-        ghost.drawnBall[i] = hasBall ? f->ball[i] : 0;
-    }
-    ghost.drawnYaw = f->yaw;
-    ghost.drawnFlags = f->flags;
-    ghost.drawnSlot = slot;
     ghost.list = lists[b];
     ghost.commands = g - lists[b];
     ghost.draws++;

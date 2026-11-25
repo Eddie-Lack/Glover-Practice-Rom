@@ -72,6 +72,7 @@ TESTS = [
     ["harness.py", "trainers2", "--gfx", "angrylion"],
     ["harness.py", "trainers3", "--gfx", "angrylion"],
     ["harness.py", "trainerlog", "--gfx", "angrylion"],
+    ["harness.py", "trainerlayout", "--gfx", "angrylion"],
     ["harness.py", "camspeed", "--gfx", "angrylion"],
     ["harness.py", "collholes", "--gfx", "angrylion"],
     ["harness.py", "trainers_moon", "--gfx", "angrylion"],

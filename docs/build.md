@@ -1485,11 +1485,14 @@ built. They read the game and draw. They write no game state, call no `Random` a
   the Controller Pak note keep their size. In the EEPROM block they share the last byte of `hudPlace[12]` (0x1F: the log in
   the low nibble, the hold in the high nibble), which an older ROM wrote as zero; `SettingsFixMenuLook` gives the defaults for a
   zero or a value out of range, so older blocks and notes load. `tests/settings.py`, `settingsload.py`, `settingsold.py` and the
-  Controller Pak tests check them. Place of the feed: x 158, y 48, 9 pixels a line (x 8, y 28 in a boss fight, which has
-  the right side; 5 lines at most while the MBZ-L panel, at y 92, is on). With 5 lines it ends at y 93.
+  Controller Pak tests check them. Places: the panels stand in two columns, x 16 to 160 on the left and up to
+  x 304 on the right, between y 44 and y 192 ("Drawing" in `practice/src/trainers.c`). Each panel takes its column at its
+  preferred height, or lower, or the other column, and is left out when neither has room. The feed is right-aligned to x
+  304 from y 44 (under the boss panel in a boss fight), 9 pixels a line, at most 5 lines while the MBZ-L or wall clip
+  trainer is on; a line that would cross a panel is left out. `tests/trainerlayout.py` checks that nothing overlaps.
 - **Tests.** `tests/trainers.py`, `tests/trainers2.py`, `tests/trainers3.py` (the wall clip),
-  `tests/trainers_moon.py`, `tests/trainers_moon_cost.py`, `tests/bosstrainer.py` and `tests/trainerlog.py` (the log and
-  the hold) ([testing.md](testing.md)).
+  `tests/trainers_moon.py`, `tests/trainers_moon_cost.py`, `tests/bosstrainer.py`, `tests/trainerlog.py` (the log and
+  the hold) and `tests/trainerlayout.py` (the places) ([testing.md](testing.md)).
 
 ## Camera speed
 

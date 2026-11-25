@@ -63,6 +63,7 @@ typedef struct Ghost {
     /* While a recording is made. */
     /* 0x7C */ s32 lastFrame;    /* frameCount at the last sample */
     /* 0x80 */ u32 loads;        /* stateLoads when the recording started */
+    /* 0x84 */ u32 hidden;       /* frames whose ghost lay on the live glove and ball and was left out */
 } Ghost;
 
 extern Ghost ghost;
@@ -74,7 +75,8 @@ void GhostRecordStart(void);
  * frame while a recording is made. With no recording it returns at once. */
 void GhostGameFrame(void);
 /* The draw thread, at the end of the frame's display list, while the switch is on. Appends one command to the
- * game's list when the level has a ghost and it has a place for this game frame. */
+ * game's list when the level has a ghost and it has a place for this game frame. The ghost's glove or ball is left out
+ * where it lies on the live one (closer than its radius): in a playback of its own recording it would hide Glover. */
 void GhostDraw(void);
 /* The Controller Pak, after it loaded a recording: forgets every ghost, which belong to other recordings. */
 void GhostClear(void);

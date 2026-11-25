@@ -562,7 +562,8 @@ static const char *const collWireNames[COLL_WIRES] = { "off", "over faces", "alo
 
 static void CollStatsText(char *buf, int size, int arg) {
     (void)arg;
-    if (!run.collView) {
+    if (!run.collView || !ActionsInLevel()) {
+        /* Outside a level there is no collision to build. */
         buf[0] = '\0';
     } else if (collStats.state != COLL_CACHE_READY) {
         Format(buf, size, "building");

@@ -111,6 +111,8 @@ Each input recording also records where the glove and the ball were on every gam
 
 Game frame N of your run shows the ghost of game frame N since the recorded state. To race it, use Play recording and press any button at once: the controls are yours from there, and the ghost runs on _(see [Savestate](Savestate.md))_
 
+A part of the ghost (the glove or the ball) that lies on top of the live one isn't drawn, so it doesn't hide Glover during Play recording
+
 A new recording of the level replaces its ghost. You can keep up to four levels, each up to ~7 minutes
 
 Ghosts are lost when the console is switched off. _See [Savestate](Savestate.md) for recording_

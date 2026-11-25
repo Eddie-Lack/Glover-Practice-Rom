@@ -28,8 +28,10 @@ typedef struct MoonIn {
 void MoonAimReset(void);
 /* One game frame. */
 void MoonAimStep(const MoonIn *in, MoonView *out);
-/* The draw thread. */
-void MoonAimDraw(Gfx **dl, const MoonView *v);
+/* The draw thread: the panel with its top left corner at X, Y. Returns its height in pixels, 0 when the trainer is
+ * idle. With DL NULL it draws nothing and only returns the height. */
+#define MOON_PANEL_W 144 /* the box: the strip, and the map right of the text */
+int MoonAimDraw(Gfx **dl, int x, int y, const MoonView *v);
 
 /* The hole painter (the collision view's "Mark holes", Run.collHoles). The game thread finds the vertices with a dead
  * cone (the candidates of the aim) and publishes them; the collision view draws a post at each. */
