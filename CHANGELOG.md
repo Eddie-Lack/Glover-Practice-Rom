@@ -1,6 +1,6 @@
 # Changelog
 
-## Not yet released
+## 0.9.40 (2026-11-25)
 
 - Fixed: Pause works after a warp from the title. Reset from the pause menu closes the pause first.
 - Fixed: a reset with no health left starts the level again.
