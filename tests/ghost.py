@@ -9,7 +9,8 @@
    every game frame at the stored place of that game frame (the index is frameCount - start), the display list
    holds the ghost's commands and the game's list calls it, and it moves away from the still glove. Pictures.
 4. The recording played back with the switch on: the live glove follows the recorded run, and the ghost lies on the
-   glove (in step to within a fraction of a game frame's move). Pictures.
+   glove (in step to within a fraction of a game frame's move). There it is left out: the draw thread notes the
+   places but appends no list, so Glover can be seen. Pictures.
 5. Past the end of the ghost nothing is drawn. The switch off again: nothing is drawn.
 6. A second recording replaces the ghost of the level (one ghost for each level).
 Pictures go to build/tests/ghost/."""
@@ -22,7 +23,7 @@ from tools import C_ALL, press, wait_for
 # Ghost (practice/include/ghost.h)
 G_SLOTS, G_WRITING, G_STORED = 0x00, 0x30, 0x3C
 G_DRAWS, G_DRAW_INDEX, G_DRAWN_HAND, G_DRAWN_BALL, G_DRAWN_YAW, G_DRAWN_FLAGS = 0x40, 0x44, 0x48, 0x4E, 0x54, 0x56
-G_LIST, G_COMMANDS, G_DRAW_FRAME, G_LIVE_HAND, G_LIVE_BALL = 0x58, 0x5C, 0x60, 0x64, 0x70
+G_LIST, G_COMMANDS, G_DRAW_FRAME, G_LIVE_HAND, G_LIVE_BALL, G_HIDDEN = 0x58, 0x5C, 0x60, 0x64, 0x70, 0x84
 SLOT_SIZE = 12  # used, level, count (u16), start, stamp
 SLOTS = 4
 GHOST_BUFFER, SLOT_BYTES = 0x8075C000, 0x20000
@@ -184,6 +185,7 @@ def run(emu, sym, args):
     samples = []
     last = draws()
     still = live(hand)
+    full = None  # the commands of a list with both the glove and the ball (neither lay on the live one)
     shot = {8: False, 16: False, 24: False}
     for _ in range(RUN * 8):
         yield 1
@@ -194,6 +196,10 @@ def run(emu, sym, args):
         samples.append({
             "index": index, "frame": emu.r32s(g + G_DRAW_FRAME), "hand": triple(g + G_DRAWN_HAND),
             "ball": triple(g + G_DRAWN_BALL), "live": live(hand), "commands": emu.r32(g + G_COMMANDS)})
+        if full is None or samples[-1]["commands"] > len(full):
+            n = samples[-1]["commands"]
+            words = struct.unpack(f">{n * 2}I", bytes(emu.read(emu.r32(g + G_LIST), n * 8)))
+            full = [words[2 * k] >> 24 for k in range(n)]
         for k in shot:
             if index >= k and not shot[k]:
                 shot[k] = True
@@ -216,14 +222,16 @@ def run(emu, sym, args):
     print(f"ghost: the ghost glove got {apart:.0f} units from the still glove")
     if apart < 40 or distance(still, samples[-1]["live"]) > 30:
         emu.fail(f"the ghost did not run apart from the still glove ({apart:.0f}), or the glove moved")
-    # The list: one frame's commands.
-    commands = samples[-1]["commands"]
-    listing = emu.r32(g + G_LIST)
-    words = struct.unpack(f">{commands * 2}I", bytes(emu.read(listing, commands * 8)))
-    ops = [words[2 * k] >> 24 for k in range(commands)]
+    # The list: the longest frame's commands. (A part that lies on the live glove or ball is left out.)
+    ops = full
+    commands = len(ops)
     print(f"ghost: the list holds {commands} commands: {ops.count(0x01)} matrices, {ops.count(0x04)} vertex loads, "
           f"{ops.count(0xB1)} triangle pairs")
-    if ops[0] != 0xE7 or ops[-1] != 0xB8 or ops.count(0x04) != 2 or ops.count(0x01) != 4 or ops.count(0xB1) < 20:
+    # The glove ran away from the still glove: its sphere and nose are in (13 triangle pairs). The ghost's ball is in only
+    # when it lay away from the live ball (in this run the ball rests where the live one rests).
+    parts = ops.count(0x04)
+    if (ops[0] != 0xE7 or ops[-1] != 0xB8 or parts not in (1, 2) or ops.count(0x01) != 2 + parts or
+            ops.count(0xB1) < 13 + 10 * (parts - 1)):
         emu.fail(f"the ghost's display list is not as expected: {[hex(o) for o in ops]}")
     if not in_game_list():
         emu.fail("the game's display list does not call the ghost's list")
@@ -232,13 +240,15 @@ def run(emu, sym, args):
     request(ACTION_PLAY)
     yield from wait_for(emu, lambda: emu.r8(rec + 1), 100, "the playback to start")
     yield from wait_for(emu, lambda: fc() <= s["start"] + 2, 100, "the state to load")
-    samples, last = [], draws()
+    hidden = lambda: emu.r32(g + G_HIDDEN)  # noqa: E731
+    draws0, hidden0 = draws(), hidden()
+    samples, last = [], draws() + hidden()
     shot = {40: False, 110: False}
     for _ in range(RUN * 8):
         yield 1
-        if draws() == last:
+        if draws() + hidden() == last:
             continue
-        last = draws()
+        last = draws() + hidden()
         index = emu.r32s(g + G_DRAW_INDEX)
         samples.append({"index": index, "hand": triple(g + G_DRAWN_HAND), "ball": triple(g + G_DRAWN_BALL),
                         "live": tuple(emu.rf(g + G_LIVE_HAND + 4 * k) for k in range(3)),
@@ -265,6 +275,10 @@ def run(emu, sym, args):
         emu.fail(f"only {len(samples)} frames were drawn in the playback")
     if gaps[-1] > 1.8 or max(ball_gaps) > 1.8:
         emu.fail("the ghost does not lie on the glove in the playback")
+    drawn, left_out = draws() - draws0, hidden() - hidden0
+    print(f"ghost: playback, {left_out} frames left out on the glove, {drawn} drawn")
+    if drawn > 2 or left_out < 60:
+        emu.fail(f"the ghost was drawn over the glove in the playback: {drawn} drawn, {left_out} left out")
 
     # 5. Past the end nothing is drawn; switched off, nothing is drawn.
     yield from wait_for(emu, lambda: not emu.r8(rec + 1), 400, "the playback to end")

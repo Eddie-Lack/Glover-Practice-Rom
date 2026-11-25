@@ -1,11 +1,14 @@
 #include "game.h"
 #include "bindings.h"
+#include "menu.h"
 #include "settings.h"
 
 Settings settings;
 u8 settingsStatus;
 
 static u8 pending; /* 1 save, 2 load */
+/* The checksum of the settings as last saved or loaded: Status goes blank once they differ (SettingsService). */
+static u16 statusSum;
 
 _Static_assert(sizeof(SavedSettings) == 64, "the saved settings must fill the 8 free EEPROM blocks");
 _Static_assert(HUD_COUNT + 2 <= HUD_SLOTS, "the menu look fills the two free HUD slots of the saved settings");
@@ -19,20 +22,23 @@ _Static_assert(__builtin_offsetof(Settings, bindButtons) == 0x0C && __builtin_of
 #define SAVED_INSTANT_BIT 15
 _Static_assert(HUD_SLOTS <= SAVED_INSTANT_BIT, "the instant reset's bit must be free");
 
-/* Places in units of 2 pixels, clear of the game's own HUD: its icons at the top left, the health at the bottom
- * left and the lives at the bottom right. */
+/* Places in units of 2 pixels, clear of the game's own HUD (its icons at the top left, the score at the top right,
+ * a level's countdown at the top centre, the health at the bottom left and the lives at the bottom right), of each
+ * other, and of the rows of the HUD's notes and its message line (hud.c). All text is at least 16 pixels from the
+ * screen's edges. An x of 152 (304 pixels) puts an item's end at the right edge of that area: the HUD draws every
+ * item inside it (HudFit). */
 static const HudPlace defaultHud[HUD_COUNT] = {
-    [HUD_TIMER] = { 1, 62, 100 },
-    [HUD_INPUT] = { 0, 12, 110 },
-    [HUD_GLOVE] = { 0, 12, 22 },
-    [HUD_BALL] = { 0, 12, 27 },
-    [HUD_ACTION] = { 0, 12, 32 },
-    [HUD_FRAMES] = { 0, 122, 4 },
-    [HUD_LAG] = { 0, 122, 9 },
-    [HUD_RNG] = { 0, 122, 14 },
-    [HUD_LAST] = { 0, 62, 94 },
-    [HUD_GAME] = { 0, 122, 20 },
-    [HUD_WATCH] = { 0, 12, 40 },
+    [HUD_TIMER] = { 1, 55, 102 },
+    [HUD_INPUT] = { 0, 8, 93 },
+    [HUD_GLOVE] = { 0, 8, 63 },
+    [HUD_BALL] = { 0, 8, 68 },
+    [HUD_ACTION] = { 0, 8, 73 },
+    [HUD_FRAMES] = { 0, 152, 39 },
+    [HUD_LAG] = { 0, 152, 44 },
+    [HUD_RNG] = { 0, 152, 49 },
+    [HUD_LAST] = { 0, 55, 107 },
+    [HUD_GAME] = { 0, 152, 54 },
+    [HUD_WATCH] = { 0, 8, 34 },
 };
 
 /* The settings that are saved as one bit each, in this order. */
@@ -165,6 +171,7 @@ void SettingsLoadAtBoot(void) {
     osEepromLongRead(mq, SETTINGS_EEPROM_BLOCK, (u8 *)&buf, sizeof(buf));
     if (Unpack(&buf)) {
         settingsStatus = 2;
+        statusSum = buf.checksum;
     }
 }
 
@@ -181,6 +188,13 @@ void SettingsRequestLoad(void) {
 void SettingsService(void) {
     static SavedSettings buf __attribute__((aligned(8)));
 
+    if (!pending && menuOpen && (settingsStatus == 1 || settingsStatus == 2)) {
+        /* "saved" or "loaded" no longer holds once a setting changed. */
+        Pack(&buf);
+        if (buf.checksum != statusSum) {
+            settingsStatus = 0;
+        }
+    }
     if (!pending || eepromMessageQueue[0] != 0) {
         return;
     }
@@ -190,10 +204,12 @@ void SettingsService(void) {
         Pack(&buf);
         osEepromLongWrite(&controllerMsgQ, SETTINGS_EEPROM_BLOCK, (u8 *)&buf, sizeof(buf));
         settingsStatus = 1;
+        statusSum = buf.checksum;
     } else {
         osEepromLongRead(&controllerMsgQ, SETTINGS_EEPROM_BLOCK, (u8 *)&buf, sizeof(buf));
         if (Unpack(&buf)) {
             settingsStatus = 2;
+            statusSum = buf.checksum;
         } else {
             settingsStatus = 4;
         }

@@ -1,12 +1,14 @@
-/* The actor list: every actor of the level, and a page with one actor's details. Up and down choose, A opens the
- * details, B goes back. Left and right on the details page step through the actors, A moves Glover there, and Z
- * brings the actor to Glover (spawn.h). Start on the details page edits the actor: up and down choose a field
- * (position, speed, rotation, the state's hits, damage and mode), left and right change it by a step, C up and
- * down change the step. */
+/* The actor list: every actor of the level, and a page with one actor's details. Up and down choose (with Z held,
+ * by ten), A opens the details, B goes back. The chosen actor stays chosen when the view closes. Left and right on
+ * the details page step through the actors, A moves Glover there, and Z brings the actor to Glover (spawn.h); both
+ * only while a level runs. Start on the details page edits the actor: up and down choose a field (position, speed,
+ * rotation, the state's hits, damage and mode), left and right change it by a step, C up and down change the step.
+ * Start or B leaves the edit. */
 #include "actions.h"
 #include "besttimes.h"
 #include "fmt.h"
 #include "game.h"
+#include "memview.h"
 #include "menu.h"
 #include "safe.h"
 #include "spawn.h"
@@ -86,12 +88,6 @@ static void FieldChange(Actor *a, int dir) {
     BestTimesTaint(BT_ACTORS);
 }
 
-static void Open(void) {
-    selected = 0;
-    top = 0;
-    details = 0;
-    editing = 0;
-}
 
 /* Actor number i of the list, or NULL. The list can change while the game runs with the menu open, so the walk
  * stops at MAX_ACTORS. */
@@ -135,13 +131,41 @@ static void ObjectName(const Actor *a, char *buf) {
     buf[i] = '\0';
 }
 
+static void Open(void) {
+    int count = ActorCount();
+
+    /* The chosen actor stays, within the level's count now. */
+    if (selected >= count) {
+        selected = count > 0 ? count - 1 : 0;
+    }
+    if (top > selected || selected >= top + ROWS) {
+        top = selected;
+    }
+    details = 0;
+    editing = 0;
+}
+
+/* Whether go and bring can act: the game thread drops them outside a level (ActionsGameFrame, SpawnGameFrame). */
+static int CanGo(void) {
+    return ActionsInLevel();
+}
+
+static int CanBring(const Actor *a) {
+    return ActionsInLevel() && !gamePaused && ActorMovable(a);
+}
+
 static int Input(u16 pressed, u16 held) {
     int count = ActorCount();
-    (void)held;
+    u16 taps = ViewCTaps(held);
+    int step = (held & CONT_Z) ? 10 : 1;
 
     if (pressed & CONT_B) {
+        if (editing) {
+            editing = 0;
+            return 1;
+        }
         if (details) {
-            details = editing = 0;
+            details = 0;
             return 1;
         }
         return 0;
@@ -158,10 +182,10 @@ static int Input(u16 pressed, u16 held) {
         if ((pressed & CONT_DOWN) && field < FIELDS - 1) {
             field++;
         }
-        if ((pressed & CONT_CUP) && stepIndex < ARRAY_COUNT(steps) - 1) {
+        if ((taps & CONT_CUP) && stepIndex < ARRAY_COUNT(steps) - 1) {
             stepIndex++;
         }
-        if ((pressed & CONT_CDOWN) && stepIndex > 0) {
+        if ((taps & CONT_CDOWN) && stepIndex > 0) {
             stepIndex--;
         }
         if (a != NULL && (pressed & (CONT_LEFT | CONT_RIGHT))) {
@@ -171,7 +195,7 @@ static int Input(u16 pressed, u16 held) {
     }
     if ((pressed & CONT_A) && details) {
         Actor *a = ActorAt(selected);
-        if (a != NULL && SafeFloats(&a->pos.x, 3)) {
+        if (a != NULL && CanGo() && SafeFloats(&a->pos.x, 3)) {
             run.teleportPos = a->pos;
             run.teleportPos.y += 50.0f;
             run.teleport = 1;
@@ -181,7 +205,7 @@ static int Input(u16 pressed, u16 held) {
     }
     if ((pressed & CONT_Z) && details) {
         Actor *a = ActorAt(selected);
-        if (ActorMovable(a)) {
+        if (CanBring(a)) {
             run.moveActor = a;
             MenuClose();
             return 1;
@@ -190,14 +214,21 @@ static int Input(u16 pressed, u16 held) {
     if (pressed & CONT_A) {
         details = 1;
     }
+    if (details) {
+        step = 1;
+    }
+    if (count > 0 && selected >= count) {
+        selected = count - 1;
+    }
     if (pressed & (CONT_UP | CONT_LEFT)) {
-        selected--;
+        /* A step of ten stops at the first actor before it wraps. */
+        selected = step > 1 && selected > 0 && selected < step ? 0 : selected - step;
     }
     if (pressed & (CONT_DOWN | CONT_RIGHT)) {
-        selected++;
+        selected = step > 1 && selected < count - 1 && selected + step >= count ? count - 1 : selected + step;
     }
     if (count > 0) {
-        selected = (selected + count) % count;
+        selected = ((selected % count) + count) % count;
     } else {
         selected = 0;
     }
@@ -275,7 +306,9 @@ static void Draw(Gfx **dl) {
             Line(dl, ROWS, 0x8090A8FF, "^v field  </> change  C^v step  Start done");
             return;
         }
-        if (ActorMovable(a)) {
+        if (!CanGo()) {
+            Line(dl, ROWS - 1, 0xFF9060FF, "Only while a level runs");
+        } else if (CanBring(a)) {
             Line(dl, ROWS - 1, 0xFF9060FF, "Z brings it to Glover: modified game");
         }
         Line(dl, ROWS, 0x8090A8FF, "</> other  A go  Z bring  Start edit  B back");

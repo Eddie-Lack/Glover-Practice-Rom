@@ -334,6 +334,19 @@ void PracticeDrawBlurs(void) {
     CallAndStrip(DrawBlurs, HIDE_TRAILS);
 }
 
+/* The game's counters (overlay.c, PrintStats): each has a text. Only the fields used are given. */
+#define MAX_STATS 9
+typedef struct StatText {
+    PAD(00)[0x5B];
+    /* 0x5B */ u8 a;
+} StatText;
+typedef struct Stat {
+    PAD(00)[0x14];
+    /* 0x14 */ StatText *text;
+} Stat;
+_Static_assert(sizeof(Stat) == 0x18, "Stat is 0x18 bytes");
+extern Stat stats[MAX_STATS];
+
 /* PracticePrintStats calls this in place of PrintStats. PrintStats calls Random and steps the counters, so it always
  * runs. While the HUD is hidden, its commands are dropped: it sets up no state of its own, and ShowText, which
  * follows it, starts from spInit. */
@@ -345,6 +358,13 @@ void HidePrintStats(void) {
         NewFrame();
         hideStats.commands += glistp - from;
         glistp = from;
+        /* The counters' numbers (garibs, lives, score) are texts that ShowText draws after this. PrintStats sets
+         * their alpha again on every frame that it draws them. */
+        for (int i = 0; i < MAX_STATS; i++) {
+            if (stats[i].text != NULL) {
+                stats[i].text->a = 0;
+            }
+        }
     }
 }
 

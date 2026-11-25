@@ -13,6 +13,7 @@ typedef struct Input {
     u16 held2;    /* controller 2 */
     u16 pressed2;
     u16 hidden;   /* buttons kept from the game until they are released */
+    u8 stickHidden; /* 1: the stick is kept from the game until it is back near the centre (a stick binding fired) */
 } Input;
 
 extern Input input;
@@ -23,7 +24,7 @@ typedef struct Press {
     u16 bit;     /* the button's CONT_ bit; 0: none */
     u8 holding;  /* still held */
     u8 frames;   /* game frames held */
-    s32 frame;   /* the level's game frame (frameCount) of the press */
+    s32 frame;   /* the in-game timer's frame (player.levelFrames) of the press */
 } Press;
 
 extern Press presses[PRESS_HISTORY];

@@ -1,6 +1,8 @@
 /* The quick actions that change the game: reset, warp, frame advance and slow motion. */
 #include "actions.h"
 #include "besttimes.h"
+#include "paddisplay.h"
+#include "trainers.h"
 #include "chaos.h"
 #include "collview.h"
 #include "demo.h"
@@ -56,7 +58,8 @@ _Static_assert(__builtin_offsetof(Run, setGlove) == 0x36 && __builtin_offsetof(R
 _Static_assert(__builtin_offsetof(Run, warpLives) == 0x49 && __builtin_offsetof(Run, warpPower) == 0x4B,
                "tests/warpgive.py has the offsets");
 
-Run run = { .warpLevel = LEVEL_ATLANTIS1, .warpDifficulty = 1, .noclipSpeed = 2 };
+Run run = { .warpLevel = LEVEL_ATLANTIS1, .warpDifficulty = 1, .noclipSpeed = 2, .padX = PAD_X_DEFAULT,
+            .padY = PAD_Y_DEFAULT, .padSize = PAD_SIZE_DEFAULT, .logX = TLOG_X_DEFAULT, .logY = TLOG_Y_DEFAULT };
 
 static volatile u16 requests; /* one bit per action */
 static u8 warpGive;          /* 1: give the Warp menu's lives, garibs and power-up once the new level has started */
@@ -98,6 +101,9 @@ static void StartFromTitle(int level) {
     memclear(&saveSlot[SAVE_SLOT_LEVEL_SELECT], sizeof(SaveSlot));
     saveSlot[SAVE_SLOT_LEVEL_SELECT].difficultyLevel = run.warpDifficulty;
     LeaveTitle();
+    /* The title (PRESS START) sets disablePause; the game clears it when the title exits to the main menu
+     * (game.c, CheckForExits). A warp skips that exit. */
+    disablePause = 0;
     StartNewGame();
     ballLeftBehind = -1;
     StartNewLevel(level);
@@ -117,6 +123,15 @@ int ActionsRestart(int level) {
         /* A demo (the title's, or one from the Warp menu) ends here: the level that follows is not one. */
         DemoAbort();
         warpTarget = level;
+        if (pauseMode && pauseCount < 1000) {
+            /* The pause menu is open: the game's own restart closes it as it exits (game.c, UpdatePause). Without
+             * this the exit never ends and the screen stays black. */
+            pauseCount = 1000;
+        }
+        if (player.health <= 0) {
+            /* A reset during a death (drowning) would start the level with no health. */
+            player.health = 3;
+        }
         ExitLevel(EXIT_TIMETRIAL_RESTART, 1, 0);
         /* The level's loader counts its garibs into numGaribs. The pause menu's Time Trial restart sets it to 0 after
          * this exit; without that, each reset added the level's garibs again (0/50, then 0/100). */
@@ -220,11 +235,15 @@ static void GivePickup(int choice) {
     }
 }
 
-static void Wait(void) {
-    void *msg;
+/* Takes one message of the main queue and returns its kind: 9 is the game frame's (RunGame, main.c). */
+static int Wait(void) {
+    s16 *msg;
 
-    osRecvMesg(&main_msgQ, &msg, OS_MESG_BLOCK);
+    osRecvMesg(&main_msgQ, (void **)&msg, OS_MESG_BLOCK);
+    return msg != NULL ? *msg : 0;
 }
+
+#define GAME_FRAME_MESSAGE 9
 
 /* A save or a load stops the game for a moment. The request waits one message of the main queue, and that frame
  * shows "saving..." or "loading...". WANTED is 0 for a request that is refused at once, and for one that does not
@@ -232,6 +251,9 @@ static void Wait(void) {
 static u16 announced;
 u32 actionsAnnounced; /* the requests that waited: the tests count them */
 
+/* The request waits one message of the main queue. Waiting longer, until the text is on the screen, would let the
+ * draw thread change the game's memory (its Random calls) before the save, and the state would no longer give the
+ * same game frames after a load. */
 static int Announce(int action, int wanted, const char *text) {
     if (!wanted || (announced & (1 << action))) {
         announced &= ~(1 << action);
@@ -243,10 +265,92 @@ static int Announce(int action, int wanted, const char *text) {
     return 0;
 }
 
+#define STATE_REQUESTS ((1 << ACTION_SAVE_STATE) | (1 << ACTION_LOAD_STATE) | (1 << ACTION_RECORD) | (1 << ACTION_PLAY))
+
+/* The savestate requests. With ANNOUNCE 0 (the game is stopped by frame advance, and the picture already stands
+ * still) they run at once. */
+static void StateRequests(u16 r, int announce) {
+    if ((r & (1 << ACTION_SAVE_STATE)) &&
+        Announce(ACTION_SAVE_STATE, announce && StateSaveReady(), "saving...")) {
+        StateSave();
+    }
+    if ((r & (1 << ACTION_LOAD_STATE)) &&
+        Announce(ACTION_LOAD_STATE, announce && StateLoadReady(stateSlot), "loading...")) {
+        recording.playing = recording.recording = 0;
+        StateLoad();
+        CollViewReset();
+    }
+    if ((r & (1 << ACTION_RECORD)) &&
+        Announce(ACTION_RECORD, announce && !recording.recording && StateSaveReady() && !run.frameAdvance &&
+                                    !run.slowMotion,
+                 "saving...")) {
+        RecordingToggle();
+    }
+    if ((r & (1 << ACTION_PLAY)) &&
+        Announce(ACTION_PLAY, announce && recording.count != 0 && StateLoadReady(STATE_SLOT_RECORD), "loading...")) {
+        RecordingPlay();
+    }
+}
+
+/* The camera before each of the last game frames, for ActionsChordRepair. A C button that the game saw before the
+ * menu's chord was complete changed the zoom (C-down) or started the first-person look (C-up). */
+#define CAMERA_SNAPS 4
+static struct {
+    s32 frame2;
+    s16 zoom;
+    s32 control;
+} cameraSnaps[CAMERA_SNAPS];
+static u8 cameraSnapNext;
+static volatile u8 repairPending;
+static volatile s32 repairFrame;
+
+void ActionsChordRepair(s32 frame2) {
+    repairFrame = frame2;
+    repairPending = 1;
+}
+
+static void CameraSnap(void) {
+    if (!repairPending && cameraSnaps[(cameraSnapNext + CAMERA_SNAPS - 1) % CAMERA_SNAPS].frame2 != frameCount2) {
+        cameraSnaps[cameraSnapNext].frame2 = frameCount2;
+        cameraSnaps[cameraSnapNext].zoom = cameraZoom;
+        cameraSnaps[cameraSnapNext].control = controlMethod;
+        cameraSnapNext = (cameraSnapNext + 1) % CAMERA_SNAPS;
+    }
+    if (repairPending) {
+        int best = -1;
+
+        repairPending = 0;
+        /* The newest snapshot taken before the first C button's game frame. */
+        for (int i = 0; i < CAMERA_SNAPS; i++) {
+            if (cameraSnaps[i].frame2 <= repairFrame && repairFrame - cameraSnaps[i].frame2 < CAMERA_SNAPS &&
+                (best < 0 || cameraSnaps[i].frame2 > cameraSnaps[best].frame2)) {
+                best = i;
+            }
+        }
+        if (best >= 0 && ActionsInLevel()) {
+            cameraZoom = cameraSnaps[best].zoom;
+            if (controlMethod == CONTROL_CAMERA && cameraSnaps[best].control != CONTROL_CAMERA) {
+                DeactivateCameraControlMode();
+            }
+        }
+    }
+}
+
+/* Frame advance and slow motion count game frames: frameCount2 goes up once for each game frame that runs in a
+ * level or a menu. */
+static s32 lastFrame2;
+
+/* The modes in which frameCount2 counts game frames (RunGame). In the others (a level's load, the end of level
+ * screens) the game runs on, and frame advance stops at the next game frame. */
+static int CountsFrames(void) {
+    return gameInfo.mode == GAME_MODE_MENU || gameInfo.mode == GAME_MODE_LEVEL || gameInfo.mode == GAME_MODE_CAMEO;
+}
+
 void ActionsGameFrame(void) {
     u16 r = requests | announced;
 
     requests = 0;
+    CameraSnap();
     StateGameFrame();
     if (CardPending()) {
         CardGameFrame();
@@ -255,7 +359,9 @@ void ActionsGameFrame(void) {
         if (StateInstantReset()) {
             recording.playing = recording.recording = 0;
             CollViewReset();
-        } else {
+        } else if (ActionsInLevel()) {
+            /* On a title screen (the logos, PRESS START) a restart would start that screen again without its
+             * texts, or stop the logos for good. */
             ActionsRestart(gameInfo.level);
         }
     }
@@ -276,25 +382,24 @@ void ActionsGameFrame(void) {
         /* A checkpoint the player has not reached moves Glover. */
         Respawn(CheckpointAt(run.checkpoint), 1);
     }
-    if ((r & (1 << ACTION_SAVE_STATE)) && Announce(ACTION_SAVE_STATE, StateSaveReady(), "saving...")) {
-        StateSave();
-    }
-    if ((r & (1 << ACTION_LOAD_STATE)) && Announce(ACTION_LOAD_STATE, StateLoadReady(stateSlot), "loading...")) {
-        recording.playing = recording.recording = 0;
-        StateLoad();
-        CollViewReset();
-    }
-    if ((r & (1 << ACTION_RECORD)) && Announce(ACTION_RECORD, !recording.recording && StateSaveReady(), "saving...")) {
-        RecordingToggle();
-    }
-    if ((r & (1 << ACTION_PLAY)) &&
-        Announce(ACTION_PLAY, recording.count != 0 && StateLoadReady(STATE_SLOT_RECORD), "loading...")) {
-        RecordingPlay();
-    }
+    StateRequests(r, 1);
     if (run.cheat) {
         /* ActivateCheat turns a cheat on or off, with the game's own checks and message. */
+        bestTimesMenuCheats |= 1u << (run.cheat - 1);
         ActivateCheat(run.cheat - 1, 1);
         run.cheat = 0;
+    }
+    if (run.cheatToggles) {
+        u32 mask = __osDisableInt();
+        u32 toggles = run.cheatToggles;
+        run.cheatToggles = 0;
+        __osRestoreInt(mask);
+        bestTimesMenuCheats |= toggles;
+        for (int i = 0; i < 32; i++) {
+            if (toggles & (1u << i)) {
+                ActivateCheat(i, 1);
+            }
+        }
     }
     /* The menu (the controller thread) sets these at any time: they are taken with interrupts off, and only
      * when one is set. With every feature off, the game's frames do no more than before. */
@@ -383,17 +488,35 @@ void ActionsGameFrame(void) {
     if (run.frameAdvance || run.slowMotion) {
         HudResetLag();
     }
-    while (run.frameAdvance && run.steps == 0 && !menuOpen) {
+    /* RunGame calls this for every message of the main queue, and only some of them run a game frame. A step is
+     * used up once a game frame has run, not by the message that let it go. */
+    int ran = frameCount2 != lastFrame2;
+    lastFrame2 = frameCount2;
+    if (ran && run.frameAdvance && run.steps > 0) {
+        run.steps--;
+    }
+    while (run.frameAdvance && run.steps == 0 && !menuOpen && CountsFrames()) {
         Wait();
         /* A card request made while the game is stopped runs with the game as it stands. */
         if (CardPending()) {
             CardGameFrame();
         }
+        /* So do the savestate requests: the state is the frame on the screen. */
+        if (requests & STATE_REQUESTS) {
+            u32 mask = __osDisableInt();
+            u16 sr = requests & STATE_REQUESTS;
+            requests &= ~STATE_REQUESTS;
+            __osRestoreInt(mask);
+            StateRequests(sr, 0);
+            lastFrame2 = frameCount2;
+        }
     }
-    if (run.steps > 0) {
-        run.steps--;
-    }
-    for (int i = 0; i < run.slowMotion; i++) {
-        Wait();
+    if (ran && run.slowMotion && !run.frameAdvance && CountsFrames()) {
+        /* 1/2, 1/3 or 1/4: the game frame's messages of 1, 2 or 3 more game frames pass without a frame. */
+        for (int n = run.slowMotion; n > 0 && !menuOpen;) {
+            if (Wait() == GAME_FRAME_MESSAGE) {
+                n--;
+            }
+        }
     }
 }

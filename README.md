@@ -8,7 +8,7 @@ Expansion Pak is required.
 
 Patch your ROM in your browser at [glover.love](https://glover.love)
 
-Or get the patch from the [releases page](https://github.com/Eddie-Lack/Glover-Practice-Rom/releases)
+Or get the patch from the [releases page](https://github.com/Eddie-Lack/Glover-Practice-Rom/releases). It is a BPS patch: apply it with any BPS patcher to Glover (USA) in .z64 byte order
 
 ## Controls and features
 

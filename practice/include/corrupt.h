@@ -1,6 +1,7 @@
 #ifndef PRACTICE_CORRUPT_H
 #define PRACTICE_CORRUPT_H
 
+#include "practice.h"
 #include "types.h"
 
 /* Memory corruption tools, for finding crashes and arbitrary behaviour (docs/build.md, "Memory corruption").
@@ -18,8 +19,9 @@
  * Writes go only to RDRAM (0x80000000 to 0x807FFFFF), never to the practice segment and its data, and a word is
  * written at an address that is a multiple of 4 (a half word, 2). The tools use their own random number
  * generator and never touch the game's seed. The HUD shows "MODIFIED pokes" while a poke is running, and after a
- * once poke or a flip, until a state is loaded or "Clear all pokes" is used (or the console is reset). A write to a
- * global or to the save outlives a level, so a level change does not clear it. A write into code clears the
+ * once poke, a flip or an edit in the memory view, until a state is loaded (or the console is reset). A write to a
+ * global or to the save outlives a level, so a level change does not clear it. After "Clear all pokes" the marker
+ * stays until the next level start: the written memory stays as it is. A write into code clears the
  * instruction cache for those bytes. The game thread does the work, once a game frame
  * (CorruptGameFrame, from ActionsGameFrame); the menu thread edits the list. */
 #define POKE_COUNT 8
@@ -48,9 +50,10 @@ typedef struct Corrupt {
     /* 0x92 */ u8 rangeSize;   /* an index in corruptRangeSizes */
     /* 0x93 */ u8 requests;    /* CORRUPT_APPLY, CORRUPT_FLIP: for the next game frame */
     /* 0x94 */ u8 active;      /* pokes that run every game frame (freeze, random, flip) */
-    /* 0x95 */ u8 dirty;       /* something was written since the last state load or "Clear all pokes" */
+    /* 0x95 */ u8 dirty;       /* CORRUPT_WRITTEN or CORRUPT_CLEARED since the last state load, or 0 */
     /* 0x96 */ u8 seeded;
     /* 0x98 */ u32 frames;     /* game frames with a round of pokes */
+    /* 0x9C */ u32 clearedAt;  /* practice.levelStarts at "Clear all pokes" */
 } Corrupt;
 
 extern Corrupt corrupt;
@@ -60,9 +63,14 @@ extern const u32 corruptRangeSizes[4];
 #define CORRUPT_APPLY 1
 #define CORRUPT_FLIP 2
 
-/* Whether the HUD shows the marker. */
+/* Corrupt.dirty: something was written; or it was, and then the pokes were cleared in this level. */
+#define CORRUPT_WRITTEN 1
+#define CORRUPT_CLEARED 2
+
+/* Whether the HUD shows the marker. It only reads: the draw thread and the game thread both ask. */
 static inline int CorruptMarker(void) {
-    return corrupt.active | corrupt.dirty;
+    return corrupt.active | (corrupt.dirty == CORRUPT_WRITTEN) |
+           (corrupt.dirty == CORRUPT_CLEARED && corrupt.clearedAt == practice.levelStarts);
 }
 
 /* The menu: asks for the next game frame to apply the once pokes, or to flip a bit. */
@@ -72,8 +80,11 @@ void CorruptGameFrame(void);
 
 /* Whether a write of SIZE bytes at ADDRESS is allowed. */
 int PokeAllowed(u32 address, u32 size);
-/* The memory view's Z: marks the word at ADDRESS with VALUE (a poke in the mode "once"). */
-void PokeMark(u32 address, u32 value);
+/* The memory view's Z: marks the SIZE bytes at ADDRESS with VALUE (a poke in the mode "once"). */
+void PokeMark(u32 address, u32 value, int size);
+/* The memory view's edit in place: writes the SIZE bytes at ADDRESS, if allowed, and sets the marker. Returns 1
+ * when it wrote. */
+int PokeWrite(u32 address, u32 value, int size);
 /* Writes (or, for random and flip, takes one step of) one poke now. */
 void PokeApply(Poke *p);
 /* Counts the running pokes again after the list changed. */

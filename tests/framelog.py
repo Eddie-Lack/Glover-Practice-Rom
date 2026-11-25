@@ -1,5 +1,5 @@
 """The frame log in Atlantis 1. With it on, A is held for a few game frames: the log has one entry for each
-game frame of the glove, numbered in order, with A held on consecutive entries and pressed on the first, and the
+game frame of the glove, numbered in order by the level's game frame (frameCount), with A held on consecutive entries and pressed on the first, and the
 glove's action changes after the press. It also shows how many controller reads came between two frames of the
 glove. Then the view opens (Inspect, Frame log). Writes log0.png and log1.png (needs --gfx angrylion)."""
 import struct
@@ -9,7 +9,7 @@ from tools import C_ALL, press, wait_for
 
 RUN_FRAME_LOG = 0x31  # Run.frameLog (practice/include/actions.h)
 ENTRY = struct.Struct(">IHHHhhhhBB")  # FrameLogEntry (practice/include/framelog.h)
-LOG_SIZE = 64
+LOG_SIZE = 256
 CONT_A = 0x8000
 
 
@@ -44,7 +44,10 @@ def run(emu, sym, args):
     yield from press(emu, "A", frames=25)
     yield 60
     log = read_log(emu, sym)
+    now = fc()
     frames = [e[0] for e in log]
+    if not 0 <= now - frames[-1] <= 2:
+        emu.fail(f"the newest entry is frame {frames[-1]}, but frameCount is {now}")
     if len(log) < 30 or frames != list(range(frames[0], frames[0] + len(frames))):
         emu.fail(f"the log holds {len(log)} entries, not in order: {frames[:10]}")
     held = [i for i, e in enumerate(log) if e[1] & CONT_A]

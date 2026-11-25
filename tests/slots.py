@@ -237,7 +237,7 @@ def run(emu, sym, args):
             emu.fail("the Slot choice does not reach the slot")
         for _ in range(8):
             yield from press(emu, "DOWN")  # Clear this slot
-        yield from press(emu, "A")
+        yield from press(emu, "A", frames=80)  # it needs A held
         yield 5
         for _ in range(8):
             yield from press(emu, "UP")

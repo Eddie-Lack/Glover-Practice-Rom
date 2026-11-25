@@ -100,7 +100,9 @@ void BossStep(void);
 void BossReset(void);
 /* Copies the view. */
 void BossFillView(BossView *out);
-/* The draw thread. */
-void BossDraw(Gfx **dl, const BossView *v);
+/* The draw thread: the panel with its top left corner at X, Y, and the last events at the top of the screen. Returns
+ * the panel's height in pixels, 0 outside a boss fight. With DL NULL it draws nothing and only returns the height. */
+#define BOSS_PANEL_W 144 /* 24 characters */
+int BossDraw(Gfx **dl, int x, int y, const BossView *v);
 
 #endif

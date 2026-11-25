@@ -148,6 +148,10 @@ def run(emu, sym, args):
                 if n not in ("warpLevel", "noclipSpeed"):
                     wr(run_addr, ro, n, 0)
             wr(run_addr, ro, "noclipSpeed", 1)
+            # Chaos seeds itself from the CPU clock, so its changes would differ with any change to the code's timing.
+            # A fixed seed gives each build the same changes.
+            emu.w32(sym("chaos"), 1)
+            emu.w8(sym("chaos") + 0x1F, 1)
             for n in ("debugPad", "inputHistory", "hudShadow", "timerFrames"):
                 wr(settings, so, n, 0)
             wr(settings, so, "menuPauses", 1)
@@ -199,7 +203,9 @@ def run(emu, sym, args):
             f_now = fc()
             if f_now != last_fc:
                 v_now = vi()
-                gaps[min(v_now - last_vi, 7)] += 1
+                # Two game frames can pass between polls: each one gets its share of the interrupts.
+                k = (f_now - last_fc) & 0xFFFFFFFF
+                gaps[min((v_now - last_vi) // k, 7)] += k
                 last_fc, last_vi = f_now, v_now
             if n > window * 6:
                 emu.fail(f"{name}: the window did not pass ({vi() - a['vi']} interrupts in {n} frames)")

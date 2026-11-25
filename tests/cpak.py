@@ -2,7 +2,8 @@
 test's save folder.
 
 The emulator keeps a Controller Pak in controller 1 and formats it. In the Settings menu, Controller Pak: the check
-finds no practice note; a save asks for a confirmation (another button declines and writes nothing); A writes it.
+finds no practice note; a save asks for a confirmation (another button declines and writes nothing; an A in the
+first 10 game frames, as in a double tap, does nothing); A writes it.
 Then the emulator's .mpk file is decoded here from the public layout: a valid ID area, two equal index tables, one
 note "GLOVER PRACTICE" with a chain of pages, and in its data the settings, the Hi Scores choice, the trainer
 switches, the best times and the recording that the test put in RAM.
@@ -10,7 +11,7 @@ switches, the best times and the recording that the test put in RAM.
 Pictures: cpak_view.png, cpak_confirm.png and cpak_saved.png (needs --gfx angrylion)."""
 import layout
 import pakfile
-from cpakutil import RECORDING_BUFFER, cursor_to, mpk, open_view, pak, press, settle, status, wait_idle
+from cpakutil import RECORDING_BUFFER, cursor_to, mpk, open_view, pak, press, quick_press, settle, status, wait_idle
 
 PAKS = "1"
 SETTINGS_HUD_X = layout.SETTINGS_HUD + 1
@@ -78,7 +79,13 @@ def run(emu, sym, args):
     yield 20
     if emu.r8(c + layout.CPAK_CONFIRM) or emu.r32(c + layout.CPAK_TRANSFERS) != transfers or emu.r8(c + layout.CPAK_WORKING):
         emu.fail("declining the save still did something")
-    yield from press(emu, "A")
+    # A double tap: the second A does nothing.
+    yield from quick_press(emu, "A")
+    yield from quick_press(emu, "A")
+    yield 10
+    if emu.r8(c + layout.CPAK_CONFIRM) != layout.CPAK_REQ_SAVE or emu.r8(c + layout.CPAK_WORKING):
+        emu.fail("a double tap of A answered the question")
+    yield 50
     yield from press(emu, "A")
     yield from wait_idle(emu, sym)
     if status(emu, sym) != layout.CPAK_SAVED:

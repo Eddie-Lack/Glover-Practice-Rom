@@ -20,15 +20,17 @@ Views of the game's state
 
 ## Actors
 
-Lists the level's actors with each actor's position, speed, rotation and state
+Lists the level's actors with each actor's position, speed, rotation and state. Each row shows its number, type, model and x, y, z. Garibs aren't actors, so they aren't in the list. Hold Z to move 10 rows. The chosen actor stays chosen when you open the list again
 
 A page for one actor has options to:
 
-- move Glover to the actor,
+- move Glover to the actor (A),
 - move the actor to Glover (Z on its page),
 - edit the actor (Start on its page)
 
-Editing: `Up` and `Down` choose a field, `Left` and `Right` change it, `C up` and `C down` change the step. Start leaves the editing
+Moving only works while a level runs, and Z not while the game is paused
+
+Editing: `Up` and `Down` choose a field, `Left` and `Right` change it, `C up` and `C down` change the step. Start or B leaves the editing
 
 | Field | Step |
 | --- | --- |
@@ -53,6 +55,21 @@ The menu has a warning - "Modified game! May crash. Edits your save"
 
 Shows and edits memory. Edits make the HUD show "MODIFIED". Z marks a word as a poke (see **Memory corruption** below). A watch list on the HUD can show chosen words
 
+| Button | What it does |
+| --- | --- |
+| Left, Right | Choose a digit of the address |
+| Up, Down | Change that digit |
+| R | Edit the value at the cursor. The value has its own digit, which starts on the lowest. R again goes back to the address |
+| C left, C right | The size of the value at the cursor: 4, 2 or 1 bytes. The top line shows it in hex and as a signed number |
+| A | Add the value at the cursor to the watch list (4 at most). This turns "Show the watch list" on |
+| L | Clear the watch list |
+| Z | Mark the value at the cursor as a poke |
+| Start | The list of pokes |
+
+In the grid, watched words are green and poked words are orange. The practice code's own memory can't be edited: its values show grey while you edit
+
+"Random numbers: set (frozen)" in the Game menu opens a small editor of the frozen seed instead: Left and Right choose a digit, Up and Down change it. It is not a poke, and it only stops the level's run from counting for a best time
+
 ## Frame log
 
 For each game frame of the glove, the log records:
@@ -63,6 +80,8 @@ For each game frame of the glove, the log records:
 - the time in which the game reads no buttons
 
 Turn on "Frame log records", do a trick, then open Frame log to see on which frame each input landed
+
+The log keeps the last 256 game frames (about 13 seconds). Each line is numbered with the level's game frame, the number the input history uses. Left and Right turn 16 lines at a time
 
 ## Collision view
 
@@ -78,7 +97,7 @@ The sub menu "Collision view" has these options:
 | Wireframe | Outline every face: off, over faces or alone |
 | Face info | Show the face under the glove and the face in the middle of the screen |
 | Faces drawn | How many faces are drawn right now |
-| Collision spheres | Draw the glove's (white) and the ball's (yellow) collision spheres |
+| Collision spheres | Draw the glove's (cyan) and the ball's (blue) collision spheres |
 | Enemy collision spheres | Draw the spheres of the enemies, in orange |
 | Open collision edges | Draw edges that belong to one face only, as pink bands |
 | Moon Pound holes | Draw a violet post on each hole where a falling glove touches no face |
@@ -87,7 +106,7 @@ It draws the faces that the game collides with: the level's landscape and its pl
 
 "See-through" draws the faces over everything. "On surfaces" draws a face only where nothing in front of it hides it
 
-When you enter a level, the view takes a second or two to read the level's collision. "Faces drawn" shows "building" until it's done
+When you enter a level, the view takes a second or two to read the level's collision. "Faces drawn" shows "building" until it's done. Outside a level it shows nothing
 
 "Radius" counts an object when any part of it comes that close to Glover, so faces further away can show up too
 
@@ -108,7 +127,7 @@ When you enter a level, the view takes a second or two to read the level's colli
 
 "By kind" draws floors green, walls blue and ceilings red, whatever the terrain
 
-"By object" gives each object its own colour. Use it to see where one object ends and the next starts
+"By object" gives each object its own colour, never yellow or white, which mean the touched and the centre face. Use it to see where one object ends and the next starts
 
 In every mode:
 
@@ -125,7 +144,7 @@ A floor is a face that can carry Glover. A face steeper than about 73 degrees is
 
 A face is solid from one side only. You see its back when you look at it from the inside of a wall or from below a floor
 
-- "faint" draws the back of a face lighter
+- "faint" draws the back of a face more see-through
 - "hide" doesn't draw it
 - "same" draws it like the front
 
@@ -142,7 +161,7 @@ Draws the edges of every face as thin lines, in the face's colour
 
 ### Face info
 
-A panel at the top right shows two faces:
+A panel near the top right shows two faces:
 
 - "Glove": the face Glover stands on. In the air it shows the last one in grey
 - "Centre": the face in the middle of the screen, under the small cross. With the collision view on it's drawn yellow. In big levels it takes a few frames to catch up when the camera turns
@@ -152,8 +171,10 @@ For each face:
 | Line | What it shows |
 | --- | --- |
 | first | the kind (flat floor, steep floor, wall or ceiling) and the slope in degrees. "(back)" if you see it from behind |
-| second | its terrain number and type, and for "Centre" how far away it is |
+| second | its terrain number and type, and for "Centre" how far away it is, in units |
 | third | landscape or platform, the object's model name, and the face's number in that object |
+
+The panel hides while the practice menu is open. Its background follows the Menu opacity setting
 
 "Centre" only finds faces that the view shows: the "Faces shown" menu and "Back faces: hide" leave faces out. It also works with the collision view off. With the free camera it looks where the free camera looks
 
@@ -200,7 +221,7 @@ Leave kinds of objects out of the picture, one at a time. Each item shows `shown
 | Pick-ups and garibs | Power-ups, the power-up that circles the glove or ball, garibs (also the garib that the Locate cheat shows) |
 | Debris | Debris and particles |
 | Sky | The sky behind the level |
-| HUD | The game's counters: garibs, lives, health. Text and the pause screen stay |
+| HUD | The game's counters and their numbers: garibs, lives, health, score. Text and the pause screen stay |
 | Shadows | Every shadow |
 | Footprints | Footprints and blast rings |
 | Trails | The trails behind fast things |
@@ -226,16 +247,15 @@ This changes the game's timing slightly. Use it for study and not for timed prac
 
 `"Modified game! May crash".`
 
-The HUD shows "MODIFIED pokes" until you load a state, use "Clear all pokes" or reset the console
+The HUD shows "MODIFIED pokes" while pokes are on. After that, "MODIFIED" stays until the level starts again
 
 | Option | What it does |
 | --- | --- |
-| Pokes | The list of eight pokes. In the memory viewer, Z marks the word at the cursor as a poke, and Start lists the pokes |
+| Pokes | The list of eight pokes, with how many are set and running. In the memory viewer, Z marks the word at the cursor as a poke, and Start lists the pokes |
 | Apply once pokes | Write the pokes in mode "once" |
 | Flip region | Where "Flip one random bit" works: the glove's actor, the ball's actor, a random actor of the level, or the memory view range |
 | Range size | 16, 256, 4096 or 65536 bytes from the viewer's address |
 | Flip one random bit | Flip one bit in the chosen region |
-| Pokes (info) | How many are set and running |
 | Last flip | The address, the bit and the count of the last flip |
 | Clear all pokes | Remove every poke |
 
@@ -246,4 +266,4 @@ Each poke has a mode:
 - random: the low bits are set to random bits
 - flip: one random bit of the low bits is flipped
 
-C left and right set the poke's size. C up and down set the bits. L and R set how often it acts. Writes only go to RAM, never to the practice code and its data. The game will probably crash
+C left and right set the poke's size. C up and down set the bits. A C button counts when it is let go on its own, so the menu's four C buttons don't change a poke. L and R set how often it acts. Writes only go to RAM, never to the practice code and its data. The game will probably crash

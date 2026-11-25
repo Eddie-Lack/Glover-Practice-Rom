@@ -19,5 +19,9 @@ void BindingCapture(int action);
 /* While capturing: 1. The controller thread calls BindingsCapturing every frame. */
 int BindingsCapturing(void);
 void BindingClear(int action);
+/* The stick direction of a stick held at X, Y (STICK_NONE between directions), and the stick direction that the
+ * binding of ACTION needs (STICK_NONE for a binding without one, or one on controller 2). */
+int BindingStickDir(int x, int y);
+int BindingStick(int action);
 
 #endif

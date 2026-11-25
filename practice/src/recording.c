@@ -1,6 +1,8 @@
 /* Input recordings, on top of the savestate. */
 #include "actions.h"
+#include "bindings.h"
 #include "game.h"
+#include "input.h"
 #include "ghost.h"
 #include "hud.h"
 #include "menu.h"
@@ -24,9 +26,30 @@ Recording recording;
 
 static RecordedInput *const inputs = (RecordedInput *)RECORDING_BUFFER;
 
+/* The stop chord of a stick binding (stick held, then a D-pad press) records the stick on its last game frames.
+ * Those frames are taken off the end: at most 12, with the stick in the binding's direction and no button. */
+static void TrimChord(void) {
+    int stick = BindingStick(ACTION_RECORD);
+
+    for (int n = 0; n < 12 && recording.count > 0 && stick != STICK_NONE; n++) {
+        RecordedInput *in = &inputs[recording.count - 1];
+
+        if (in->button != 0 || BindingStickDir(in->stickX, in->stickY) != stick) {
+            break;
+        }
+        recording.count--;
+    }
+}
+
 void RecordingToggle(void) {
     if (recording.recording) {
         recording.recording = 0;
+        TrimChord();
+        HudMessage("recording stopped");
+        return;
+    }
+    if (run.frameAdvance || run.slowMotion) {
+        /* It would stop at once (RecordingFrame). The last recording and its state stay. */
         HudMessage("recording stopped");
         return;
     }
@@ -63,7 +86,8 @@ void RecordingFrame(u8 cntlr) {
     ContPad *c = &controllerdata[cntlr];
 
     if (recording.playing) {
-        if (!FullSpeed()) {
+        if (!FullSpeed() || (cntlr == 0 && (input.pressed & ~input.hidden))) {
+            /* A press of the player's own takes the controls back: the race against the ghost goes on from here. */
             recording.playing = 0;
             HudMessage("playback stopped");
             return;

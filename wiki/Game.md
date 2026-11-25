@@ -30,7 +30,7 @@ Lives and health changed during a level, a frozen or changed random seed, a powe
 | Freeze random numbers | Keep the random number seed at its value now. Select again to let it run |
 | Random numbers: one call | Step the seed by one call of the game's random function, on the next game frame |
 | Random numbers: level start | Set the seed to the value of a level's start, on the next game frame |
-| Random numbers: set (frozen) | Freeze the seed and edit its value in the memory view, digit by digit |
+| Random numbers: set (frozen) | Freeze the seed and edit its value, digit by digit: Left and Right choose a digit, Up and Down change it, B leaves |
 
 ## Controller 2
 
@@ -59,14 +59,21 @@ The camera decides which way the stick and the D-pad move Glover, so a faster ca
 
 !! Modified game !! A run with it on doesn't count for a best time
 
-A small camera icon shows at the top right, above the score, while it's on. The HUD doesn't say MODIFIED for it
+A small camera icon shows at the top right, above the score, while it's on. The HUD shows MODIFIED too
 
 ## Cheats
 
-Toggle the in-game cheats: 
-`Locate garibs, Call ball, Checkpoints, Infinite lives, Power ball, Control ball, Infinite energy, Enemy ball, Low gravity, Big ball, Fish eye, Camera rotate R, Camera rotate L, Mad garibs, Death spell, Frog spell, Hercules, Speed up, Boomerang ball, Vanish ball, Froggy, Secret cheat, All cheats off, Level select, Open portals and Open levels. The list is longer than the panel, so it scrolls: the top right of the panel shows the place in the list.`
+Toggle the in-game cheats with A, left or right. You can choose several in one visit: each row shows the value it will have, and they all take effect when the menu closes
 
-"Camera rotate R" and "Camera rotate L" don't show anything until you close the menu (unless you have [`Pause game in this menu`](https://github.com/Eddie-Lack/Glover-Practice-Rom/blob/main/wiki/Settings.md) set to Off) 
+| Cheat | Kind |
+| --- | --- |
+| Locate garibs, Call ball, Checkpoints, Infinite lives, Power ball, Control ball, Infinite energy, Enemy ball, Low gravity, Big ball, Fish eye, Mad garibs, Death spell, Frog spell, Hercules, Speed up, Boomerang ball, Vanish ball, Froggy, Secret cheat | On or off. A run with one of them on doesn't count for a best time |
+| Level select, Open portals, Open levels | On or off. The run still counts |
+| Camera rotate R, Camera rotate L, All cheats off | They act once and show no value |
+
+The list is longer than the panel, so it scrolls: the top right of the panel shows the place in the list
+
+"Camera rotate R" and "Camera rotate L" don't show anything until you close the menu (unless you have "Pause game in this menu" set to Off, _see [Settings](Settings.md)_)
 
 ## Power-ups
 
@@ -87,7 +94,7 @@ With noclip on:
 
 ## Free camera
 
-Choose a speed (2, 4, 8, 16 or 32 units a game frame). Use controller 2 to fly the camera:
+Choose a speed (2, 4, 8, 16 or 32 units a game frame). Use controller 2 to fly the camera. With only one controller, the view just stays where it was:
 
 - The stick moves forward and back
 - D-pad up and down to lift
@@ -100,9 +107,11 @@ Quick actions on controller 2 that use these buttons do not fire while it is on.
 
 ## Ghost
 
-Each input recording also records where the glove and the ball were on every game frame. With the switch on, a see-through yellow glove (with a white nose that shows its heading) and a pink ball are drawn at those places, in step with your run
+Each input recording also records where the glove and the ball were on every game frame. With the switch on, a see-through yellow shape (with a white nose that shows its heading) for the glove and a pink ball are drawn at those places, in step with your run
 
-Game frame N of your run shows the ghost of game frame N since the recorded state. Load the state, run again and race it
+Game frame N of your run shows the ghost of game frame N since the recorded state. To race it, use Play recording and press any button at once: the controls are yours from there, and the ghost runs on _(see [Savestate](Savestate.md))_
+
+A part of the ghost (the glove or the ball) that lies on top of the live one isn't drawn, so it doesn't hide Glover during Play recording
 
 A new recording of the level replaces its ghost. You can keep up to four levels, each up to ~7 minutes
 
@@ -114,7 +123,7 @@ Choose a glove action from a list (idle, walk, duck, cartwheel and so on) and us
 
 The action starts on the next game frame
 
-The HUD shows "MODIFIED set action" for three seconds
+The HUD shows "MODIFIED set action" for three seconds, then "MODIFIED" until the level starts again
 
 Some actions need a ledge, a block or a power-up. They may end at once or, rarely, crash the game. The menu warns "Modified game! May crash"
 

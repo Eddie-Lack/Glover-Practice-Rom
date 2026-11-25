@@ -1242,7 +1242,7 @@ second, independent reading of the layout). The driver has not run on a console.
 
 ## Memory corruption
 
-The Inspect menu's last item, "Memory corruption", and two keys of the memory viewer (`practice/src/corrupt.c`,
+The Inspect menu's "Memory corruption", and two keys of the memory viewer (`practice/src/corrupt.c`,
 `practice/src/memview.c`, `practice/include/corrupt.h`).
 
 - A poke is an address, a value, a size (1, 2 or 4 bytes), a mode, a bit count and a period. Eight pokes live in
@@ -1264,13 +1264,17 @@ The Inspect menu's last item, "Memory corruption", and two keys of the memory vi
   linker's symbol: the practice code, its data and its bss). The savestates (from 0x80480000) can be written. A word
   goes to an address that is a multiple of 4, a half word of 2. After each write the data cache is written back and
   the instruction cache is cleared for those bytes. A poke whose mode is off is
-  never written.
+  never written. An edit in place in the memory view goes through `PokeWrite`, with the same checks.
 - The random generator is a xorshift32 of its own, seeded from the CPU counter at first use. The game's `rseed` is
   not touched.
 - The HUD marker is "MODIFIED pokes" (`CorruptMarker`) while a poke runs (freeze, random or flip), and after any write
-  (`Corrupt.dirty`) until a state is loaded (the load puts back what the writes changed in the state's ranges), the
-  menu's "Clear all pokes" is used, or the console is reset. A level change or restart does not clear it, because a
-  write to a global or to the save outlives the level.
+  (`Corrupt.dirty` 1) until a state is loaded (the load puts back what the writes changed in the state's ranges) or
+  the console is reset. A level change or restart does not clear it, because a write to a global or to the save
+  outlives the level. "Clear all pokes" sets `dirty` to 2 (`CORRUPT_CLEARED`) and keeps `practice.levelStarts` in
+  `Corrupt.clearedAt`: the marker stays until the next level start. `CorruptMarker` only reads these, so both
+  threads may call it.
+- The seed editor of the Game menu ("Random numbers: set (frozen)") uses the memory view locked on
+  `run.rngValue`: no address change and no poke keys, and an edit taints only the level (`BT_OTHER`).
 - Limits: the game keeps its own copies of some values (for example the glove's position is also in other places), so
   a write to one may be overwritten at once. A freeze runs at the start of each game frame, before the game's logic.
   The writes are not part of a savestate or a recording. The bindings are full. There is no binding.
@@ -1481,11 +1485,14 @@ built. They read the game and draw. They write no game state, call no `Random` a
   the Controller Pak note keep their size. In the EEPROM block they share the last byte of `hudPlace[12]` (0x1F: the log in
   the low nibble, the hold in the high nibble), which an older ROM wrote as zero; `SettingsFixMenuLook` gives the defaults for a
   zero or a value out of range, so older blocks and notes load. `tests/settings.py`, `settingsload.py`, `settingsold.py` and the
-  Controller Pak tests check them. Place of the feed: x 158, y 48, 9 pixels a line (x 8, y 28 in a boss fight, which has
-  the right side; 5 lines at most while the MBZ-L panel, at y 92, is on). With 5 lines it ends at y 93.
+  Controller Pak tests check them. Places: the panels stand in two columns, x 16 to 160 on the left and up to
+  x 304 on the right, between y 44 and y 192 ("Drawing" in `practice/src/trainers.c`). Each panel takes its column at its
+  preferred height, or lower, or the other column, and is left out when neither has room. The feed is right-aligned to x
+  304 from y 44 (under the boss panel in a boss fight), 9 pixels a line, at most 5 lines while the MBZ-L or wall clip
+  trainer is on; a line that would cross a panel is left out. `tests/trainerlayout.py` checks that nothing overlaps.
 - **Tests.** `tests/trainers.py`, `tests/trainers2.py`, `tests/trainers3.py` (the wall clip),
-  `tests/trainers_moon.py`, `tests/trainers_moon_cost.py`, `tests/bosstrainer.py` and `tests/trainerlog.py` (the log and
-  the hold) ([testing.md](testing.md)).
+  `tests/trainers_moon.py`, `tests/trainers_moon_cost.py`, `tests/bosstrainer.py`, `tests/trainerlog.py` (the log and
+  the hold) and `tests/trainerlayout.py` (the places) ([testing.md](testing.md)).
 
 ## Camera speed
 

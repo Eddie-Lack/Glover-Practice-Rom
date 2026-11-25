@@ -4,12 +4,13 @@ items."""
 from tools import press
 
 # MenuItem: label 0, kind 4, min 5, max 6, arg 7, value / submenu / view 8, action 12, names / info 16, hint 20;
-# 24 bytes. Menu: title 0, items 4, count 8, repeat 9. A repeating menu (the splits page) has one item, whose value
+# 24 bytes. Menu: title 0, items 4, count 8, repeat 9, compact 10. A repeating menu (the splits page) has one item, whose value
 # points to the live row count; its row N is labelled "N".
 ITEM_SIZE = 24
 (ITEM_SUBMENU, ITEM_TOGGLE, ITEM_CHOICE, ITEM_NUMBER, ITEM_ACTION, ITEM_INFO, ITEM_BIND, ITEM_VIEW,
  ITEM_QUICK) = range(9)
 MENU_ROWS = 14
+MENU_HOLD = 1
 
 
 def cstr(emu, addr):
@@ -34,6 +35,7 @@ class Page:
         items = emu.r32(self.menu + 4)
         self.count = emu.r8(self.menu + 8)
         repeat = emu.r8(self.menu + 9)
+        self.compact = emu.r8(self.menu + 10)
         if repeat:
             self.count = emu.r8(emu.r32(items + 8))
         self.items = []
@@ -41,6 +43,9 @@ class Page:
             a = items + (0 if repeat else i * ITEM_SIZE)
             label = str(i + 1) if repeat else cstr(emu, emu.r32(a))
             self.items.append((label, emu.r8(a + 4), emu.r32(a + 8), a))
+        self.hints = [cstr(emu, emu.r32(it[3] + 20)) if emu.r32(it[3] + 20) else None for it in self.items]
+        self.mins = [emu.r8(it[3] + 5) for it in self.items]
+        self.infos = [emu.r32(it[3] + 16) for it in self.items]
 
     def labels(self):
         return [it[0] for it in self.items]
@@ -66,11 +71,16 @@ def to_item(emu, sym, label):
 
 def goto(emu, sym, *labels, enter=True):
     """From the page that is open, moves to each item in turn and presses A on it (not on the last when ENTER is
-    false)."""
+    false). The menu opens where it was closed: when the first label is not on the open page, it backs out to the
+    root page first."""
+    if labels and isinstance(labels[0], str) and labels[0] not in Page(emu, sym).labels():
+        yield from top(emu, sym)
     for n, label in enumerate(labels):
-        yield from to_item(emu, sym, label)
+        page = yield from to_item(emu, sym, label)
         if enter or n + 1 < len(labels):
-            yield from press(emu, "A")
+            # A row that forgets something runs only when A is held (menu.h, MENU_HOLD).
+            hold = page.items[page.cursor][1] == ITEM_ACTION and page.mins[page.cursor] == MENU_HOLD
+            yield from press(emu, "A", frames=80 if hold else 8)
 
 
 def top(emu, sym):

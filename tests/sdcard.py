@@ -317,11 +317,11 @@ def decode_against_memory(emu, sym, box, image, requests, card_op, ram_save):
     before = emu.r32(sym("stateSaves"))
     emu.w8(sym("stateSlot"), 4)
     emu.w16(requests, emu.r16(requests) | 1 << ACTION_SAVE_STATE)
-    for _ in range(8):        # a request waits for the next game frame, and the save for the one after
+    for _ in range(8):        # frame advance serves the request while it waits; a step runs only if it did not
+        yield 10
         if emu.r32(sym("stateSaves")) > before:
             break
         emu.w8(run_addr + RUN_STEPS, 1)
-        yield 10
     if emu.r32(sym("stateSaves")) <= before:
         emu.fail("the save into the pool did not run")
     yield 10

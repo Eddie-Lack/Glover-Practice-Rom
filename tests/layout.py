@@ -18,6 +18,9 @@ SAVED_MENU_LOOK = 0x1C  # menuOpacity, menuAcross, menuDown: the bytes of the tw
 
 SAVED_TRAINER = 0x1F  # trainerLog (low nibble) and trainerHold (high nibble), from 1: the last byte of the second HUD slot
 
+# Run (practice/include/actions.h): the places of the controller display and the trainer log, and the display's size
+RUN_PAD_X, RUN_PAD_Y, RUN_PAD_SIZE, RUN_LOG_X, RUN_LOG_Y = 0x5C, 0x5D, 0x5E, 0x5F, 0x60
+
 # SaveEdit (practice/include/saveedit.h)
 SAVEEDIT_SLOT, SAVEEDIT_REQUEST, SAVEEDIT_STATUS, SAVEEDIT_PAGE, SAVEEDIT_CONFIRM = 0x00, 0x01, 0x02, 0x04, 0x07
 

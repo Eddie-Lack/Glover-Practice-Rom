@@ -1549,15 +1549,21 @@ int MoonWallScan(const f32 *pos, const f32 *vel, WallHit *out) {
 #define YELLOW 0xFFE070FF
 #define RED 0xFF5050FF
 
-#define MO_X 80
-#define MO_Y 164
 #define LINE 10
-#define CELL_W 18
+#define CELL_W 17
+#define BOX 0x101418E0 /* the dark box behind the panel: the strip's colours must show on any sky */
+#define MAP_X 120      /* the map's centre from the panel's left edge, right of the text */
+#define MAP_HALF 18
+#define PHASE_W 32
+_Static_assert(MOON_CELLS * CELL_W <= MOON_PANEL_W - 4 && MAP_X + MAP_HALF + 1 <= MOON_PANEL_W - 4, "the panel's width");
 
 static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     char buf[48];
     va_list args;
 
+    if (dl == NULL) {
+        return;
+    }
     va_start(args, fmt);
     FormatV(buf, sizeof(buf), fmt, args);
     va_end(args);
@@ -1571,37 +1577,73 @@ static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     TextPrint(dl, x, y, 1, color, buf);
 }
 
-void MoonAimDraw(Gfx **dl, const MoonView *v) {
+static void Rect(Gfx **dl, int x0, int y0, int x1, int y1, u32 rgba) {
+    if (dl != NULL) {
+        TextRect(dl, x0, y0, x1, y1, rgba);
+    }
+}
+
+/* The flags, in order of weight: after the name on the panel's first row, and those that do not fit there on a row
+ * under the panel. Returns 1 when that row is used. */
+static int DrawFlags(Gfx **dl, int x, int y, int yLast, u8 flags) {
+    static const struct {
+        u8 bit;
+        u32 color;
+        const char *text;
+    } list[] = {
+        { MOWF_NO_EXIT, RED, "NO EXIT" }, { MOWF_SLOW, YELLOW, "SLOW" },   { MOWF_FULL, YELLOW, "FULL" },
+        { MOWF_CANDS, YELLOW, "HOLES?" }, { MOWF_BUILD, DIM, "BUILD" },
+    };
+    int cx = x + 11 * TEXT_ADVANCE, cy = y, last = 0;
+
+    for (u32 i = 0; i < ARRAY_COUNT(list); i++) {
+        int w = TextWidth(list[i].text, 1);
+
+        if (!(flags & list[i].bit)) {
+            continue;
+        }
+        if (cx + w > x + MOON_PANEL_W - 4) {
+            if (last) {
+                break;
+            }
+            cx = x;
+            cy = yLast;
+            last = 1;
+        }
+        Line(dl, cx, cy, list[i].color, "%s", list[i].text);
+        cx += w + TEXT_ADVANCE;
+    }
+    return last;
+}
+
+int MoonAimDraw(Gfx **dl, int x, int y0, const MoonView *v) {
     static const char *const whyText[] = { "", "", "IN WATER", "GLOVE SCALED", "NO FACES", "BUILDING" };
-    int x = MO_X, y = MO_Y;
+    int y = y0;
+    int base, extra;
 
     if (!v->live) {
-        Line(dl, x, y, DIM, "MOON POUND %s", v->why < 6 ? whyText[v->why] : "");
-        return;
+        /* Not jumping or in water: the trainer is idle. The other reasons stop a jump's aim. */
+        if (v->why < MW_SCALE || v->why >= 6) {
+            return 0;
+        }
+        Line(dl, x, y, DIM, "MOON POUND %s", whyText[v->why]);
+        return LINE;
     }
+    /* The box holds the panel; the rest is drawn 2 pixels inside it. */
+    base = v->hasTarget ? 64 : 34;
+    extra = DrawFlags(NULL, x, y, y + base, v->flags) * LINE + 4;
+    Rect(dl, x, y, x + MOON_PANEL_W, y + base + extra, BOX);
+    x += 2;
+    y += 2;
     Line(dl, x, y, LABEL, "MOON POUND");
-    if (v->flags & MOWF_NO_EXIT) {
-        Line(dl, x + 66, y, RED, "NO EXIT");
-    }
-    if (v->flags & MOWF_SLOW) {
-        Line(dl, x + 120, y, YELLOW, "SLOW");
-    }
-    if (v->flags & MOWF_FULL) {
-        Line(dl, x + 150, y, YELLOW, "FULL");
-    }
-    if (v->flags & MOWF_CANDS) {
-        Line(dl, x + 180, y, YELLOW, "HOLES?");
-    }
-    if (v->flags & MOWF_BUILD) {
-        Line(dl, x + 222, y, DIM, "BUILD");
-    }
+    DrawFlags(dl, x, y, y + base, v->flags);
     y += LINE;
     /* The strip: Z 1 to 8 game frames from now. Green clips, red lands, dark is greyed out. */
-    for (int k = 0; k < MOON_CELLS; k++) {
+    for (int k = 0; k < MOON_CELLS && dl != NULL; k++) {
         int cx = x + k * CELL_W;
         u8 c = v->cell[k];
-        u32 back = c == MC_CLIP ? 0x30B030C0 : c == MC_LAND ? 0xA03030A0 : c == MC_VOID ? 0x606030A0 : 0x30384090;
-        u32 fore = c == MC_CLIP ? WHITE : c == MC_GREY || c == MC_NO_Z ? DIM : WHITE;
+        u32 back = c == MC_CLIP ? 0x28A028FF : c == MC_LAND ? 0xC02828FF : c == MC_VOID ? 0x707028FF : 0x303840FF;
+        u32 fore = c == MC_GREY || c == MC_NO_Z ? DIM : WHITE;
 
         TextRect(dl, cx, y, cx + CELL_W - 2, y + 10, back);
         if (k == v->aimCell) {
@@ -1613,61 +1655,64 @@ void MoonAimDraw(Gfx **dl, const MoonView *v) {
     if (!v->hasTarget) {
         Line(dl, x, y, DIM, "NO HOLE NEAR");
         y += LINE;
-    } else {
-        Line(dl, x, y, WHITE, "AIM %+.2f %+.2f", (double)v->dx, (double)v->dz);
-        y += LINE;
-        if (v->zoneKnown && v->dist == 0.0f) {
-            Line(dl, x, y, GREEN, "DIST 0.00 INSIDE");
-        } else {
-            Line(dl, x, y, v->zoneKnown ? YELLOW : WHITE, "DIST %.2f%s", (double)v->dist, v->zoneKnown ? " TO CLIP" : "");
-        }
-        y += LINE;
-        /* A map of the screen: the column in the middle, the hole's centre as a square. One unit is 18 pixels. */
-        {
-            int mx = x + 100, my = y - 6, half = 22;
-            f32 fr = v->right * 18.0f, ff = -v->fwd * 18.0f;
-            int px, py;
-
-            TextRect(dl, mx - half, my - half, mx + half + 1, my + half + 1, 0x20283080);
-            TextRect(dl, mx - half, my, mx + half + 1, my + 1, 0x60708090);
-            TextRect(dl, mx, my - half, mx + 1, my + half + 1, 0x60708090);
-            px = (int)fr;
-            py = (int)ff;
-            if (px < -half + 2) {
-                px = -half + 2;
-            }
-            if (px > half - 2) {
-                px = half - 2;
-            }
-            if (py < -half + 2) {
-                py = -half + 2;
-            }
-            if (py > half - 2) {
-                py = half - 2;
-            }
-            TextRect(dl, mx + px - 2, my + py - 2, mx + px + 3, my + py + 3,
-                     v->zoneKnown && v->dist == 0.0f ? GREEN : YELLOW);
-        }
-        /* The stick that closes the gap, when one tap can. */
-        if (v->dist > 0.0f && Abs(v->stickX) <= 79.0f && Abs(v->stickY) <= 79.0f) {
-            Line(dl, x, y, LABEL, "STICK %+.0f %+.0f", (double)v->stickX, (double)v->stickY);
-        } else if (v->dist > 0.0f) {
-            Line(dl, x, y, DIM, "STICK TOO FAR");
-        }
-        y += LINE;
-        /* The phase: the centre's height above the vertex in the pass before the cross, modulo the fall of 14. The
-         * good band is 0.2 to 1.9. */
-        {
-            int gx = x, gw = 56;
-            f32 ph = v->phase;
-
-            while (ph > FALL) {
-                ph -= FALL;
-            }
-            TextRect(dl, gx, y + 2, gx + gw, y + 6, 0x30384090);
-            TextRect(dl, gx + (int)(0.2f * gw / FALL), y + 2, gx + (int)(1.9f * gw / FALL) + 1, y + 6, 0x30B030C0);
-            TextRect(dl, gx + (int)(ph * gw / FALL), y, gx + (int)(ph * gw / FALL) + 2, y + 8, WHITE);
-            Line(dl, gx + gw + 4, y, DIM, "PHASE %.2f", (double)v->phase);
-        }
+        return y - y0 + extra - 2; /* y began 2 pixels inside the box */
     }
+    Line(dl, x, y, WHITE, "AIM %+.2f %+.2f", (double)v->dx, (double)v->dz);
+    /* A map of the screen right of the text: the column in the middle, the hole's centre as a square. One unit is 18
+     * pixels. */
+    if (dl != NULL) {
+        int mx = x + MAP_X, my = y + 19, half = MAP_HALF;
+        f32 fr = v->right * 18.0f, ff = -v->fwd * 18.0f;
+        int px, py;
+
+        TextRect(dl, mx - half, my - half, mx + half + 1, my + half + 1, 0x283038FF);
+        TextRect(dl, mx - half, my, mx + half + 1, my + 1, 0x60708090);
+        TextRect(dl, mx, my - half, mx + 1, my + half + 1, 0x60708090);
+        px = (int)fr;
+        py = (int)ff;
+        if (px < -half + 2) {
+            px = -half + 2;
+        }
+        if (px > half - 2) {
+            px = half - 2;
+        }
+        if (py < -half + 2) {
+            py = -half + 2;
+        }
+        if (py > half - 2) {
+            py = half - 2;
+        }
+        TextRect(dl, mx + px - 2, my + py - 2, mx + px + 3, my + py + 3,
+                 v->zoneKnown && v->dist == 0.0f ? GREEN : YELLOW);
+    }
+    y += LINE;
+    if (v->zoneKnown && v->dist == 0.0f) {
+        Line(dl, x, y, GREEN, "DIST 0.00 INSIDE");
+    } else {
+        Line(dl, x, y, v->zoneKnown ? YELLOW : WHITE, "DIST %.2f%s", (double)v->dist, v->zoneKnown ? " TO CLIP" : "");
+    }
+    y += LINE;
+    /* The stick that closes the gap, when one tap can. */
+    if (v->dist > 0.0f && Abs(v->stickX) <= 79.0f && Abs(v->stickY) <= 79.0f) {
+        Line(dl, x, y, LABEL, "STICK %+.0f %+.0f", (double)v->stickX, (double)v->stickY);
+    } else if (v->dist > 0.0f) {
+        Line(dl, x, y, DIM, "STICK TOO FAR");
+    }
+    y += LINE;
+    /* The phase: the centre's height above the vertex in the pass before the cross, modulo the fall of 14. The
+     * good band is 0.2 to 1.9. */
+    if (dl != NULL) {
+        int gx = x, gw = PHASE_W;
+        f32 ph = v->phase;
+
+        while (ph > FALL) {
+            ph -= FALL;
+        }
+        TextRect(dl, gx, y + 2, gx + gw, y + 6, 0x384050FF);
+        TextRect(dl, gx + (int)(0.2f * gw / FALL), y + 2, gx + (int)(1.9f * gw / FALL) + 1, y + 6, 0x30B030FF);
+        TextRect(dl, gx + (int)(ph * gw / FALL), y, gx + (int)(ph * gw / FALL) + 2, y + 8, WHITE);
+        Line(dl, gx + gw + 4, y, DIM, "PHASE %.2f", (double)v->phase);
+    }
+    y += LINE;
+    return y - y0 + extra - 2; /* y began 2 pixels inside the box */
 }

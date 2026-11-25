@@ -6,7 +6,8 @@
    second hold). Once the hold is over, a new attempt shows as it runs.
 2. L mash: runs of 5 presses make log lines ("LM 5P 4 ON TIME ..."). The panel keeps its view for the hold (off: it
    does not). The log survives a savestate load. The log length setting (off, 5, 6, 8, 10) changes how many lines are
-   drawn (counted in the frame buffer, in the colour of the lines). With the MBZ-L panel on, the right side stops at 5.
+   drawn (counted in the frame buffer, in the colour of the lines, at the top of the right column from y 44). With the
+   MBZ-L trainer on, the right column's log stops at 5 lines.
 3. Turning a trainer off takes its lines out of the log.
 
 Picture: trainerlog.png (needs --gfx angrylion)."""
@@ -37,8 +38,9 @@ def log_state(emu, sym):
     return begin, seq, total, [l for l in lines if l[0]]
 
 
-def green_lines(emu, sym, rows=10, x0=158, y0=48):
-    """How many of the 9 pixel rows of the log's place hold a pixel of the lines' green (the newest are the first)."""
+def green_lines(emu, sym, rows=10, x0=124, y0=44):
+    """How many of the 9 pixel rows of the log's place hold a pixel of the lines' green (the newest are the first). The
+    lines end at x 304, and the longest starts at x 124."""
     colours = [len(set(bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[b]), 320 * 240 * 2))[::2])) for b in (0, 1)]
     raw = bytes(emu.read(sym(("cfb_16_a", "cfb_16_b")[colours.index(max(colours))]), 320 * 240 * 2))
     shown = 0
@@ -111,10 +113,11 @@ def mbz_check(r, settings):
     for i, b in enumerate(plan):
         view = yield from stepper(b)
         _, _, total, lines = log_state(emu, sym)
-        rows.append((i, view["mbz"][0] if view["mbz"] else None, total, hold_until(emu, sym, 2), r.fc(), r.mode()))
+        rows.append((i, view["mbz"][0] if view["mbz"] else None, total, hold_until(emu, sym, 2), r.fc(), r.mode(),
+                     view["held"]))
         totals.append(total)
     print("trainerlog: MBZ-L frames (frame, newest attempt verdict/done, log total, hold ends at):")
-    for i, a, total, hu, fc, mode in rows:
+    for i, a, total, hu, fc, mode, _h in rows:
         print(f"  {i:2d} {'-' if a is None else (a['verdict'], a['done'])} total {total} holdUntil {hu} fc {fc} mode {mode}")
     _, _, total, lines = log_state(emu, sym)
     if total != 2 or len(lines) != 2:
@@ -130,10 +133,13 @@ def mbz_check(r, settings):
         emu.fail("the two attempts ended on the same frame")
     # While attempt 2 runs (after it starts, before it ends) the panel holds attempt 1's result.
     start2 = len(a1) + len(gap)
-    during = [a for i, a, t, hu, fc, _m in rows if first < i < second and a is not None]
+    during = [a for i, a, t, hu, fc, _m, _h in rows if first < i < second and a is not None]
     held = [a for a in during if a["done"] and a["verdict"] == MBV["PERFECT"]]
     if not during or len(held) != len(during):
         emu.fail(f"during attempt 2 the panel did not hold attempt 1: {[(a['verdict'], a['done']) for a in during]}")
+    # The view marks the held part (the draw thread shows a held panel).
+    if not all(h & TR_MBZL for i, a, t, hu, fc, _m, h in rows if first <= i < second):
+        emu.fail("the view does not mark the MBZ-L part as held during the hold")
     print(f"trainerlog: the panel held attempt 1's result for {len(during)} frames while attempt 2 ran (it began on frame {start2})")
     # When attempt 2 ends its result is on the panel and the hold ends 20 frames after that end.
     a2view = rows[second][1]

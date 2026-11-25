@@ -1,14 +1,12 @@
 # Savestate
 
-## States in the slots are lost when the console is switched off!
-
 _Back to the [Home page](Home.md)_
+
+## States in the slots are lost when the console is switched off! Card files stay
 
 Savestates are a snapshot of the level exactly as it was, with the in-game timer and its song
 
-Savestates can't be saved or loaded on the title screens
-
-States in the slots are lost when the console is switched off! Card files stay
+Savestates can't be saved or loaded on the title screens. A save during a warp, a reset or a level exit, while the screen fades, is refused with "state not saved: game busy"
 
 | Option | What it does |
 | --- | --- |
@@ -20,8 +18,8 @@ States in the slots are lost when the console is switched off! Card files stay
 | Recording | Shows the recording's length in frames, or "recording" or "playing" |
 | This slot | Shows the slot's level and size |
 | Pool | Shows how much of the state memory is free and how many of the ten slots are used |
-| Clear this slot | Empty the chosen slot |
-| Clear all slots | Empty every slot. The menu warns "Forgets every saved state" |
+| Clear this slot | Empty the chosen slot. Hold A |
+| Clear all slots | Empty the ten slots. Hold A. The menu warns "Forgets every saved state". The recording's state and the level start state stay |
 | Level start state | Shows the level of the start state that the "instant" Reset saved, or "none" (_see [Warp](Warp.md))_ |
 | SD card | _Sub menu_ |
 
@@ -35,7 +33,7 @@ States in the slots are lost when the console is switched off! Card files stay
 | Card file | Shows the chosen card file's level and size, "empty", or "use Check card" |
 | Save slot to card | Write the chosen pool slot (the Slot item) to the chosen card file. A file that's already there is replaced. The menu warns "Writes the card file: stops the game for seconds" |
 | Load from card | Load the chosen card file into the game, also from another level. The menu warns "Stops the game for seconds" |
-| Delete on card | Delete the chosen card file |
+| Delete on card | Delete the chosen card file. Hold A |
 | Save recording to card | Write the input recording and its state to the card file `RECORD.GRC`. The menu warns "Writes RECORD.GRC: stops the game for seconds" |
 | Load recording from card | Load that file: the game goes to the recording's state, and the recording is ready for Play recording. The menu warns "Loads its state: stops the game for seconds" |
 
@@ -54,7 +52,7 @@ The game stops meanwhile, and the frame before shows "saving..." or "loading..."
 
 ## States on the SD card
 
-### Only the SummerCart64 works for now - in progress
+### Only the SummerCart64 works for now
 
 States can be kept on the SD card of a flash cart. They stay when the console is switched off. The card must be FAT16 or FAT32 (a card of more than 32 GB is usually exFAT: format it as FAT32 or give it a FAT32 partition). The cart must not be in use by its menu: boot the ROM from the cart as usual
 
@@ -73,9 +71,13 @@ _The driver has not been tried on a console yet. The tests use a stand-in for th
 
 Record input saves a state, then records what the game reads from the controller, for up to 30 minutes. At the limit, the recording stops and the game says so. Play recording loads the state and plays the inputs back
 
+The stick push of the Record binding isn't recorded: the game doesn't see the stick until you let go of it, and when you stop, the last frames with the stick held in the binding's direction are cut
+
+Press any button during Play recording to take the controls back from there. To race the ghost, play the recording and press a button at once _(see [Game](Game.md))_
+
 The recording's state has a slot of its own. The slot chosen in the menu is not touched, and Load state still loads the chosen slot. If the state does not fit, the game says "recording not started: pool full"
 
-Recording and playback need the game at full speed. Frame advance, slow motion or the practice menu stops them. Chaos inputs do nothing while you record or play back
+Recording and playback need the game at full speed. Frame advance, slow motion or the practice menu stops them. Record in frame advance or slow motion is refused, and the last recording stays. Chaos inputs do nothing while you record or play back
 
 The recording also keeps where the glove and the ball were on every game frame, for the ghost _(see [Game](Game.md))_
 

@@ -15,6 +15,7 @@
 #include "hud.h"
 #include "memview.h"
 #include "menu.h"
+#include "paddisplay.h"
 #include "recording.h"
 #include "saveedit.h"
 #include "savestate.h"
@@ -52,9 +53,11 @@
 #define WARN_CHOICE(label, ptr, nm, n, h) ITEM(label, ITEM_CHOICE, 0, (n) - 1, 0, NULL, .value = ptr, .names = nm, .hint = h)
 /* An action with a warning in place of the key help while it is selected. */
 #define WARN_ACTION(label, fn, a, h) ITEM(label, ITEM_ACTION, 0, 0, a, fn, .hint = h)
+/* An action that runs only once A is held for a moment (menu.h, MENU_HOLD), with a warning while it is selected. */
+#define HOLD_ACTION(label, fn, a, h) ITEM(label, ITEM_ACTION, MENU_HOLD, 0, a, fn, .hint = h)
 /* A view with a warning in place of the key help while it is selected. */
 #define WARN_VIEW(label, v, h) ITEM(label, ITEM_VIEW, 0, 0, 0, NULL, .view = &v, .hint = h)
-#define MENU(name, title, items) const Menu name = { title, items, ARRAY_COUNT(items), 0 }
+#define MENU(name, title, items) const Menu name = { title, items, ARRAY_COUNT(items), 0, 0 }
 
 static void Request(int action) {
     ActionRequest(action);
@@ -79,8 +82,12 @@ static const MenuItem layoutItems[] = {
     PLACE("Ball", HUD_BALL),     PLACE("Action", HUD_ACTION),       PLACE("Frame counter", HUD_FRAMES),
     PLACE("Lag counter", HUD_LAG),     PLACE("Random seed", HUD_RNG),     PLACE("Last level time", HUD_LAST),
     PLACE("Full-game timer", HUD_GAME), PLACE("Watch list", HUD_WATCH),
+    /* These two are not saved, like the controller display and the trainers' switches. */
+    NUMBER("Controller display x", &run.padX, 0, 160), NUMBER("Controller display y", &run.padY, 0, 120),
+    NUMBER("Trainer log x", &run.logX, 0, 160), NUMBER("Trainer log y", &run.logY, 0, 120),
 };
-static MENU(layoutMenu, "HUD layout", layoutItems);
+/* Compact: the items stay in sight behind the panel while they move. */
+static const Menu layoutMenu = { "HUD layout", layoutItems, ARRAY_COUNT(layoutItems), 0, 1 };
 
 static const char *const splitNames[] = { "each level", "each crystal" };
 
@@ -117,7 +124,7 @@ static void SplitText(char *buf, int size, int arg) {
 static const MenuItem splitItems[] = {
     ITEM("", ITEM_INFO, 0, 0, 0, NULL, .info = SplitText, .value = &gameTimer.splitCount),
 };
-static const Menu splitMenu = { "Splits", splitItems, 0, 1 };
+static const Menu splitMenu = { "Splits", splitItems, 0, 1, 0 };
 
 static const MenuItem gameTimerItems[] = {
     TOGGLE("Show the full-game timer", &settings.hud[HUD_GAME].on),
@@ -145,6 +152,7 @@ static const MenuItem hudItems[] = {
     TOGGLE("Input display", &settings.hud[HUD_INPUT].on),
     TOGGLE("Input history", &settings.inputHistory),
     WARN_CHOICE("Controller display", &run.padDisplay, padDisplayNames, 3, "From the next level start or reset"),
+    CHOICE("Controller display size", &run.padSize, padSizeNames, PAD_SIZES),
     TOGGLE("Glove position and speed", &settings.hud[HUD_GLOVE].on),
     TOGGLE("Ball position and speed", &settings.hud[HUD_BALL].on),
     TOGGLE("Glove action", &settings.hud[HUD_ACTION].on),
@@ -160,6 +168,16 @@ static MENU(hudMenu, "HUD", hudItems);
 #define WARP_LEVELS 42
 static const char *levelNames[WARP_LEVELS];
 static const char *const difficultyNames[] = { "Easy", "Medium", "Hard" };
+
+/* The chosen checkpoint stays within the level's checkpoints. */
+static void CheckpointChanged(int arg) {
+    int count = CheckpointCount();
+
+    (void)arg;
+    if (ActionsInLevel() && count > 0 && run.checkpoint > count - 1) {
+        run.checkpoint = count - 1;
+    }
+}
 
 static void CheckpointText(char *buf, int size, int arg) {
     (void)arg;
@@ -193,12 +211,13 @@ static const char *const warpPowerNames[NUM_PICKUPS + 2] = {
 };
 
 static const MenuItem warpItems[] = {
-    CHOICE("Level", &run.warpLevel, levelNames, WARP_LEVELS),
+    /* Z with left or right jumps to the next or the previous world. */
+    ITEM("Level", ITEM_CHOICE, 0, WARP_LEVELS - 1, 1, NULL, .value = &run.warpLevel, .names = levelNames),
     CHOICE("Difficulty (from the title)", &run.warpDifficulty, difficultyNames, 3),
     QUICK("Go", ACTION_WARP),
     QUICK("Reset level", ACTION_RESET),
     QUICK("Last checkpoint", ACTION_CHECKPOINT),
-    NUMBER("Checkpoint", &run.checkpoint, 0, 40),
+    NUMBER_FN("Checkpoint", &run.checkpoint, 0, 40, CheckpointChanged),
     INFO("Checkpoints", CheckpointText),
     QUICK("Go to checkpoint", ACTION_GOTO_CHECKPOINT),
     WARN_ACTION("Early title menu", EarlyTitleAction, EARLYTITLE_OPEN, "Early title. May crash. Edits your save"),
@@ -265,7 +284,7 @@ static const MenuItem cardItems[] = {
     INFO("Card file", CardFileText),
     WARN_ACTION("Save slot to card", CardAction, CARD_REQ_SAVE, "Writes the card file: stops the game for seconds"),
     WARN_ACTION("Load from card", CardAction, CARD_REQ_LOAD, "Stops the game for seconds"),
-    WARN_ACTION("Delete on card", CardAction, CARD_REQ_DELETE, "Deletes the card file"),
+    HOLD_ACTION("Delete on card", CardAction, CARD_REQ_DELETE, "Deletes the card file"),
     WARN_ACTION("Save recording to card", CardAction, CARD_REQ_SAVE_REC, "Writes RECORD.GRC: stops the game for seconds"),
     WARN_ACTION("Load recording from card", CardAction, CARD_REQ_LOAD_REC, "Loads its state: stops the game for seconds"),
 };
@@ -280,8 +299,8 @@ static const MenuItem stateItems[] = {
     INFO("Recording", RecordingText),
     INFO("This slot", StateSlotText),
     INFO("Pool", StatePoolText),
-    ACTION("Clear this slot", ClearSlotAction, 0),
-    WARN_ACTION("Clear all slots", ClearSlotAction, 1, "Forgets every saved state"),
+    ITEM("Clear this slot", ITEM_ACTION, MENU_HOLD, 0, 0, ClearSlotAction),
+    HOLD_ACTION("Clear all slots", ClearSlotAction, 1, "Forgets every saved state"),
     INFO("Level start state", StateAutoText),
     SUBMENU("SD card", cardMenu),
 };
@@ -312,17 +331,19 @@ static const char *const cheatNames[] = {
     "Open portals",  "Open levels",
 };
 
+/* A cheat chosen while the game waits for the menu shows the value it will have once the menu closes. */
 static void CheatText(char *buf, int size, int arg) {
     /* Cheats 11, 12 and 22 act once and have no bit. */
     if (arg == 11 || arg == 12 || arg == 22) {
         buf[0] = '\0';
     } else {
-        OnOff(buf, size, cheatActivated & (1 << arg));
+        OnOff(buf, size, (cheatActivated ^ run.cheatToggles) & (1 << arg));
     }
 }
 
+/* Each cheat chosen in one visit of the menu is toggled once the game runs again (ActionsGameFrame). */
 static void ToggleCheat(int arg) {
-    run.cheat = arg + 1;
+    run.cheatToggles ^= 1u << arg;
 }
 
 #define CHEAT(n) STATE(cheatNames[n], ToggleCheat, CheatText, n)
@@ -509,7 +530,7 @@ static const char *const trainerHoldNames[] = { "", "off", "1 s", "2 s", "3 s" }
 static const MenuItem settingsItems[] = {
     ACTION("Save settings", SettingsAction, 0),
     ACTION("Load settings", SettingsAction, 1),
-    ACTION("Default settings", SettingsAction, 2),
+    ITEM("Default settings", ITEM_ACTION, MENU_HOLD, 0, 2, SettingsAction),
     INFO("Status", SettingsStatusText),
     TOGGLE("Pause game in this menu", &settings.menuPauses),
     CHOICE_FN("Menu opacity", &settings.menuOpacity, 1, MENU_OPACITY_STEPS, opacityNames, NULL),
@@ -518,9 +539,9 @@ static const MenuItem settingsItems[] = {
     CHOICE_FN("Trainer log length", &settings.trainerLog, 1, TRAINER_LOG_STEPS, trainerLogNames, NULL),
     CHOICE_FN("Trainer result hold", &settings.trainerHold, 1, TRAINER_HOLD_STEPS, trainerHoldNames, NULL),
     CHOICE("Hi Scores screen shows", &bestTimesState.showGame, hiscoreNames, 2),
-    WARN_ACTION("Clear practice best times", BestTimesAction, 0, "Forgets every practice best time"),
+    HOLD_ACTION("Clear practice best times", BestTimesAction, 0, "Forgets every practice best time"),
     WARN_ACTION("Save best times to card", CardAction, CARD_REQ_SAVE_BESTS, "Writes BESTS.GRB on the SD card"),
-    WARN_ACTION("Load best times from card", CardAction, CARD_REQ_LOAD_BESTS, "Replaces the practice best times"),
+    HOLD_ACTION("Load best times from card", CardAction, CARD_REQ_LOAD_BESTS, "Replaces the practice best times"),
     WARN_VIEW("Save file", saveEditView, "Edits your real save!"),
     VIEW("Controller Pak", cpakView),
 };
@@ -546,7 +567,8 @@ static const char *const collWireNames[COLL_WIRES] = { "off", "over faces", "alo
 
 static void CollStatsText(char *buf, int size, int arg) {
     (void)arg;
-    if (!run.collView) {
+    if (!run.collView || !ActionsInLevel()) {
+        /* Outside a level there is no collision to build. */
         buf[0] = '\0';
     } else if (collStats.state != COLL_CACHE_READY) {
         Format(buf, size, "building");
@@ -599,12 +621,13 @@ static void FlipText(char *buf, int size, int arg) {
 }
 
 static const MenuItem corruptItems[] = {
-    WARN_VIEW("Pokes", pokeView, "Modified game! May crash. Memory view: Z marks"),
+    /* The pokes page, with the count of pokes set and running as its value. */
+    ITEM("Pokes", ITEM_VIEW, 0, 0, 0, NULL, .view = &pokeView, .info = PokesText,
+         .hint = "Modified game! May crash. Memory view: Z marks"),
     WARN_ACTION("Apply once pokes", CorruptAction, CORRUPT_APPLY, "Modified game! May crash"),
     CHOICE("Flip region", &corrupt.region, regionNames, REGION_COUNT),
     CHOICE("Range size", &corrupt.rangeSize, rangeNames, 4),
     WARN_ACTION("Flip one random bit", CorruptAction, CORRUPT_FLIP, "Modified game! May crash"),
-    INFO("Pokes", PokesText),
     INFO("Last flip", FlipText),
     ACTION("Clear all pokes", PokesClearAction, 0),
 };

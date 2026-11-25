@@ -1252,6 +1252,10 @@ void CPakService(void) {
 #define VIEW_Y 28
 #define VIEW_W 288
 #define ROW_H 10
+/* The inputs (one a game frame) after a question in which A does nothing: a double tap of A does not answer it. */
+#define CONFIRM_GUARD 10
+
+static u8 confirmAge; /* inputs since the question appeared */
 
 enum { ROW_PORT, ROW_CHECK, ROW_SAVE, ROW_LOAD, ROW_RECORDING, ROW_DELETE, ROW_REPAIR, ROW_FORMAT, ROW_COUNT };
 
@@ -1278,7 +1282,24 @@ static void Ask(int op) {
     cpak.working = 1;
 }
 
+/* A row that cannot act now is grey. A on it checks the pak, and the check's result says why. */
+static int RowOff(int r) {
+    if (cpak.canFormat && (r == ROW_SAVE || r == ROW_LOAD || r == ROW_DELETE)) {
+        /* The pak is not formatted: only Format can work. */
+        return 1;
+    }
+    return (r == ROW_DELETE && !cpak.hasNote) || (r == ROW_FORMAT && !cpak.canFormat) ||
+           (r == ROW_REPAIR && !cpak.canRepair) || (r == ROW_LOAD && cpak.checked && !cpak.hasNote);
+}
+
+static void Confirm(int op) {
+    cpak.confirm = (u8)op;
+    confirmAge = 0;
+}
+
 static void ViewOpen(void) {
+    /* A message of another screen does not belong here. */
+    HudMessage("");
     cpak.confirm = 0;
     cpak.cursor = ROW_CHECK;
     if (!cpak.working) {
@@ -1289,6 +1310,10 @@ static void ViewOpen(void) {
 static int ViewInput(u16 pressed, u16 held) {
     (void)held;
     if (cpak.confirm) {
+        if (confirmAge < CONFIRM_GUARD) {
+            confirmAge++;
+            pressed &= ~CONT_A;
+        }
         if (pressed & CONT_A) {
             int op = cpak.confirm;
 
@@ -1338,7 +1363,7 @@ static int ViewInput(u16 pressed, u16 held) {
                 Ask(CPAK_REQ_CHECK);
                 break;
             case ROW_SAVE:
-                cpak.confirm = CPAK_REQ_SAVE;
+                Confirm(CPAK_REQ_SAVE);
                 break;
             case ROW_LOAD:
                 Ask(CPAK_REQ_LOAD);
@@ -1348,17 +1373,23 @@ static int ViewInput(u16 pressed, u16 held) {
                 break;
             case ROW_DELETE:
                 if (cpak.hasNote) {
-                    cpak.confirm = CPAK_REQ_DELETE;
+                    Confirm(CPAK_REQ_DELETE);
+                } else {
+                    Ask(CPAK_REQ_CHECK);
                 }
                 break;
             case ROW_REPAIR:
                 if (cpak.canRepair) {
-                    cpak.confirm = CPAK_REQ_REPAIR;
+                    Confirm(CPAK_REQ_REPAIR);
+                } else {
+                    Ask(CPAK_REQ_CHECK);
                 }
                 break;
             case ROW_FORMAT:
                 if (cpak.canFormat) {
-                    cpak.confirm = CPAK_REQ_FORMAT;
+                    Confirm(CPAK_REQ_FORMAT);
+                } else {
+                    Ask(CPAK_REQ_CHECK);
                 }
                 break;
         }
@@ -1377,9 +1408,7 @@ static void ViewDraw(Gfx **dl) {
     for (int r = 0; r < ROW_COUNT; r++) {
         int row = y + r * ROW_H + 2;
         int selected = r == cpak.cursor;
-        int off = (r == ROW_DELETE && !cpak.hasNote) || (r == ROW_FORMAT && !cpak.canFormat) ||
-                  (r == ROW_REPAIR && !cpak.canRepair) ||
-                  (r == ROW_LOAD && cpak.checked && !cpak.hasNote);
+        int off = RowOff(r);
 
         buf[0] = '\0';
         switch (r) {

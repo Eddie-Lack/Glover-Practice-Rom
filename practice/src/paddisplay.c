@@ -8,8 +8,9 @@
 #include "input.h"
 #include "paddisplay.h"
 
-/* The display sits this far above its place in the demos, clear of the hearts. */
-#define SHIFT_Y (-40)
+/* The sizes of the menu's "Controller display size", in 1/1024 of the game's own size. */
+const char *const padSizeNames[PAD_SIZES] = { "50%", "75%", "100%", "125%", "150%", "200%" };
+static const s16 padScales[PAD_SIZES] = { 512, 768, 1024, 1280, 1536, 2048 };
 
 /* The overlays' textures, places and buttons, as LoadLevel and PrintStats have them. */
 static const struct {
@@ -55,16 +56,18 @@ void PadDisplayLevelStart(void) {
     }
     LoadTextureBank(18);
     for (int i = 0; i < PAD_OVERLAYS; i++) {
-        FindAndSetupOverlay(&controllerOL[i], (char *)parts[i].name, parts[i].x, parts[i].y + SHIFT_Y, 0, 1);
+        FindAndSetupOverlay(&controllerOL[i], (char *)parts[i].name, parts[i].x, parts[i].y, 0, 1);
     }
 }
 
-static f32 Follow(f32 at, f32 centre, s16 stick) {
-    f32 d = at - centre;
-    if (stick == 0 && d > -2 && d < 2) {
-        return centre;
+/* The stick's picture, as the game moves it in the demos, in pixels from its centre at the game's own size. */
+static f32 stickAt[2];
+
+static f32 Follow(f32 at, s16 stick) {
+    if (stick == 0 && at > -2 && at < 2) {
+        return 0;
     }
-    return at + (centre + stick / rcfac - at) / 2.0f;
+    return at + (stick / rcfac - at) / 2.0f;
 }
 
 /* PrintStats draws the HUD; overlay.c calls this in its place. */
@@ -92,10 +95,27 @@ void PracticePrintStats(void) {
         sx = pad2.stickX;
         sy = pad2.stickY;
     }
-    ol[STICK].x = Follow(ol[STICK].x, ol[0].x + rcxoff, sx);
-    ol[STICK].y = Follow(ol[STICK].y, ol[0].y + rcyoff, -sy);
+    /* Each part keeps its place from the demos around the pad's left half, scaled by the size. The game's own
+     * pictures are moved and scaled here on every drawn frame: the setup at the level start gives the demos' place. */
+    s32 scale = padScales[run.padSize < PAD_SIZES ? run.padSize : PAD_SIZE_DEFAULT];
+    f32 k = scale / 1024.0f;
+    f32 ax = run.padX * 2.0f;
+    f32 ay = run.padY * 2.0f;
+
+    stickAt[0] = Follow(stickAt[0], sx);
+    stickAt[1] = Follow(stickAt[1], -sy);
     for (int i = 0; i < PAD_OVERLAYS; i++) {
         int b = parts[i].button;
+        f32 dx = parts[i].x - parts[0].x;
+        f32 dy = parts[i].y - parts[0].y;
+
+        if (i == STICK) {
+            dx = rcxoff + stickAt[0];
+            dy = rcyoff + stickAt[1];
+        }
+        ol[i].x = ax + dx * k;
+        ol[i].y = ay + dy * k;
+        ol[i].scaleX = ol[i].scaleY = scale;
         if (b >= 0) {
             ol[i].r = ol[i].g = ol[i].b = button[b] || rcdelay >= since[b] ? 255 : 100;
         }

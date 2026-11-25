@@ -5,11 +5,11 @@
 
 /* The frame log: for each game frame in which the glove moves (MoveHand), what the game read from controller 1
  * and the glove's state at the start of that frame. The next entry shows the result. It records while
- * Run.frameLog is on. */
-#define FRAME_LOG_SIZE 64
+ * Run.frameLog is on. It keeps the last FRAME_LOG_SIZE entries: about 13 seconds at 20 game frames a second. */
+#define FRAME_LOG_SIZE 256
 
 typedef struct FrameLogEntry {
-    u32 frame;      /* game frames of the glove since the log started */
+    u32 frame;      /* frameCount: the level's game frame, as the HUD's frame counter and the input history */
     u16 held;       /* pad[0].button as CONT_ bits */
     u16 pressed;    /* pad[0].pressed */
     u16 latched;    /* pad[0].latch: held buttons that the game ignores until they are released */

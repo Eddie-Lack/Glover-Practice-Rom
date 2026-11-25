@@ -8,11 +8,18 @@ Press all four C buttons on controller 1 to open and close the practice menu
 
 | Button | In the menu |
 | --- | --- |
-| D-pad up and down | Move to the previous or next item. Hold to repeat |
-| D-pad left and right | Change a value. Hold Z to change in steps of 10 |
+| D-pad up and down | Move to the previous or next item. Hold to repeat: slowly at first, then faster. A held move stops at the first and last item; a new press goes round to the other end |
+| D-pad left and right | Change a value. On a number, hold Z to change in steps of 10. On Warp's "Level", hold Z to jump to the next or previous world |
 | A | Choose the option |
+| A held | Rows that forget something (Clear this slot, Clear all slots, Delete on card, Default settings, Clear practice best times, Load best times from card) need A held for half a second. The row fills up while you hold. Let go early to cancel |
 | B | Go back one menu - In the top menu, close the menu |
 | L | On a binding in the [Bindings](Bindings.md) menu: clear it |
+
+The line at the bottom of the menu shows the buttons that do something on the selected row. A row that shows its own state, like `on`, `off`, `shown` or `hidden`, also changes with left and right
+
+The menu opens where you closed it: the same page, the same row, and the same tool if one was open
+
+A D-pad direction that you hold while the menu opens does nothing until you let go
 
 You can set the menu's opacity and its position on the screen in the Settings menu
 
@@ -22,7 +29,7 @@ Some items show a warning when you select them (for example, "Modified game! May
 
 ## Quick actions
 
-Hotkeys for menu actions that you can activate while playing. Hold the analog stick fully in a direction, then press a D-pad direction. These are the defaults:
+Hotkeys for menu actions that you can activate while playing. Hold the analog stick fully in a direction, then press a D-pad direction. The stick must point straight up, down, left or right: a diagonal does nothing. After a quick action, the game doesn't see the stick until you let it go. These are the defaults:
 
 | Stick | D-pad up | D-pad right | D-pad down | D-pad left |
 | --- | --- | --- | --- | --- |

@@ -7,15 +7,20 @@
 #include "input.h"
 #include "settings.h"
 
-/* A stick counts as held in a direction past this value (the game's stick reaches about 80). */
+/* A stick counts as held in a direction past this value (the game's stick reaches about 80), with the other axis
+ * under STICK_SIDE: a diagonal (the notches of an N64 stick are at about 70, 70) is no direction. */
 #define STICK_FULL 60
+#define STICK_SIDE 40
 #define CAPTURE_FRAMES 100
+/* Frame step repeats while its binding is held: after this many controller reads, then on every second read. */
+#define STEP_REPEAT_DELAY 8
 
 static s8 capturing = -1;
 static u8 captureFrames;
 static u8 captureStarted;
 static u16 captureButtons;
 static u8 captureWhere;
+static u8 captureArmed; /* every button was let go since the capture began */
 
 _Static_assert(ACTION_COUNT <= BIND_SLOTS, "every action needs a place in the settings");
 
@@ -52,21 +57,30 @@ void BindingsDefault(void) {
     Bind(STICK_LEFT, CONT_RIGHT, ACTION_PLAY);
 }
 
-static int StickDir(void) {
-    if (input.stickY >= STICK_FULL) {
-        return STICK_UP;
+int BindingStickDir(int x, int y) {
+    int ax = x < 0 ? -x : x;
+    int ay = y < 0 ? -y : y;
+
+    if (ay >= STICK_FULL && ax < STICK_SIDE) {
+        return y > 0 ? STICK_UP : STICK_DOWN;
     }
-    if (input.stickY <= -STICK_FULL) {
-        return STICK_DOWN;
-    }
-    if (input.stickX <= -STICK_FULL) {
-        return STICK_LEFT;
-    }
-    if (input.stickX >= STICK_FULL) {
-        return STICK_RIGHT;
+    if (ax >= STICK_FULL && ay < STICK_SIDE) {
+        return x < 0 ? STICK_LEFT : STICK_RIGHT;
     }
     return STICK_NONE;
 }
+
+static int StickDir(void) {
+    return BindingStickDir(input.stickX, input.stickY);
+}
+
+int BindingStick(int action) {
+    u8 where = Where(action);
+
+    return (where & BIND_PORT2) ? STICK_NONE : where >> BIND_STICK_SHIFT;
+}
+
+static u8 stepHeld; /* controller reads that the frame step binding has been held */
 
 void BindingsCheck(void) {
     int stick = StickDir();
@@ -82,15 +96,30 @@ void BindingsCheck(void) {
         if (port2 && FreeCamOn() && (mask & FREECAM_BUTTONS)) {
             continue;
         }
-        if (mask == 0 || (held & mask) != mask || !(pressed & mask)) {
+        if (mask == 0 || (held & mask) != mask) {
+            if (a == ACTION_FRAME_STEP) {
+                stepHeld = 0;
+            }
             continue;
         }
         if (!port2 && (where >> BIND_STICK_SHIFT) != STICK_NONE && (where >> BIND_STICK_SHIFT) != stick) {
             continue;
         }
+        if (!(pressed & mask)) {
+            /* A held frame step repeats. */
+            if (a != ACTION_FRAME_STEP || stepHeld == 255 || ++stepHeld < STEP_REPEAT_DELAY ||
+                (stepHeld - STEP_REPEAT_DELAY) % 2 != 0) {
+                continue;
+            }
+        } else if (a == ACTION_FRAME_STEP) {
+            stepHeld = 0;
+        }
         ActionRequest(a);
         if (!port2) {
             input.hidden |= mask;
+            if ((where >> BIND_STICK_SHIFT) != STICK_NONE) {
+                input.stickHidden = 1;
+            }
         }
     }
 }
@@ -106,8 +135,11 @@ int BindingsCapturing(void) {
         return 0;
     }
     if (!captureStarted) {
-        /* Waits for a press after everything is let go. */
-        if ((input.pressed | input.pressed2) && captureFrames > 2) {
+        /* Waits for a press after everything is let go: the A that chose the row is not part of it. */
+        if (held == 0) {
+            captureArmed = 1;
+        }
+        if ((input.pressed | input.pressed2) && captureFrames > 2 && captureArmed) {
             captureStarted = 1;
             captureButtons = 0;
             captureWhere = input.held ? StickDir() << BIND_STICK_SHIFT : BIND_PORT2;
@@ -116,7 +148,18 @@ int BindingsCapturing(void) {
     if (captureStarted) {
         captureButtons |= (captureWhere & BIND_PORT2) ? input.held2 : input.held;
         if (held == 0) {
-            SetBinding(capturing, captureButtons, captureWhere);
+            /* B alone on controller 1 is "back", as the help line says, and the menu's own chord never fires: both
+             * leave the binding as it was. */
+            if (!(captureButtons == CONT_B && !(captureWhere & BIND_PORT2) && captureWhere == 0) &&
+                !((captureButtons & CONT_C_ALL) == CONT_C_ALL && !(captureWhere & BIND_PORT2))) {
+                /* One combination starts one action: another action that had it loses it. */
+                for (int a = 0; a < ACTION_COUNT; a++) {
+                    if (a != capturing && settings.bindButtons[a] == captureButtons && Where(a) == captureWhere) {
+                        SetBinding(a, 0, 0);
+                    }
+                }
+                SetBinding(capturing, captureButtons, captureWhere);
+            }
             capturing = -1;
             InputHideHeld();
         }
@@ -129,6 +172,7 @@ void BindingCapture(int action) {
     capturing = action;
     captureFrames = 0;
     captureStarted = 0;
+    captureArmed = 0;
 }
 
 void BindingClear(int action) {

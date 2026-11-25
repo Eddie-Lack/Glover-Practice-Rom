@@ -197,6 +197,7 @@ static void CopyPart(TrainerView *d, const TrainerView *src, int bit) {
 
 /* The views of the trainers whose attempts ended are kept, and a held view takes the place of the live one. */
 static void ApplyHold(TrainerView *v) {
+    v->held = 0;
     for (int i = 0; i < 7; i++) {
         int bit = 1 << i;
 
@@ -208,6 +209,7 @@ static void ApplyHold(TrainerView *v) {
         }
         if ((v->on & bit) && holdUntil[i] - snap.frame2 > 0) {
             CopyPart(v, &held, bit);
+            v->held |= (u8)bit;
             if (bit == TRAINER_MBZL && v->mbzCount > 0) {
                 v->mbz[0].doneFrame = (u32)v->frame2; /* the newest result stays in full */
             } else if (bit == TRAINER_BOSS) {
@@ -588,12 +590,13 @@ static void LMashStep(const Snap *s, const TPad *p) {
                 lm.verdict = LMV_EARLY;
             } else if (gap == 2) {
                 lm.verdict = LMV_ON_TIME;
+            } else if (gap >= LM_REST_GAP) {
+                /* A long hold or stand is a rest, not a late press: the single L that ends an MBZ-L, for one. */
+                lm.verdict = LMV_REST;
+                lm.peak = lm.move;
             } else if (kind == LM_STAND) {
                 lm.verdict = LMV_LATE;
                 lm.over = (u8)(gap - 2);
-            } else if (gap >= LM_REST_GAP) {
-                lm.verdict = LMV_REST;
-                lm.peak = lm.move;
             } else {
                 lm.verdict = LMV_SLOW;
                 lm.over = (u8)(gap - 2);
@@ -654,6 +657,7 @@ static void LMashFillView(LMashView *v) {
     v->over = lm.over;
     v->warn = lm.warn;
     v->cells = lm.cells;
+    v->active = lm.runPresses >= 2;
     for (int i = 0; i < LM_STRIP; i++) {
         v->strip[i] = lm.strip[i];
     }
@@ -967,6 +971,11 @@ static void LineDrop(void) {
 
 #define LK_WALK_MIN 20 /* frames of a walk that make a log line */
 
+/* The colour of a drift off the line, in units: under 2 good, under 6 close. */
+static u32 LineOffColor(f32 off) {
+    return off < 2.0f ? GREEN : off < 6.0f ? YELLOW : RED;
+}
+
 /* After LineStep: a walk that was latched and is not now has ended. */
 static void LineWatch(void) {
     if (lk.live) {
@@ -976,8 +985,9 @@ static void LineWatch(void) {
     if (lk.walkFrames >= LK_WALK_MIN && lk.why != LKW_JUMPED) {
         f32 off = lk.cross < 0.0f ? -lk.cross : lk.cross;
 
-        TrainerResult(TRAINER_LINE, off < 2.0f ? GREEN : off < 6.0f ? YELLOW : RED, "%dF DRIFT %.1f %s", lk.walkFrames,
-                      (double)off, lk.cross < 0.0f ? "LEFT" : "RIGHT");
+        /* The panel's words: "OFF 11.1 R". */
+        TrainerResult(TRAINER_LINE, LineOffColor(off), "%dF OFF %.1f %s", lk.walkFrames, (double)off,
+                      lk.cross < 0.0f ? "L" : "R");
     }
     lk.walkFrames = 0;
 }
@@ -1134,6 +1144,9 @@ static void LineFillView(LineView *v) {
 #define CLIP_SHOW 90            /* game frames that the cancel's numbers stay */
 #define CLIP_THROUGH 0.5f       /* the glove's centre this far behind the plane is a clip */
 
+/* The words of a ClipVerdict, on the panel and in the log. */
+static const char *const clipVerdictText[] = { "IN", "TOO FAR", "TOO CLOSE", "TOO SLOW" };
+
 static struct {
     u8 hasResult;
     u8 verdict;
@@ -1185,7 +1198,6 @@ static void ClipStep(const Snap *s, const TPad *p) {
             }
         }
         if (cl.age == CLIP_WATCH) {
-            static const char *const names[] = { "IN", "FAR", "NEAR", "SLOW" };
             char rText[8];
 
             if (cl.rAt < 0) {
@@ -1193,7 +1205,7 @@ static void ClipStep(const Snap *s, const TPad *p) {
             } else {
                 Format(rText, sizeof(rText), "R+%d", cl.rAt);
             }
-            TrainerResult(TRAINER_CLIP, cl.outcome == CO_CLIPPED ? GREEN : RED, "%s %.1f %s %s", names[cl.verdict & 3],
+            TrainerResult(TRAINER_CLIP, cl.outcome == CO_CLIPPED ? GREEN : RED, "%s %.1f %s %s", clipVerdictText[cl.verdict & 3],
                           (double)cl.dist, rText, cl.outcome == CO_CLIPPED ? "CLIPPED" : "NO CLIP");
         }
         if (cl.age > CLIP_SHOW) {
@@ -1504,10 +1516,11 @@ void TrainersProcessInput(void) {
                 u8 c = moonOlder.cell[0];
 
                 held.moon = moonOlder;
+                /* The panel's colours: green clips, red lands. */
                 if (c == MC_LAND && moonOlder.hasTarget) {
-                    TrainerResult(TRAINER_MOON, GREEN, "LAND %.1f FROM A HOLE", (double)moonOlder.dist);
+                    TrainerResult(TRAINER_MOON, RED, "LAND %.1f FROM A HOLE", (double)moonOlder.dist);
                 } else {
-                    TrainerResult(TRAINER_MOON, c == MC_CLIP ? RED : c == MC_LAND ? GREEN : DIM, "%s", names[c < 5 ? c : 0]);
+                    TrainerResult(TRAINER_MOON, c == MC_CLIP ? GREEN : c == MC_LAND ? RED : DIM, "%s", names[c < 5 ? c : 0]);
                 }
             }
         } else {
@@ -1529,19 +1542,37 @@ void TrainersText(char *buf, int size, int bit) {
 
 /* ---------------------------------------------------------------------------------------------------------
  * Drawing
+ *
+ * The screen is 320 x 240 pixels. The game's HUD has the top 40 pixels (its counters, the boss's health) and the
+ * bottom 48 (the hearts, the lives, the practice timer). The panels stack in two columns between y 44 and y 192, at
+ * least 16 pixels from the sides: the left column starts at x 16, the right one ends at x 304. A panel goes into its
+ * own column at its own height, or lower when another panel is there. When it does not fit, it goes into the other
+ * column, and when it fits in neither it is left out.
+ *
+ * A panel shows only while its trick goes on or its result is held. A trainer that is on and idle draws nothing.
+ *
+ * Each panel's Draw function takes the panel's top left corner and returns the panel's height in pixels (0: nothing
+ * to show). With DL NULL it draws nothing and only returns the height.
  */
 
-
-#define LM_X 8
-#define LM_Y 116
-#define MB_X 156
-#define MB_Y 92
+#define COL_TOP 44
+#define COL_BOTTOM 192
+#define COL_LEFT 16
+#define COL_RIGHT 304
+#define COL_GAP 4
+/* The part of the screen that a TV shows, for a log that the player placed: as the HUD's (hud.c). */
+#define SCREEN_SAFE_TOP 16
+#define SCREEN_SAFE_BOTTOM 224
 #define LINE 10
+#define BOX 0x101418E0 /* the dark box behind coloured cells, which some skies hide */
 
 static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     char buf[48];
     va_list args;
 
+    if (dl == NULL) {
+        return;
+    }
     va_start(args, fmt);
     FormatV(buf, sizeof(buf), fmt, args);
     va_end(args);
@@ -1555,42 +1586,76 @@ static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     TextPrint(dl, x, y, 1, color, buf);
 }
 
-static void DrawLMash(Gfx **dl, const LMashView *v) {
-    int y = LM_Y;
+/* A line that ends at X. */
+static void LineRight(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
+    char buf[48];
+    va_list args;
+    int n;
+
+    if (dl == NULL) {
+        return;
+    }
+    va_start(args, fmt);
+    n = FormatV(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    TextPrint(dl, x - n * TEXT_ADVANCE, y, 1, color, buf);
+}
+
+static void Rect(Gfx **dl, int x0, int y0, int x1, int y1, u32 rgba) {
+    if (dl != NULL) {
+        TextRect(dl, x0, y0, x1, y1, rgba);
+    }
+}
+
+static void Print(Gfx **dl, int x, int y, int scale, u32 rgba, const char *str) {
+    if (dl != NULL) {
+        TextPrint(dl, x, y, scale, rgba, str);
+    }
+}
+
+/* L mash: the last press, the last 24 game frames, the speed, and up to LM_WARN_LINES warnings. */
+#define LM_W (LM_STRIP * TEXT_ADVANCE)
+#define LM_WARN_LINES 3
+
+static int DrawLMash(Gfx **dl, int x, int y0, const LMashView *v, int held) {
     static const char *const warnNames[] = { "PAD TOO WEAK", "CAMERA TURNING", "PAD RELEASED", "IN AIR",
                                              "OTHER BALL", "NORMAL CONTROLS" };
+    int y = y0;
 
+    if (!v->active && !held) {
+        return 0;
+    }
     if (v->kind == LM_NONE) {
-        Line(dl, LM_X, y, DIM, "L MASH");
+        Line(dl, x, y, DIM, "L MASH");
     } else {
         const char *name = v->kind == LM_STAND ? "STAND" : "HOLD";
 
         switch (v->verdict) {
             case LMV_ON_TIME:
-                Line(dl, LM_X, y, GREEN, "%s +%d ON TIME", name, v->gap);
+                Line(dl, x, y, GREEN, "%s +%d ON TIME", name, v->gap);
                 break;
             case LMV_LATE:
-                Line(dl, LM_X, y, RED, "%s +%d LATE %d", name, v->gap, v->over);
+                Line(dl, x, y, RED, "%s +%d LATE %d", name, v->gap, v->over);
                 break;
             case LMV_SLOW:
-                Line(dl, LM_X, y, v->over <= 3 ? YELLOW : RED, "%s +%d SLOW %d", name, v->gap, v->over);
+                Line(dl, x, y, v->over <= 3 ? YELLOW : RED, "%s +%d SLOW %d", name, v->gap, v->over);
                 break;
             case LMV_REST:
-                Line(dl, LM_X, y, DIM, "%s +%d REST", name, v->gap);
+                Line(dl, x, y, DIM, "%s +%d REST", name, v->gap);
                 break;
             case LMV_EARLY:
-                Line(dl, LM_X, y, RED, "%s +%d EARLY", name, v->gap);
+                Line(dl, x, y, RED, "%s +%d EARLY", name, v->gap);
                 break;
             default:
-                Line(dl, LM_X, y, WHITE, "%s", name);
+                Line(dl, x, y, WHITE, "%s", name);
                 break;
         }
     }
     y += LINE;
     /* The last 24 game frames, the glove holding (J) or standing on the ball (B); a bar under the press frames. */
-    for (int i = 0; i < LM_STRIP; i++) {
+    for (int i = 0; i < LM_STRIP && dl != NULL; i++) {
         u8 c = v->strip[i];
-        int x = LM_X + i * TEXT_ADVANCE;
+        int cx = x + i * TEXT_ADVANCE;
         char text[2] = { '.', 0 };
         u32 color = DIM;
 
@@ -1603,28 +1668,35 @@ static void DrawLMash(Gfx **dl, const LMashView *v) {
         }
         if (c & 0x80) {
             color = WHITE;
-            TextRect(dl, x, y + 9, x + 5, y + 11, WHITE);
+            TextRect(dl, cx, y + 9, cx + 5, y + 11, WHITE);
         }
-        TextPrint(dl, x, y, 1, color, text);
+        TextPrint(dl, cx, y, 1, color, text);
     }
     y += LINE + 3;
-    Line(dl, LM_X, y, WHITE, "MOVE %.1f  PEAK %.1f", (double)v->move, (double)v->peak);
+    Line(dl, x, y, WHITE, "MOVE %.1f  PEAK %.1f", (double)v->move, (double)v->peak);
     y += LINE;
     if (v->target > 0.0f) {
-        Line(dl, LM_X, y, WHITE, "AVG20 %.1f  TARGET %.1f", (double)v->avg20, (double)v->target);
+        /* Green from 90 percent of the target, yellow from 70. */
+        f32 share = v->avg20 / v->target;
+
+        Line(dl, x, y, share >= 0.9f ? GREEN : share >= 0.7f ? YELLOW : WHITE, "AVG20 %.1f  TARGET %.1f",
+             (double)v->avg20, (double)v->target);
     } else {
-        Line(dl, LM_X, y, WHITE, "AVG20 %.1f", (double)v->avg20);
+        Line(dl, x, y, WHITE, "AVG20 %.1f", (double)v->avg20);
     }
     y += LINE;
-    for (int w = 0; w < 6; w++) {
+    /* The warnings only while presses are made: a held result has none. */
+    for (int w = 0, shown = 0; w < 6 && v->active && shown < LM_WARN_LINES; w++) {
         if (v->warn & (1 << w)) {
-            Line(dl, LM_X, y, RED, "%s", warnNames[w]);
+            Line(dl, x, y, RED, "%s", warnNames[w]);
             y += LINE;
+            shown++;
         }
     }
+    return y - y0;
 }
 
-/* The panel starts at x 156 and holds 27 characters. BRIEF gives the shorter texts that a list row has room for. */
+/* The panel holds 25 characters. BRIEF gives the shorter texts that a log line has room for. */
 static const char *MbzVerdictText(const MbzAttempt *a, char *buf, int size, u32 *color, int brief) {
     *color = RED;
     switch (a->verdict) {
@@ -1662,14 +1734,23 @@ static const char *MbzVerdictText(const MbzAttempt *a, char *buf, int size, u32 
     }
 }
 
+#define MB_W 144 /* 24 characters */
+#define MB_CELL 11
+#define MB_TIMELINE_W (10 + MBZ_TIMELINE * MB_CELL)
+
 /* The frames 0 to MBZ_TIMELINE-1 of an attempt in three rows (the start button, Z, L), with the cells where Z and
- * L belong lit. */
+ * L belong lit, on a dark box. */
 static void DrawTimeline(Gfx **dl, int x, int y, const MbzAttempt *a) {
     static const char names[3] = { 'B', 'Z', 'L' };
     int aim = a->kind == MBZ_B ? MBZ_AIM_B : MBZ_AIM_A;
     int cancel = a->cancelFrame >= 0 ? a->cancelFrame : aim;
     int target = a->lTarget >= 0 ? a->lTarget : cancel + 1;
 
+    if (dl == NULL) {
+        return;
+    }
+    TextRect(dl, x, y - 2, x + MB_W, y + 3 * 8 + 1, BOX);
+    x++;
     for (int row = 0; row < 3; row++) {
         char text[2] = { names[row], 0 };
         u16 mask = row == 0 ? a->bMask : row == 1 ? a->zMask : a->lMask;
@@ -1679,15 +1760,16 @@ static void DrawTimeline(Gfx **dl, int x, int y, const MbzAttempt *a) {
         }
         TextPrint(dl, x, y + row * 8 - 1, 1, LABEL, text);
         for (int c = 0; c < MBZ_TIMELINE; c++) {
-            int cx = x + 10 + c * 12;
-            u32 back = 0x30384080;
+            int cx = x + 10 + c * MB_CELL;
+            u32 back = 0x384050FF;
 
             if ((row == 1 && c == cancel) || (row == 2 && c == target)) {
-                back = 0x40A04090;
+                back = 0x308030FF;
             }
-            TextRect(dl, cx, y + row * 8, cx + 11, y + row * 8 + 7, back);
+            TextRect(dl, cx, y + row * 8, cx + MB_CELL - 1, y + row * 8 + 7, back);
             if (mask & (1 << c)) {
-                TextRect(dl, cx + 2, y + row * 8 + 2, cx + 9, y + row * 8 + 6, row == 0 ? ORANGE : row == 1 ? YELLOW : WHITE);
+                TextRect(dl, cx + 2, y + row * 8 + 2, cx + MB_CELL - 3, y + row * 8 + 6,
+                         row == 0 ? ORANGE : row == 1 ? YELLOW : WHITE);
             }
         }
     }
@@ -1702,11 +1784,12 @@ static void FrameText(char *buf, int size, int frame) {
     }
 }
 
-static void DrawMbzDetail(Gfx **dl, int x, int y, const MbzAttempt *a) {
+static int DrawMbzDetail(Gfx **dl, int x, int y0, const MbzAttempt *a) {
     char buf[40];
     char aim[4], z[4], l[4], best[4];
     u32 color;
     const char *text;
+    int y = y0;
 
     FrameText(aim, sizeof(aim), a->aimFrame);
     FrameText(z, sizeof(z), a->zFrame);
@@ -1721,13 +1804,19 @@ static void DrawMbzDetail(Gfx **dl, int x, int y, const MbzAttempt *a) {
         Line(dl, x, y, WHITE, "AIM %s", aim);
     }
     if (a->aimFrame >= 0) {
-        Line(dl, x + (a->zKind == 2 ? 78 : 42), y, WHITE, "L %s  BEST %s", l, best);
+        Line(dl, x + (a->zKind == 2 ? 72 : 42), y, WHITE, "L %s  BEST %s", l, best);
     }
     y += LINE;
     if (a->aimFrame >= 0) {
         if (a->speedFlags & 1) {
-            Line(dl, x, y, WHITE, "SPEED %.1f>%.1f GAIN %+.1f", (double)a->v0, (double)a->speed,
-                 (double)(a->speed - a->v0));
+            /* The gain is left out when it does not fit (speeds of 10 and more). */
+            int n = Format(buf, sizeof(buf), "SPEED %.1f>%.1f GAIN %+.1f", (double)a->v0, (double)a->speed,
+                           (double)(a->speed - a->v0));
+
+            if (n * TEXT_ADVANCE > MB_W) {
+                Format(buf, sizeof(buf), "SPEED %.1f>%.1f", (double)a->v0, (double)a->speed);
+            }
+            Line(dl, x, y, WHITE, "%s", buf);
         } else {
             Line(dl, x, y, WHITE, "SPEED %.1f", (double)a->v0);
         }
@@ -1735,234 +1824,317 @@ static void DrawMbzDetail(Gfx **dl, int x, int y, const MbzAttempt *a) {
         if (a->best > 0.0f) {
             Line(dl, x, y, DIM, "BEST %.1f", (double)a->best);
             if (a->speedFlags & 2) {
-                Line(dl, x + 60, y, DIM, "+3 %.1f", (double)a->speed3);
+                Line(dl, x + 58, y, DIM, "+3 %.1f", (double)a->speed3);
             }
             if (a->speedFlags & 4) {
-                Line(dl, x + 108, y, DIM, "+6 %.1f", (double)a->speed6);
+                Line(dl, x + 102, y, DIM, "+6 %.1f", (double)a->speed6);
             }
             y += LINE;
         }
     }
     text = MbzVerdictText(a, buf, sizeof(buf), &color, 0);
+    if (TextWidth(text, 1) > MB_W) {
+        text = MbzVerdictText(a, buf, sizeof(buf), &color, 1);
+    }
     if (a->done) {
         Line(dl, x, y, color, "%s", text);
     } else {
         Line(dl, x, y, DIM, "...");
     }
-    y += LINE;
+    y += LINE + 1;
     DrawTimeline(dl, x, y, a);
+    return y + 3 * 8 + 1 - y0;
 }
 
-#define MBZ_SHOW_FRAMES 60 /* game frames the newest result stays in full */
-
-static void DrawMbz(Gfx **dl, const TrainerView *v) {
-    int y = MB_Y;
-    int shown = 0;
+/* The newest attempt: from its aim until its speeds are in, and while its result is held. The older ones are in the
+ * log. */
+static int DrawMbz(Gfx **dl, int x, int y, const TrainerView *v) {
+    const MbzAttempt *a = &v->mbz[0];
+    int shown;
 
     if (v->mbzCount == 0) {
-        Line(dl, MB_X, y, DIM, "MBZ-L");
-        return;
+        return 0;
     }
-    if (!v->mbz[0].done || (u32)v->frame2 - v->mbz[0].doneFrame < MBZ_SHOW_FRAMES) {
-        DrawMbzDetail(dl, MB_X, y, &v->mbz[0]);
-        y += 7 * LINE + 8;
+    if (v->held & TRAINER_MBZL) {
         shown = 1;
+    } else if (!a->done) {
+        shown = a->aimFrame >= 0;
     } else {
-        Line(dl, MB_X, y, DIM, "MBZ-L");
-        y += LINE;
+        shown = (u32)v->frame2 - a->doneFrame <= MBZ_COLLECT;
     }
-    for (int i = shown; i < v->mbzCount; i++) {
-        const MbzAttempt *a = &v->mbz[i];
-        char buf[40];
-        u32 color;
-        const char *text = MbzVerdictText(a, buf, sizeof(buf), &color, 1);
-
-        if (a->speedFlags & 1) {
-            Line(dl, MB_X, y, color, "%c %.1f>%.1f %s", a->kind == MBZ_B ? 'B' : 'A', (double)a->v0, (double)a->speed, text);
-        } else {
-            Line(dl, MB_X, y, color, "%c %s", a->kind == MBZ_B ? 'B' : 'A', text);
-        }
-        y += LINE;
-    }
+    return shown ? DrawMbzDetail(dl, x, y, a) : 0;
 }
 
-#define LK_X 8
-#define LK_Y 48
-#define LK_BAR_W 120
+/* Line keeper: the advice in large letters (or the name), the bar with the heading error, the C presses, the share of
+ * C and the drift. 18 characters wide. */
+#define LK_W 112   /* with the box, 2 pixels each side of the bar and the strip */
+#define LK_BAR_W 72
 #define LK_RANGE 0.349f /* the bar's half width in radians (20 degrees) */
+#define LK_CELLS 36 /* the newest game frames of the strip that are drawn */
 
-static void DrawLine(Gfx **dl, const LineView *v) {
-    static const char *const whyText[] = { "", "CAMERA MOVES", "TOO SLOW", "NO DIAGONAL", "LATCHING", "GLOVE JUMPED" };
-    int x = LK_X, y = LK_Y;
+static int DrawLine(Gfx **dl, int x, int y0, const LineView *v, int held) {
+    f32 off = v->cross < 0.0f ? -v->cross : v->cross;
+    int y = y0;
 
     if (!v->live) {
-        Line(dl, x, y, DIM, "LINE KEEPER %s", v->why < 6 ? whyText[v->why] : "");
-        return;
+        if (!held) {
+            return 0;
+        }
+        /* The held result of a walk: its drift off the line, as the log gives it. */
+        Line(dl, x, y, LABEL, "LINE KEEPER");
+        Line(dl, x, y + LINE, LineOffColor(off), "OFF %.1f %s", (double)off, v->cross < 0.0f ? "L" : "R");
+        return 2 * LINE;
     }
-    Line(dl, x, y, LABEL, "LINE KEEPER");
     if (v->advice == LK_RIGHT) {
-        TextPrint(dl, x + 72, y - 3, 2, GREEN, "C-RIGHT");
+        Print(dl, x, y, 2, GREEN, "C-RIGHT");
     } else if (v->advice == LK_LEFT) {
-        TextPrint(dl, x + 72, y - 3, 2, YELLOW, "C-LEFT");
+        Print(dl, x, y, 2, YELLOW, "C-LEFT");
+    } else {
+        Line(dl, x, y + 4, LABEL, "LINE KEEPER");
     }
-    y += 14;
-    /* The bar: plus or minus 20 degrees, the dead band shaded, the marker at E. A turn to the right is a negative E. */
-    {
-        int mid = x + LK_BAR_W / 2;
+    y += 19;
+    if (dl != NULL) {
+        /* The bar: plus or minus 20 degrees, the dead band shaded, the marker at E. A turn to the right is a negative
+         * E. Under it, the newest game frames: a tick for each frame with C-left (above) or C-right (below) down. */
+        int bx = x + 2; /* the bar and the strip, inside the box */
+        int mid = bx + LK_BAR_W / 2;
         int band = (int)(LK_BAND / LK_RANGE * (LK_BAR_W / 2));
         f32 e = v->err;
         int m;
 
-        TextRect(dl, x, y, x + LK_BAR_W + 1, y + 7, 0x30384090);
-        TextRect(dl, mid - band, y, mid + band + 1, y + 7, 0x30803090);
+        TextRect(dl, x, y - 4, x + LK_W, y + 23, BOX);
+        TextRect(dl, bx, y, bx + LK_BAR_W + 1, y + 7, 0x384050FF);
+        TextRect(dl, mid - band, y, mid + band + 1, y + 7, 0x307830FF);
         e = e > LK_RANGE ? LK_RANGE : e < -LK_RANGE ? -LK_RANGE : e;
         m = mid - (int)(e / LK_RANGE * (LK_BAR_W / 2));
         TextRect(dl, m - 1, y - 2, m + 2, y + 9, v->advice == LK_NONE ? GREEN : v->advice == LK_RIGHT ? ORANGE : YELLOW);
-        Line(dl, x + LK_BAR_W + 6, y - 1, DIM, "%+.1f", (double)(v->err * 57.29578f));
-    }
-    y += 12;
-    /* The last 40 game frames: a tick for each frame with C-left (above) or C-right (below) down. */
-    for (int i = 0; i < LK_STRIP; i++) {
-        int cx = x + i * 3;
+        for (int i = 0; i < LK_CELLS; i++) {
+            int cx = bx + i * 3;
+            u8 c = v->strip[LK_STRIP - LK_CELLS + i];
 
-        TextRect(dl, cx, y + 4, cx + 2, y + 5, 0x40485090);
-        if (v->strip[i] == 1) {
-            TextRect(dl, cx, y, cx + 2, y + 4, YELLOW);
-        } else if (v->strip[i] == 2) {
-            TextRect(dl, cx, y + 5, cx + 2, y + 9, ORANGE);
+            TextRect(dl, cx, y + 16, cx + 2, y + 17, 0x505868FF);
+            if (c == 1) {
+                TextRect(dl, cx, y + 12, cx + 2, y + 16, YELLOW);
+            } else if (c == 2) {
+                TextRect(dl, cx, y + 17, cx + 2, y + 21, ORANGE);
+            }
         }
     }
-    y += 12;
-    Line(dl, x, y, WHITE, "C SHARE %d/%d  EXP %d", v->share, 20, (int)v->expect * 20 / 100);
+    Line(dl, x + LK_BAR_W + 8, y - 1, DIM, "%+.1f", (double)(v->err * 57.29578f));
+    y += 26;
+    Line(dl, x, y, WHITE, "C SHARE %d  EXP %d", v->share, (int)v->expect * 20 / 100);
     y += LINE;
-    Line(dl, x, y, WHITE, "OFF %.1f %s  TAP %.2f", (double)(v->cross < 0.0f ? -v->cross : v->cross),
-         v->cross < 0.0f ? "L" : "R", (double)v->tap);
+    Line(dl, x, y, LineOffColor(off), "OFF %.1f %s", (double)off, v->cross < 0.0f ? "L" : "R");
+    y += LINE;
+    return y - y0;
 }
 
-/* The wall clip: the numbers of a cancel on this frame, the bar of the window, and the last cancel. */
-#define CL_X 156
-#define CL_Y 150
+/* The wall clip: the numbers of a cancel on this frame and the bar of the window while the glove holds the ball
+ * bearing with a wall ahead, then the last cancel while its outcome is watched and while it is held. */
+#define CL_W 144 /* 24 characters */
 #define CL_BAR_W 120
 
-static void DrawClip(Gfx **dl, const ClipView *v) {
-    int y = CL_Y;
-    static const char *const verdictText[] = { "IN", "TOO FAR", "TOO CLOSE", "TOO SLOW" };
+/* A line of the clip panel. A text that does not fit loses its first SKIP characters ("Z NOW: ", "WALL "). */
+static void ClipLine(Gfx **dl, int x, int y, u32 color, int skip, const char *fmt, ...) {
+    char buf[48];
+    va_list args;
+    int n;
 
-    if (v->why == CW_OK) {
+    if (dl == NULL) {
+        return;
+    }
+    va_start(args, fmt);
+    n = FormatV(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    Line(dl, x, y, color, "%s", n * TEXT_ADVANCE > CL_W ? buf + skip : buf);
+}
+
+static int DrawClip(Gfx **dl, int x, int y0, const ClipView *v, int held) {
+    int live = v->why == CW_OK;
+    int result = v->hasResult && (v->age <= CLIP_WATCH || held);
+    int y = y0;
+
+    if (!live && !result) {
+        return 0;
+    }
+    if (live) {
         u32 color = v->verdict == CV_IN ? GREEN : RED;
         f32 span = v->hi * 1.25f > 50.0f ? v->hi * 1.25f : 50.0f;
         f32 k = (f32)CL_BAR_W / span;
         int d = (int)(v->dist * k);
-        int x0 = CL_X + (int)(v->lo * k), x1 = CL_X + (int)(v->hi * k);
+        int x0 = x + (int)(v->lo * k), x1 = x + (int)(v->hi * k);
 
-        Line(dl, CL_X, y, WHITE, "WALL %.1f  SPEED %.1f", (double)v->dist, (double)v->speed);
+        Line(dl, x, y, WHITE, "WALL %.1f  SPEED %.1f", (double)v->dist, (double)v->speed);
         y += LINE;
-        Line(dl, CL_X, y, color, "WINDOW %.1f TO %.1f", (double)v->lo, (double)v->hi);
+        Line(dl, x, y, color, "WINDOW %.1f TO %.1f", (double)v->lo, (double)v->hi);
         y += LINE;
-        TextRect(dl, CL_X, y + 3, CL_X + CL_BAR_W, y + 5, 0x404858FF);
+        Rect(dl, x, y + 3, x + CL_BAR_W, y + 5, 0x404858FF);
         if (v->verdict != CV_SLOW) {
-            TextRect(dl, x0, y + 1, x1 > x0 ? x1 : x0 + 1, y + 7, 0x30A030FF);
+            Rect(dl, x0, y + 1, x1 > x0 ? x1 : x0 + 1, y + 7, 0x30A030FF);
         }
         if (d > CL_BAR_W) {
             d = CL_BAR_W;
         }
-        TextRect(dl, CL_X + d - 1, y - 1, CL_X + d + 1, y + 9, WHITE);
+        Rect(dl, x + d - 1, y - 1, x + d + 1, y + 9, WHITE);
         y += 12;
         switch (v->verdict) {
             case CV_IN:
-                Line(dl, CL_X, y, GREEN, "Z NOW: IN (%.1f TO SPARE)",
+                ClipLine(dl, x, y, GREEN, 7, "Z NOW: IN (%.1f TO SPARE)",
                      (double)((v->dist - v->lo) < (v->hi - v->dist) ? v->dist - v->lo : v->hi - v->dist));
                 break;
             case CV_FAR:
-                Line(dl, CL_X, y, RED, "Z NOW: TOO FAR BY %.1f", (double)(v->dist - v->hi));
+                ClipLine(dl, x, y, RED, 7, "Z NOW: TOO FAR BY %.1f", (double)(v->dist - v->hi));
                 break;
             case CV_NEAR:
-                Line(dl, CL_X, y, RED, "Z NOW: TOO CLOSE BY %.1f", (double)(v->lo - v->dist));
+                ClipLine(dl, x, y, RED, 7, "Z NOW: TOO CLOSE BY %.1f", (double)(v->lo - v->dist));
                 break;
             default:
-                Line(dl, CL_X, y, RED, "Z NOW: %s, NEEDS %.1f", verdictText[CV_SLOW], (double)v->minSpeed);
+                ClipLine(dl, x, y, RED, 7, "Z NOW: %s, NEEDS %.1f", clipVerdictText[CV_SLOW], (double)v->minSpeed);
                 break;
         }
         y += LINE;
         if (v->angled) {
-            Line(dl, CL_X, y, YELLOW, "WALL AT AN ANGLE: A GUESS");
+            ClipLine(dl, x, y, YELLOW, 5, "WALL AT AN ANGLE: A GUESS");
             y += LINE;
         }
-    } else if (v->why == CW_NOT_BEARING) {
-        Line(dl, CL_X, y, DIM, "WALL CLIP: BALL BEARING ONLY");
-        y += LINE;
-    } else if (v->why == CW_NO_WALL) {
-        Line(dl, CL_X, y, DIM, "WALL CLIP: NO WALL AHEAD");
-        y += LINE;
     }
-    if (v->hasResult) {
-        y += 2;
-        Line(dl, CL_X, y, v->rVerdict == CV_IN ? GREEN : RED, "CANCEL AT %.1f: %s", (double)v->rDist,
-             verdictText[v->rVerdict % 4]);
+    if (result) {
+        if (live) {
+            y += 2;
+        }
+        ClipLine(dl, x, y, v->rVerdict == CV_IN ? GREEN : RED, 7, "CANCEL AT %.1f: %s", (double)v->rDist,
+                 clipVerdictText[v->rVerdict % 4]);
         y += LINE;
         if (v->rAt < 0) {
-            Line(dl, CL_X, y, DIM, "R: NOT YET");
+            Line(dl, x, y, DIM, "R: NOT YET");
         } else {
-            Line(dl, CL_X, y, v->rAt == 1 ? GREEN : YELLOW, "R +%d%s", v->rAt, v->rAt == 1 ? " ON TIME" : "");
+            Line(dl, x, y, v->rAt == 1 ? GREEN : YELLOW, "R +%d%s", v->rAt, v->rAt == 1 ? " ON TIME" : "");
         }
         y += LINE;
         if (v->outcome == CO_CLIPPED) {
-            Line(dl, CL_X, y, GREEN, "CLIPPED (%.1f BEHIND)", (double)v->behind);
+            Line(dl, x, y, GREEN, "CLIPPED (%.1f BEHIND)", (double)v->behind);
         } else if (v->outcome == CO_NO_CLIP) {
-            Line(dl, CL_X, y, RED, "NO CLIP");
+            Line(dl, x, y, RED, "NO CLIP");
         }
+        y += LINE;
     }
+    return y - y0;
 }
 
-/* The trainer log: at the right under the game's counters, and at the left in the boss fights, where the boss panel
- * has the right. With the MBZ-L panel on, it stops at 5 lines before that panel (y 92). */
-#define TLOG_X 158
-#define TLOG_Y 48
-#define TLOG_PITCH 9
+/* The panels drawn in this frame, as rectangles that the log keeps clear of. */
+#define MAX_PANELS 8
 
-static void DrawLog(Gfx **dl, int on, int bossLive) {
-    static TrainerLog local;
-    static const u8 lengths[] = { 0, 0, 5, 6, 8, 10 };
-    int x = TLOG_X, y = TLOG_Y;
-    int max = settings.trainerLog < ARRAY_COUNT(lengths) ? lengths[settings.trainerLog] : 0;
-    int stable = 0;
-    int shown = 0;
+TrainerLayout trainerLayout;
+_Static_assert(MAX_PANELS + TLOG_MAX <= TRAINER_BOXES, "trainerLayout holds every box");
 
-    if (max == 0) {
-        return;
+typedef struct Layout {
+    int bottom[2]; /* the lowest pixel in use of each column */
+    int n;
+    s16 box[MAX_PANELS][4];
+} Layout;
+
+/* Finds a place for a panel W wide and H high that wants column COL (0 left, 1 right) at height Y. Returns 0 when
+ * neither column has room. */
+static int Place(Layout *l, int col, int y, int w, int h, int *px, int *py) {
+    for (int k = 0; k < 2; k++, col ^= 1) {
+        int top = y > l->bottom[col] + COL_GAP ? y : l->bottom[col] + COL_GAP;
+
+        if (top + h <= COL_BOTTOM && l->n < MAX_PANELS) {
+            l->bottom[col] = top + h;
+            *px = col == 0 ? COL_LEFT : COL_RIGHT - w;
+            *py = top;
+            l->box[l->n][0] = (s16)*px;
+            l->box[l->n][1] = (s16)top;
+            l->box[l->n][2] = (s16)(*px + w);
+            l->box[l->n][3] = (s16)(top + h);
+            l->n++;
+            return 1;
+        }
     }
-    for (int tries = 0; tries < 4 && !stable; tries++) {
+    return 0;
+}
+
+/* 1: the rectangle overlaps a panel. A panel's rectangle holds all its pixels. */
+static int Crosses(const Layout *l, int x0, int y0, int x1, int y1) {
+    for (int i = 0; i < l->n; i++) {
+        if (x0 < l->box[i][2] && l->box[i][0] < x1 && y0 < l->box[i][3] && l->box[i][1] < y1) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The trainer log: at the top of the right column, under the game's counters (in a boss fight under the boss panel).
+ * Its lines end at the column's edge. A long line reaches into the left column: a line that would cross a panel there
+ * is left out. */
+#define TLOG_PITCH 9
+#define TLOG_SHORT 5 /* lines while the MBZ-L or the wall clip trainer is on: their panels go under the log */
+
+static TrainerLog logCopy;
+
+/* Copies the log. Returns 0 when the game thread wrote it meanwhile. */
+static int CopyLog(void) {
+    for (int tries = 0; tries < 4; tries++) {
         u32 seq = trainerLog.seq;
 
         BARRIER();
-        local = trainerLog;
+        logCopy = trainerLog;
         BARRIER();
-        stable = trainerLog.begin == seq && local.seq == seq;
+        if (trainerLog.begin == seq && logCopy.seq == seq) {
+            return 1;
+        }
     }
-    if (!stable) {
-        return;
-    }
-    if (bossLive) {
-        x = 8;
-        y = 28;
-    } else if ((on & TRAINER_MBZL) && max > 5) {
-        max = 5;
-    }
-    for (int i = 0; i < TLOG_MAX && shown < max; i++) {
-        const TrainerLogLine *l = &local.line[i];
+    return 0;
+}
 
-        if (!(l->trainer & on)) {
+/* RIGHT is the lines' right edge. With AVOID the log keeps clear of the panels (its own place); without it, it is drawn
+ * where the player put it, down to the screen's safe area. */
+static void DrawLog(Gfx **dl, const Layout *l, int right, int y, int on, int max, int avoid) {
+    int bottom = avoid ? COL_BOTTOM : SCREEN_SAFE_BOTTOM;
+
+    for (int i = 0; i < TLOG_MAX && max > 0 && y + TLOG_PITCH <= bottom; i++) {
+        const TrainerLogLine *t = &logCopy.line[i];
+        int w = 0;
+
+        if (!(t->trainer & on)) {
             continue;
         }
-        Line(dl, x, y, l->color, "%s", l->text);
+        while (w < TLOG_TEXT - 1 && t->text[w] != 0) {
+            w++;
+        }
+        w *= TEXT_ADVANCE;
+        if (avoid && Crosses(l, right - TEXT_ADVANCE, y, right, y + TLOG_PITCH)) {
+            break; /* a panel of the right column: the log ends above it */
+        }
+        if (avoid && Crosses(l, right - w, y, right, y + TLOG_PITCH)) {
+            max--;
+            continue;
+        }
+        /* A line that would start off the screen's left edge starts at it. */
+        LineRight(dl, right - w < COL_LEFT ? COL_LEFT + w : right, y, t->color, "%s", t->text);
+        if (dl != NULL) {
+            s16 *b = trainerLayout.box[trainerLayout.panels + trainerLayout.lines++];
+
+            b[0] = (s16)(right - w < COL_LEFT ? COL_LEFT : right - w);
+            b[1] = (s16)y;
+            b[2] = (s16)(right - w < COL_LEFT ? COL_LEFT + w : right);
+            b[3] = (s16)(y + TLOG_PITCH);
+        }
         y += TLOG_PITCH;
-        shown++;
+        max--;
     }
 }
 
+#define LK_H 65 /* the live line keeper's height: the L mash and Moon Pound panels go under it */
+#define RIGHT_TOP (COL_TOP + TLOG_SHORT * TLOG_PITCH + COL_GAP) /* the MBZ-L and wall clip panels go under the log */
+
 void TrainersDraw(Gfx **dl, Gfx *end) {
     static TrainerView local;
+    static const u8 lengths[] = { 0, 0, 5, 6, 8, 10 };
     int stable = 0;
+    Layout l;
+    int x, y, h;
+    int logTop = COL_TOP;
 
     (void)end;
     /* A copy is used only if the game thread did not write that buffer meanwhile (see BuildView). */
@@ -1977,26 +2149,62 @@ void TrainersDraw(Gfx **dl, Gfx *end) {
     if (!stable) {
         return;
     }
+    l.bottom[0] = l.bottom[1] = COL_TOP - COL_GAP;
+    l.n = 0;
     if ((local.on & TRAINER_BOSS) && local.boss.live) {
-        BossDraw(dl, &local.boss);
+        h = BossDraw(NULL, 0, 0, &local.boss);
+        if (Place(&l, 1, COL_TOP, BOSS_PANEL_W, h, &x, &y)) {
+            BossDraw(dl, x, y, &local.boss);
+            logTop = y + h + COL_GAP;
+        }
     }
-    DrawLog(dl, local.on, (local.on & TRAINER_BOSS) && local.boss.live);
-    if (!local.valid) {
-        return;
+    if (local.valid) {
+        int held = local.held;
+
+        if ((local.on & TRAINER_LINE) && (h = DrawLine(NULL, 0, 0, &local.line, held & TRAINER_LINE)) > 0 &&
+            Place(&l, 0, COL_TOP, LK_W, h, &x, &y)) {
+            DrawLine(dl, x, y, &local.line, held & TRAINER_LINE);
+        }
+        if ((local.on & TRAINER_LMASH) && (h = DrawLMash(NULL, 0, 0, &local.lmash, held & TRAINER_LMASH)) > 0 &&
+            Place(&l, 0, COL_TOP + LK_H + COL_GAP, LM_W, h, &x, &y)) {
+            DrawLMash(dl, x, y, &local.lmash, held & TRAINER_LMASH);
+        }
+        if ((local.on & TRAINER_MOON) && (h = MoonAimDraw(NULL, 0, 0, &local.moon)) > 0 &&
+            Place(&l, 0, COL_TOP + LK_H + COL_GAP, MOON_PANEL_W, h, &x, &y)) {
+            MoonAimDraw(dl, x, y, &local.moon);
+        }
+        if ((local.on & TRAINER_MBZL) && (h = DrawMbz(NULL, 0, 0, &local)) > 0 &&
+            Place(&l, 1, RIGHT_TOP, MB_W, h, &x, &y)) {
+            DrawMbz(dl, x, y, &local);
+        }
+        if ((local.on & TRAINER_CLIP) && (h = DrawClip(NULL, 0, 0, &local.clip, held & TRAINER_CLIP)) > 0 &&
+            Place(&l, 1, RIGHT_TOP, CL_W, h, &x, &y)) {
+            DrawClip(dl, x, y, &local.clip, held & TRAINER_CLIP);
+        }
     }
-    if (local.on & TRAINER_LMASH) {
-        DrawLMash(dl, &local.lmash);
+    trainerLayout.panels = (u8)l.n;
+    trainerLayout.lines = 0;
+    for (int i = 0; i < l.n; i++) {
+        for (int k = 0; k < 4; k++) {
+            trainerLayout.box[i][k] = l.box[i][k];
+        }
     }
-    if (local.on & TRAINER_LINE) {
-        DrawLine(dl, &local.line);
+    if (settings.trainerLog < ARRAY_COUNT(lengths) && lengths[settings.trainerLog] > 0 && CopyLog()) {
+        int max = lengths[settings.trainerLog];
+
+        int own = run.logX == TLOG_X_DEFAULT && run.logY == TLOG_Y_DEFAULT;
+
+        if (!own) {
+            int right = run.logX * 2;
+
+            DrawLog(dl, &l, right < COL_LEFT + TEXT_ADVANCE ? COL_LEFT + TEXT_ADVANCE : right > COL_RIGHT ? COL_RIGHT
+                            : right, run.logY * 2 < SCREEN_SAFE_TOP ? SCREEN_SAFE_TOP : run.logY * 2, local.on, max, 0);
+        } else {
+            if ((local.on & (TRAINER_MBZL | TRAINER_CLIP)) && max > TLOG_SHORT) {
+                max = TLOG_SHORT;
+            }
+            DrawLog(dl, &l, COL_RIGHT, logTop, local.on, max, 1);
+        }
     }
-    if (local.on & TRAINER_MBZL) {
-        DrawMbz(dl, &local);
-    }
-    if (local.on & TRAINER_CLIP) {
-        DrawClip(dl, &local.clip);
-    }
-    if (local.on & TRAINER_MOON) {
-        MoonAimDraw(dl, &local.moon);
-    }
+    trainerLayout.frames++;
 }

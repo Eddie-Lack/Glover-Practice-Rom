@@ -2,6 +2,7 @@
 #include "fmt.h"
 #include "game.h"
 #include "gametimer.h"
+#include "hud.h"
 #include "settings.h"
 #include "text.h"
 
@@ -94,15 +95,25 @@ static void Time(char *buf, int size, const char *label, u32 frames) {
 
 void GameTimerDraw(Gfx **dl, int x, int y) {
     char buf[40];
+    char split[40];
     int n = gameTimer.splitCount;
+    int w;
 
     Time(buf, sizeof(buf), gameTimer.done ? "done " : "game ", gameTimer.elapsed);
-    TextPrint(dl, x, y, 1, gameTimer.running || gameTimer.done ? 0xFFFFFFFF : 0x707888FF, buf);
+    w = TextWidth(buf, 1);
     if (n > 0) {
         u32 segment = gameTimer.splits[n - 1] - (n > 1 ? gameTimer.splits[n - 2] : 0);
         char label[8];
         Format(label, sizeof(label), "%d  ", n);
-        Time(buf, sizeof(buf), label, segment);
-        TextPrint(dl, x, y + 10, 1, 0xC0D0FFFF, buf);
+        Time(split, sizeof(split), label, segment);
+        if (TextWidth(split, 1) > w) {
+            w = TextWidth(split, 1);
+        }
+    }
+    /* The time and the split line stay inside the screen as one block, whatever their length. */
+    HudFit(&x, &y, w, 0, n > 0 ? 10 : 0);
+    TextPrint(dl, x, y, 1, gameTimer.running || gameTimer.done ? 0xFFFFFFFF : 0x707888FF, buf);
+    if (n > 0) {
+        TextPrint(dl, x, y + 10, 1, 0xC0D0FFFF, split);
     }
 }

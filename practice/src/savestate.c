@@ -910,6 +910,11 @@ static int Save(int slot, int quiet) {
         }
         return SAVE_REFUSED;
     }
+    if (!quiet && (!ActionsInLevel() || (gameInfo.exitFlags & 1))) {
+        /* A warp's or an exit's fade, or a level's load: the state would only finish the exit. */
+        HudMessage("state not saved: game busy");
+        return SAVE_REFUSED;
+    }
     SlotName(name, sizeof(name), slot);
     NoclipBeforeSave();
     pri = Hold();
@@ -963,7 +968,7 @@ int StateSave(void) {
 }
 
 int StateSaveReady(void) {
-    return !OnTitle();
+    return !OnTitle() && ActionsInLevel() && !(gameInfo.exitFlags & 1);
 }
 
 int StateLoadReady(int slot) {
@@ -1163,7 +1168,9 @@ void StateClear(int slot) {
         return;
     }
     if (slot >= STATE_SLOTS) {
-        for (int i = 0; i < STATE_SLOTS; i++) {
+        /* The player's slots. The recording's state and the level start state belong to Record input and the
+         * instant reset, whose rows still show them. */
+        for (int i = 0; i < STATE_USER_SLOTS; i++) {
             ClearSlot(i);
         }
     } else {

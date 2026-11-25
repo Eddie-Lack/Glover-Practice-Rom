@@ -9,7 +9,7 @@
  * the game's CRC check. The tests read these fields at their offsets (tests/layout.py). */
 typedef struct SaveEdit {
     /* 0x00 */ u8 slot;       /* the file being edited, 0 to 5 */
-    /* 0x01 */ u8 request;    /* for the controller thread: 1 write, 2 reload */
+    /* 0x01 */ u8 request;    /* for the controller thread: 1 write, 2 reload; 3 the write's EEPROM requests run */
     /* 0x02 */ u8 status;     /* the last result: 0 none, 1 written, 2 reloaded, 3 no EEPROM, 4 data refused (CRC) */
     /* 0x03 */ u8 bestsEdited; /* 1: a best time was edited and is not written yet */
     /* 0x04 */ u8 page;       /* 0 the file, 1 the levels */

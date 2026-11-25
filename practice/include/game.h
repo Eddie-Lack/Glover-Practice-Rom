@@ -215,6 +215,9 @@ extern CameraInfo cameraInfo;
 /* The control method (controlMethod): 1 when the player moves the glove. */
 extern s32 controlMethod;
 #define CONTROL_HAND 1
+#define CONTROL_CAMERA 0 /* the first-person look that C-up starts */
+extern s16 cameraZoom; /* C-down steps it: 0, 1, 2 */
+void DeactivateCameraControlMode(void);
 /* The gravity (1.2 by default) and the glove's scale in the level (0.05 by default: the ball's radius is levelHandScale * 9 / 0.05). */
 extern f32 gravity;
 extern f32 levelHandScale;
@@ -402,6 +405,8 @@ extern s16 timer321;
 extern u8 desiredFrameRate;
 extern u8 gamePaused;
 extern u8 pauseMode;
+/* The pause menu's own clock (UpdatePause): 1000 starts its closing, which ends with pauseMode 0 at 1012. */
+extern s32 pauseCount;
 
 /* The controller (controller.c). controllerdata is libultra's OSContPad array; pad is the game's own state. */
 typedef struct ContPad {
@@ -650,7 +655,9 @@ typedef struct Overlay {
     /* 0x00 */ PAD(00)[0x0C];
     /* 0x0C */ f32 x;
     /* 0x10 */ f32 y;
-    /* 0x14 */ PAD(14)[0x0C];
+    /* 0x14 */ PAD(14)[0x04];
+    /* 0x18 */ s32 scaleX; /* 1024 is the picture's own size */
+    /* 0x1C */ s32 scaleY;
     /* 0x20 */ u8 r;
     /* 0x21 */ u8 g;
     /* 0x22 */ u8 b;

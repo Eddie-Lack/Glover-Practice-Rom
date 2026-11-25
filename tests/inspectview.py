@@ -2,11 +2,14 @@
 
 1. Actors: the list opens and draws; A opens the second actor's details; A there moves Glover above it. Writes actors.png,
    actor0.png and actor1.png (the two frame buffers) (needs --gfx angrylion).
-2. Memory: it opens on timer321. A adds the word to the watch list. R, then the lowest digit up, adds 1 to the
-   word.
+2. Memory: it opens on timer321. A adds the word to the watch list and turns the HUD's watch list on. R, then up,
+   adds 1 to the word: the edit starts on the lowest digit.
 3. Glove and ball: both pages open. Writes glove0.png, glove1.png, ball0.png and ball1.png."""
+import layout
 import trace
 from tools import C_ALL, press, wait_for
+
+HUD_WATCH = 10  # practice/include/settings.h
 
 
 def run(emu, sym, args):
@@ -52,7 +55,9 @@ def run(emu, sym, args):
     yield from press(emu, "A")
     timer321 = sym("timer321")
     before = emu.r32(timer321)
-    for b in ("DOWN", "A", "A", "R", "LEFT", "UP", "B"):
+    watch_on = sym("settings") + layout.SETTINGS_HUD + 3 * HUD_WATCH
+    emu.w8(watch_on, 0)
+    for b in ("DOWN", "A", "A", "R", "UP", "B"):
         yield from press(emu, b)
 
     # 3. Glove and ball (3rd item), both pages.
@@ -76,6 +81,8 @@ def run(emu, sym, args):
     yield 10
     if emu.r32(sym("watches")) != timer321:
         emu.fail(f"the watch list holds {emu.r32(sym('watches')):#x}, not timer321")
+    if not emu.r8(watch_on):
+        emu.fail("A in the memory view did not turn the watch list on")
     if emu.r32(timer321) != before + 1:
         emu.fail(f"timer321 went from {before} to {emu.r32(timer321)}, not one more")
     if not emu.r8(sym("menuOpen")) == 0:

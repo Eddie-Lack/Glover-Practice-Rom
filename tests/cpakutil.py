@@ -11,7 +11,21 @@ C_ALL = ("CUP", "CDOWN", "CLEFT", "CRIGHT")
 RECORDING_BUFFER = 0x807DC000
 
 
+GUARD_WAIT = 50  # video frames after A: a question ignores A for 10 game frames (a double tap does not answer it)
+
+
 def press(emu, *buttons):
+    """A press. After A it waits longer: a second A then answers the question that the first may have asked."""
+    emu.hold(*buttons)
+    yield 8
+    emu.release()
+    yield 8
+    if "A" in buttons:
+        yield GUARD_WAIT
+
+
+def quick_press(emu, *buttons):
+    """A press with no wait for the question's guard."""
     emu.hold(*buttons)
     yield 8
     emu.release()

@@ -24,6 +24,9 @@
 
 Input input;
 Press presses[PRESS_HISTORY];
+static s32 chordStart; /* frameCount2 when a C button was first held (Frame) */
+/* The stick counts as let go inside this range. */
+#define STICK_CENTRE 16
 
 /* The game's buttonFlag order: the bit of each pad[].button[] index. */
 const u16 padBits[14] = {
@@ -48,25 +51,53 @@ static void Update(void) {
     input.hidden &= held;
 }
 
-/* The last presses of controller 1, newest first: the game frame of the press and how long it is held. */
+/* The last presses of controller 1 that the game sees, newest first: the in-game timer's frame of the press (the
+ * timer's "f") and how long it is held. Nothing is noted while the menu is open, and the menu's chord of the four C
+ * buttons is taken out again: the history keeps the presses from before the menu. */
 static void History(void) {
-    for (int i = 0; i < PRESS_HISTORY; i++) {
-        if (presses[i].bit != 0 && (input.held & presses[i].bit) && presses[i].holding) {
-            presses[i].frames++;
-        } else {
-            presses[i].holding = 0;
+    /* The history, and as many older presses: the C presses of a chord push presses out of presses[] for a while. */
+    static Press log[PRESS_HISTORY * 2];
+    const int count = PRESS_HISTORY * 2;
+
+    if ((input.held & CONT_C_ALL) == CONT_C_ALL) {
+        /* The chord. The speedrun never holds all four C buttons, so the C presses that are still held are its
+         * part. */
+        int n = 0;
+        for (int i = 0; i < count; i++) {
+            if (!(log[i].holding && (log[i].bit & CONT_C_ALL))) {
+                log[n++] = log[i];
+            }
+        }
+        for (; n < count; n++) {
+            log[n].bit = 0;
         }
     }
-    for (int b = 0; b < 14; b++) {
-        if (input.pressed & padBits[b]) {
-            for (int i = PRESS_HISTORY - 1; i > 0; i--) {
-                presses[i] = presses[i - 1];
-            }
-            presses[0].bit = padBits[b];
-            presses[0].frame = frameCount;
-            presses[0].frames = 1;
-            presses[0].holding = 1;
+    if (menuOpen || (input.held & CONT_C_ALL) == CONT_C_ALL) {
+        for (int i = 0; i < count; i++) {
+            log[i].holding = 0;
         }
+    } else {
+        for (int i = 0; i < count; i++) {
+            if (log[i].bit != 0 && (input.held & log[i].bit) && log[i].holding) {
+                log[i].frames++;
+            } else {
+                log[i].holding = 0;
+            }
+        }
+        for (int b = 0; b < 14; b++) {
+            if (input.pressed & padBits[b]) {
+                for (int i = count - 1; i > 0; i--) {
+                    log[i] = log[i - 1];
+                }
+                log[0].bit = padBits[b];
+                log[0].frame = player.levelFrames;
+                log[0].frames = 1;
+                log[0].holding = 1;
+            }
+        }
+    }
+    for (int i = 0; i < PRESS_HISTORY; i++) {
+        presses[i] = log[i];
     }
 }
 
@@ -107,6 +138,11 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
         MissedTapsRead(controllerdata[0].button);
     }
     History();
+    /* The game frame on which a C button was first held after none was: the menu's chord may have let the game see
+     * C presses before its last button came (ActionsChordRepair). */
+    if ((input.held & CONT_C_ALL) && !((input.held & ~input.pressed) & CONT_C_ALL)) {
+        chordStart = frameCount2;
+    }
     if (BindingsCapturing()) {
         /* A new binding is being chosen: nothing reaches the menu or the game. */
     } else if ((input.held & CONT_C_ALL) == CONT_C_ALL && (input.pressed & CONT_C_ALL)) {
@@ -117,6 +153,10 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
                 MenuClose();
             }
         } else {
+            if ((input.held & ~input.pressed) & CONT_C_ALL) {
+                /* Some C buttons came a read early and the game acted on them. */
+                ActionsChordRepair(chordStart);
+            }
             MenuOpen();
         }
         InputHideHeld();
@@ -137,6 +177,16 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
             NoclipHide(cntlr);
         }
         controllerdata[cntlr].button &= ~input.hidden;
+        if (input.stickHidden) {
+            /* A stick binding fired: the game does not walk on it until the stick is let go. */
+            if (input.stickX > -STICK_CENTRE && input.stickX < STICK_CENTRE && input.stickY > -STICK_CENTRE &&
+                input.stickY < STICK_CENTRE) {
+                input.stickHidden = 0;
+            } else {
+                controllerdata[cntlr].stickX = 0;
+                controllerdata[cntlr].stickY = 0;
+            }
+        }
         if (run.chaos) {
             ChaosInput(cntlr);
         }
