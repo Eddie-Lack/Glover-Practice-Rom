@@ -10,11 +10,14 @@
    added presses, taken away presses and nudged the glove (its counters), the game has seen presses of buttons that
    the test never pressed, and the game keeps running in the same level.
 4. While a recording is made (set by hand), the counters stand still.
-5. Off again: the counters stop, the marker goes, and the game goes on."""
+5. Off again: the counters stop, and the game goes on. MODIFIED stays while the level is tainted; with the
+   taint cleared, the marker goes."""
 import layout
 import trace
 from menunav import goto, to_item
 from tools import C_ALL, press, wait_for
+
+BT_TAINT = 0x01  # BestTimesState.taint
 
 CONT_A = 0x8000
 RUN_CHAOS = 0x45  # Run.chaos
@@ -186,6 +189,10 @@ def run(emu, sym, args):
         emu.fail("chaos went on counting after it was turned off")
     if fc() - f1 < 40:
         emu.fail("the game stopped")
+    # MODIFIED stays while the level is tainted (besttimes.h); with the taint cleared, chaos itself draws nothing.
+    if not (yield from marker_drawn()):
+        emu.fail("MODIFIED went out with chaos off, while the level is still tainted")
+    emu.w8(sym("bestTimesState") + BT_TAINT, 0)
     if (yield from marker_drawn()):
         emu.fail("the marker is drawn with chaos off")
     if emu.r16(ch + C_PENDING) or emu.r8(ch + C_ARMED):

@@ -51,25 +51,53 @@ static void Update(void) {
     input.hidden &= held;
 }
 
-/* The last presses of controller 1, newest first: the game frame of the press and how long it is held. */
+/* The last presses of controller 1 that the game sees, newest first: the in-game timer's frame of the press (the
+ * timer's "f") and how long it is held. Nothing is noted while the menu is open, and the menu's chord of the four C
+ * buttons is taken out again: the history keeps the presses from before the menu. */
 static void History(void) {
-    for (int i = 0; i < PRESS_HISTORY; i++) {
-        if (presses[i].bit != 0 && (input.held & presses[i].bit) && presses[i].holding) {
-            presses[i].frames++;
-        } else {
-            presses[i].holding = 0;
+    /* The history, and as many older presses: the C presses of a chord push presses out of presses[] for a while. */
+    static Press log[PRESS_HISTORY * 2];
+    const int count = PRESS_HISTORY * 2;
+
+    if ((input.held & CONT_C_ALL) == CONT_C_ALL) {
+        /* The chord. The speedrun never holds all four C buttons, so the C presses that are still held are its
+         * part. */
+        int n = 0;
+        for (int i = 0; i < count; i++) {
+            if (!(log[i].holding && (log[i].bit & CONT_C_ALL))) {
+                log[n++] = log[i];
+            }
+        }
+        for (; n < count; n++) {
+            log[n].bit = 0;
         }
     }
-    for (int b = 0; b < 14; b++) {
-        if (input.pressed & padBits[b]) {
-            for (int i = PRESS_HISTORY - 1; i > 0; i--) {
-                presses[i] = presses[i - 1];
-            }
-            presses[0].bit = padBits[b];
-            presses[0].frame = frameCount;
-            presses[0].frames = 1;
-            presses[0].holding = 1;
+    if (menuOpen || (input.held & CONT_C_ALL) == CONT_C_ALL) {
+        for (int i = 0; i < count; i++) {
+            log[i].holding = 0;
         }
+    } else {
+        for (int i = 0; i < count; i++) {
+            if (log[i].bit != 0 && (input.held & log[i].bit) && log[i].holding) {
+                log[i].frames++;
+            } else {
+                log[i].holding = 0;
+            }
+        }
+        for (int b = 0; b < 14; b++) {
+            if (input.pressed & padBits[b]) {
+                for (int i = count - 1; i > 0; i--) {
+                    log[i] = log[i - 1];
+                }
+                log[0].bit = padBits[b];
+                log[0].frame = player.levelFrames;
+                log[0].frames = 1;
+                log[0].holding = 1;
+            }
+        }
+    }
+    for (int i = 0; i < PRESS_HISTORY; i++) {
+        presses[i] = log[i];
     }
 }
 

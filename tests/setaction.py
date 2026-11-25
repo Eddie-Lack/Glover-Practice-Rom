@@ -2,8 +2,9 @@
 
 1. Duck, then cartwheel: after each, the glove's action mode in RAM becomes that action within a few game frames,
    the game goes on (frameCount advances for three seconds, the glove's action time or position keeps changing,
-   the practice code's run state is clear) and the HUD's MODIFIED marker is drawn. The marker goes out after a
-   few seconds.
+   the practice code's run state is clear) and the HUD's MODIFIED marker is drawn. Its reason word goes out after a
+   few seconds (Run.setMarker counts down to 0); MODIFIED stays while the level is tainted (besttimes.h), and with
+   the taint cleared no text is drawn.
 2. The ball state "burst" sets the ball's state to 2 (BALL_BURST) and the game goes on.
 3. With the tool unused (before the first use) no text is drawn."""
 import layout
@@ -16,6 +17,7 @@ ACTOR_STATE = 0xD4
 STATE_MODE = 0x04
 PRACTICE_TEXT_FRAMES = 0x08  # Practice.textFrames
 BALL_STATE = 0x1E  # BallControl.state
+BT_TAINT = 0x01  # BestTimesState.taint
 LIST = ["idle", "walk", "jump", "joined", "throw", "prewhack", "whack", "skidding", "duck", "release", "getup",
         "throwaim", "throw2cup", "falling", "bounce", "bounce2cup", "airwhack", "throw2land", "slam", "slam2st",
         "ballwalk", "crawl", "cartwheel"]
@@ -100,7 +102,12 @@ def run(emu, sym, args):
         if not (yield from marker_drawn(10)):
             emu.fail(f"set action {name}: no MODIFIED marker")
         yield from check_action(name, index)
-        yield 200  # the marker times out (60 drawn frames)
+        yield 200  # the reason word times out (60 drawn frames)
+        if emu.r8(sym("run") + RUN_SET_MARKER):
+            emu.fail(f"set action {name}: the reason word is still shown after the time is up")
+        if not (yield from marker_drawn()):
+            emu.fail(f"set action {name}: MODIFIED went out while the level is still tainted")
+        emu.w8(sym("bestTimesState") + BT_TAINT, 0)
         if (yield from marker_drawn()):
             emu.fail(f"set action {name}: the marker is still drawn after the time is up")
         yield 60

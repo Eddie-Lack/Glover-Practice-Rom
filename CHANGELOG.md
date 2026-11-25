@@ -1,5 +1,34 @@
 # Changelog
 
+## Not yet released
+
+- Fixed: Pause works after a warp from the title. Reset from the pause menu closes the pause first.
+- Fixed: a reset with no health left starts the level again.
+- Frame advance: each step runs exactly one game frame. A held step repeats.
+- Slow motion runs at an even speed.
+- Savestates: a save while the game loads or exits a level is refused. Clear all slots keeps the recording's state.
+- A recording is refused in frame advance or slow motion. A press during playback stops it. The binding's stick is cut from the end of a recording.
+- Quick actions: a diagonal stick does nothing. The stick of a quick action does not reach the game until you let it go.
+- Bindings: B backs out of a new binding. The menu's own chord can't be taken. A combination moves from its old action to the new one.
+- The menu opens where you left it. Held directions repeat more slowly at first and stop at the ends of a list. Z with left or right on Level jumps by world.
+- The menu's help line has two lines. Rows that clear or delete something need A held. The HUD layout page shows only the selected row.
+- Cheats: several can be chosen in one visit.
+- Opening the menu with the C buttons pressed one by one no longer changes the zoom or the look mode.
+- Settings: Status goes blank once a setting changes.
+- HUD: new default places, all kept inside the screen. Items can no longer be placed off screen. The seed, positions and timers no longer run into other items.
+- HUD: MODIFIED shows for every tool that stops a practice best time, until the level starts again. This includes camera speed.
+- HUD: a sign shows while you record or play back. Messages show over the menu when it is open. Held buttons have a box in the input display.
+- HUD: the input history uses the timer's frame and leaves out menu presses. The lag counter starts again with each level. The last level time shows the finished level from the exit onward.
+- Hide objects, HUD: the counters' numbers are hidden too.
+- Trainers: the panels stand in a column on each side, clear of each other and the game's HUD. Idle panels are hidden.
+- Memory view: the value has its own digit cursor, C-left and C-right choose 4, 2 or 1 bytes, watched words are green and poked words orange. An edit checks the allowed range.
+- Views ignore the menu's chord.
+- Frame log: it keeps 256 game frames, numbered by the level's frame count, and pages with left and right.
+- Actors: Z moves by 10, and the chosen actor is kept.
+- Save file and Controller Pak: A on a question works only after half a second, and unwritten edits are orange.
+- The Pokes row shows the count of pokes.
+- The wiki has a FAQ page, a quick start and more about each menu.
+
 ## 0.9.31 (2026-11-13)
 
 - The patch page at glover.love shows the version under its title.

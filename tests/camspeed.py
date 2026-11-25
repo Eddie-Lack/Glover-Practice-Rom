@@ -14,8 +14,9 @@ For each setting (normal, fast, faster) the test prints the mean lag over game f
 1. Normal: the camera follows as the game makes it (followSpeed never above 20, the camera body's maxSpeed 20), and two
    runs from the same state give the same camera positions on every frame (the hook changes nothing).
 2. Fast and faster keep the camera closer than normal in both drives, faster closer than fast.
-3. The setting taints the practice best time (the taint bit BT_OTHER) and the HUD draws the camera icon and not MODIFIED
-   (the frame buffer: icon pixels at the place above the score's last digit, no MODIFIED text).
+3. The setting taints the practice best time (the taint bit BT_OTHER), and the HUD draws the camera icon and MODIFIED,
+   which shows whenever the run is tainted (the frame buffer: icon pixels at the place above the score's last digit,
+   MODIFIED text in its row). With the setting at normal and the taint cleared, neither shows.
 
 Pictures: camspeed_off.png, camspeed_fast.png (needs --gfx angrylion)."""
 import math
@@ -37,7 +38,7 @@ NAMES = ["normal", "fast", "faster"]
 FRAMES, MEASURE_FROM = 110, 60
 BT_TAINT, BT_OTHER = 1, 0x80   # BestTimesState.taint and its bit for a camera speed
 ICON_BOX = (279, 9, 293, 23)   # x0, y0, x1, y1: the camera icon (hud.c: x 281 to 291, y 11 to 20)
-MODIFIED_BOX = (180, 14, 279, 23)   # the MODIFIED text is right aligned to x 316; its left part is clear of the icon
+MODIFIED_BOX = (250, 58, 305, 67)   # the word MODIFIED, right aligned to x 304 in its row at y 58 (hud.c)
 
 
 def icon_pixels(emu, sym):
@@ -148,9 +149,10 @@ def run(emu, sym, args):
     emu.hold()
     emu.load(base)
     yield 3
+    emu.w8(bt + BT_TAINT, 0)  # what the earlier parts did to the level is not part of this
     for _ in range(6):
         yield from r.next_frame()
-    if emu.r8(bt + BT_TAINT) & BT_OTHER:
+    if emu.r8(bt + BT_TAINT):
         emu.fail("the run is tainted with the camera at normal")
     glass_off, modified_off = icon_pixels(emu, sym)
     r.picture("camspeed_off")
@@ -161,9 +163,9 @@ def run(emu, sym, args):
         emu.fail("a camera speed did not taint the run")
     glass_on, modified_on = icon_pixels(emu, sym)
     r.picture("camspeed_fast")
-    if glass_off or glass_on < 6 or modified_on or modified_off:
+    if glass_off or glass_on < 6 or modified_off or modified_on < 20:
         emu.fail(f"the camera icon's glass: {glass_off} pixels with the setting off, {glass_on} on; MODIFIED text pixels {modified_off}, {modified_on}")
-    print(f"camspeed: a camera speed taints the run (BT_OTHER); the HUD draws the icon ({glass_on} glass pixels, none with it off) and no MODIFIED text")
+    print(f"camspeed: a camera speed taints the run (BT_OTHER); the HUD draws the icon ({glass_on} glass pixels, none with it off) and MODIFIED ({modified_on} pixels, none with it off)")
     # Another modified feature still shows MODIFIED, with the icon.
     emu.w8(r.run + RUN_NOCLIP, 1)
     for _ in range(6):

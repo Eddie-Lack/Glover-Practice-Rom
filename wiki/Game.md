@@ -59,7 +59,7 @@ The camera decides which way the stick and the D-pad move Glover, so a faster ca
 
 !! Modified game !! A run with it on doesn't count for a best time
 
-A small camera icon shows at the top right, above the score, while it's on. The HUD doesn't say MODIFIED for it
+A small camera icon shows at the top right, above the score, while it's on. The HUD shows MODIFIED too
 
 ## Cheats
 
@@ -123,7 +123,7 @@ Choose a glove action from a list (idle, walk, duck, cartwheel and so on) and us
 
 The action starts on the next game frame
 
-The HUD shows "MODIFIED set action" for three seconds
+The HUD shows "MODIFIED set action" for three seconds, then "MODIFIED" until the level starts again
 
 Some actions need a ledge, a block or a power-up. They may end at once or, rarely, crash the game. The menu warns "Modified game! May crash"
 

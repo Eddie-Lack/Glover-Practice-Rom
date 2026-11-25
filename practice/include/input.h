@@ -24,7 +24,7 @@ typedef struct Press {
     u16 bit;     /* the button's CONT_ bit; 0: none */
     u8 holding;  /* still held */
     u8 frames;   /* game frames held */
-    s32 frame;   /* the level's game frame (frameCount) of the press */
+    s32 frame;   /* the in-game timer's frame (player.levelFrames) of the press */
 } Press;
 
 extern Press presses[PRESS_HISTORY];

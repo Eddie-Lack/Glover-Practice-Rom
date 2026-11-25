@@ -8,8 +8,11 @@
 #include "gametimer.h"
 #include "hud.h"
 #include "input.h"
-#include "missedtaps.h"
 #include "memview.h"
+#include "menu.h"
+#include "missedtaps.h"
+#include "practice.h"
+#include "recording.h"
 #include "settings.h"
 #include "text.h"
 
@@ -17,6 +20,29 @@
 #define DIM 0x707888FF
 #define LABEL 0xC0D0FFFF
 #define MISSED 0xFFA020FF
+/* The input display: a button that is not held is dim and half see-through; a held one is white on a blue box. */
+#define UNLIT 0x60687890
+#define HELD_BOX 0x2850D0E0
+#define RED 0xFF5050FF
+#define YELLOW 0xFFE070FF
+#define NOTE 0x80C8FFFF
+
+/* Every item and note stays inside the part of the screen that a TV shows: SAFE pixels from each edge of the 320 by
+ * 240 picture. A line of text is TEXT_H pixels high with its shadow, and the lines of an item are ROW apart. */
+#define SCREEN_W 320
+#define SCREEN_H 240
+#define SAFE 16
+#define RIGHT (SCREEN_W - SAFE)
+#define TEXT_H 8
+#define ROW 10
+
+/* The rows of the notes, below the game's score and clear of the level's countdown at the top centre. The default
+ * places of the HUD items (settings.c) leave these rows free. */
+#define STATUS_Y 44    /* frame advance or slow motion at the right; the free camera at the left */
+#define MODIFIED_Y 58  /* the MODIFIED line at the right, which may be long */
+#define RECORDING_Y 68 /* a recording or a playback at the right: they never run with frame advance or slow motion */
+/* The message line, centred, between the glove's lines and the input display. */
+#define MESSAGE_Y 156
 
 static u32 lagFrames;
 static u32 lastViCount;
@@ -99,8 +125,15 @@ void HudTick(void) {
     }
     BestTimesTick();
     if (settings.hud[HUD_LAST].on && InLevel() && gameInfo.mode == GAME_MODE_LEVEL) {
-        playLevel = gameInfo.level;
-        playFrames = player.levelFrames;
+        if (!(gameInfo.exitFlags & 1)) {
+            playLevel = gameInfo.level;
+            playFrames = player.levelFrames;
+        } else if (playLevel >= 0) {
+            /* An exit runs: the level's time is the last time from now on, through the end of level screen. */
+            lastLevel = playLevel;
+            lastFrames = player.levelFrames;
+            playLevel = -1;
+        }
     }
 }
 
@@ -115,6 +148,8 @@ void HudRngMoved(void) {
 }
 
 void HudLevelStart(void) {
+    /* The lag counts for one level. */
+    lagFrames = 0;
     if (playLevel >= 0) {
         lastLevel = playLevel;
         lastFrames = playFrames;
@@ -135,6 +170,44 @@ static int InLevel(void) {
     return (gameInfo.mode == GAME_MODE_LEVEL || gameInfo.mode == GAME_MODE_CAMEO) && gameInfo.level < LEVEL_PRESENT;
 }
 
+/* V, moved as little as it takes for the SIZE pixels from V to lie between LO and HI, or at LO if they cannot. */
+static int Fit(int v, int size, int lo, int hi) {
+    if (v + size > hi) {
+        v = hi - size;
+    }
+    if (v < lo) {
+        v = lo;
+    }
+    return v;
+}
+
+/* Where each item and note was drawn on the last frame that drew it, for the tests (tests/hudlayout.py). */
+HudBox hudBoxes[HUD_BOX_COUNT];
+static u8 boxId;
+
+static void NoteBox(int id, int x0, int y0, int x1, int y1) {
+    HudBox *b = &hudBoxes[id];
+
+    b->x0 = x0;
+    b->y0 = y0;
+    b->x1 = x1;
+    b->y1 = y1;
+    b->frame = (u16)practice.drawFrames;
+}
+
+void HudFit(int *x, int *y, int width, int above, int below) {
+    /* The shadow is one pixel right of the text and one below it. */
+    *x = Fit(*x, width + 1, SAFE, RIGHT);
+    *y = Fit(*y - above, above + below + TEXT_H, SAFE, SCREEN_H - SAFE) + above;
+    NoteBox(boxId, *x, *y - above, *x + width + 1, *y + below + TEXT_H);
+}
+
+/* One line of text at X, Y, moved inside the safe area. An item placed at the right edge ends at the edge. */
+static void Put(Gfx **dl, int x, int y, u32 color, const char *text) {
+    HudFit(&x, &y, TextWidth(text, 1), 0, 0);
+    TextPrint(dl, x, y, 1, color, text);
+}
+
 static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     char buf[64];
     va_list args;
@@ -142,7 +215,7 @@ static void Line(Gfx **dl, int x, int y, u32 color, const char *fmt, ...) {
     va_start(args, fmt);
     FormatV(buf, sizeof(buf), fmt, args);
     va_end(args);
-    TextPrint(dl, x, y, 1, color, buf);
+    Put(dl, x, y, color, buf);
 }
 
 /* An in-game time in game frames, as minutes, seconds and hundredths, maybe with the frames. */
@@ -176,31 +249,19 @@ static const ButtonLabel buttonLabels[] = {
     { CONT_CDOWN, "v", 6 }, { CONT_CLEFT, "<", 6 }, { CONT_CRIGHT, ">", 10 },
 };
 
-static void DrawInput(Gfx **dl, int x, int y) {
-    int x0 = x;
+/* The width of the labels (the sum of their dx) and of the stick's two numbers, "%+4d %+4d". */
+#define BUTTONS_W 112
+#define INPUT_W (BUTTONS_W + 9 * TEXT_ADVANCE - 1)
+/* The presses of the input history, one after another. */
+#define HISTORY_STEP 72
 
-    for (u32 i = 0; i < ARRAY_COUNT(buttonLabels); i++) {
-        const ButtonLabel *b = &buttonLabels[i];
-        u32 color = b->bit == 0 ? LABEL : (input.held & b->bit) ? WHITE : DIM;
+/* The input history's entries: the button, the in-game timer's frame of the press, and how many game frames it
+ * was held. Returns the number of entries. */
+static int HistoryText(char text[PRESS_HISTORY][16]) {
+    int n = 0;
 
-        /* A button of a tap that the game missed lately shows in orange (missedtaps.h). */
-        if (b->bit != 0 && run.missedTaps && MissedTapsShown(b->bit)) {
-            color = MISSED;
-        }
-        TextPrint(dl, x, y, 1, color, b->text);
-        x += b->dx;
-    }
-    Line(dl, x, y, (input.stickX | input.stickY) ? WHITE : DIM, "%+4d %+4d", input.stickX, input.stickY);
-    if (run.missedTaps) {
-        Line(dl, x0, y - (settings.inputHistory ? 20 : 10), missedTaps.last ? MISSED : DIM, "missed taps %u",
-             missedTaps.total);
-    }
-}
-
-/* The last presses: the button, the level's game frame of the press, and how many game frames it was held. */
-static void DrawHistory(Gfx **dl, int x, int y) {
-    for (int i = 0; i < PRESS_HISTORY; i++) {
-        const Press *p = &presses[i];
+    for (; n < PRESS_HISTORY; n++) {
+        const Press *p = &presses[n];
         const char *name = "?";
 
         if (p->bit == 0) {
@@ -211,12 +272,57 @@ static void DrawHistory(Gfx **dl, int x, int y) {
                 name = buttonLabels[b].text;
             }
         }
-        if (p->bit & CONT_C_ALL) {
-            Line(dl, x, y, p->holding ? WHITE : LABEL, "c%s %d:%d", name, p->frame, p->frames);
-        } else {
-            Line(dl, x, y, p->holding ? WHITE : LABEL, "%s %d:%d", name, p->frame, p->frames);
+        Format(text[n], 16, (p->bit & CONT_C_ALL) ? "c%s %d:%d" : "%s %d:%d", name, p->frame, p->frames);
+    }
+    return n;
+}
+
+/* The input display at X, Y; above it the history and the missed taps (missedtaps.h), as one block. */
+static void DrawInput(Gfx **dl, int x, int y) {
+    char history[PRESS_HISTORY][16];
+    char missed[24];
+    int n = settings.inputHistory ? HistoryText(history) : 0;
+    int w = INPUT_W;
+    int above = settings.inputHistory ? ROW : 0;
+
+    if (n > 0 && (n - 1) * HISTORY_STEP + TextWidth(history[n - 1], 1) > w) {
+        w = (n - 1) * HISTORY_STEP + TextWidth(history[n - 1], 1);
+    }
+    if (run.missedTaps) {
+        Format(missed, sizeof(missed), "missed taps %u", missedTaps.total);
+        above += ROW;
+        if (TextWidth(missed, 1) > w) {
+            w = TextWidth(missed, 1);
         }
-        x += 72;
+    }
+    HudFit(&x, &y, w, above, 0);
+
+    int bx = x;
+    for (u32 i = 0; i < ARRAY_COUNT(buttonLabels); i++) {
+        const ButtonLabel *b = &buttonLabels[i];
+        int held = b->bit != 0 && (input.held & b->bit);
+        u32 color = held ? WHITE : UNLIT;
+
+        if (held) {
+            TextRect(dl, bx - 1, y - 1, bx + 6, y + 8, HELD_BOX);
+        }
+        /* A button of a tap that the game missed lately shows in orange (missedtaps.h). */
+        if (b->bit != 0 && run.missedTaps && MissedTapsShown(b->bit)) {
+            color = MISSED;
+        }
+        TextPrint(dl, bx, y, 1, color, b->text);
+        bx += b->dx;
+    }
+    {
+        char stick[16];
+        Format(stick, sizeof(stick), "%+4d %+4d", input.stickX, input.stickY);
+        TextPrint(dl, bx, y, 1, (input.stickX | input.stickY) ? WHITE : UNLIT, stick);
+    }
+    for (int i = 0; i < n; i++) {
+        TextPrint(dl, x + i * HISTORY_STEP, y - ROW, 1, presses[i].holding ? WHITE : LABEL, history[i]);
+    }
+    if (run.missedTaps) {
+        TextPrint(dl, x, y - above, 1, missedTaps.last ? MISSED : DIM, missed);
     }
 }
 
@@ -224,10 +330,11 @@ static f32 Sqrt(f32 v) {
     return __builtin_sqrtf(v);
 }
 
+/* Each field has a space before it down to -9999.9, and the vertical speed down to -99.99. */
 static void DrawActor(Gfx **dl, int x, int y, const char *name, const Actor *a) {
     f32 h = Sqrt(a->vel.x * a->vel.x + a->vel.z * a->vel.z);
 
-    Line(dl, x, y, WHITE, "%s%7.1f%7.1f%7.1f h%5.2f v%6.2f", name, (double)a->pos.x, (double)a->pos.y,
+    Line(dl, x, y, WHITE, "%s%8.1f%8.1f%8.1f h%6.2f v%7.2f", name, (double)a->pos.x, (double)a->pos.y,
          (double)a->pos.z, (double)h, (double)a->vel.y);
 }
 
@@ -237,9 +344,15 @@ const char *HandActionName(int mode) {
 
 static void DrawAction(Gfx **dl, int x, int y) {
     s16 mode = hand.state != NULL ? hand.state->mode : -1;
+    char number[8];
     const char *name = HandActionName(mode);
     s8 type = ballControl.type;
 
+    /* A mode without a name shows as its number. */
+    if (mode >= 0 && !(mode < (int)ARRAY_COUNT(handActionNames))) {
+        Format(number, sizeof(number), "%d", mode);
+        name = number;
+    }
     /* Flag 0x1000 counts as ground for the game's own checks (hand.c). */
     int ground = (hand.obj != NULL && hand.obj->onGround) || (hand.flags & 0x1000);
 
@@ -247,7 +360,6 @@ static void DrawAction(Gfx **dl, int x, int y) {
          handControl.actionLock, type >= 0 && type < (s8)ARRAY_COUNT(ballNames) ? ballNames[type] : "?");
 }
 
-/* Frame advance and slow motion show at the top right whenever they are on. */
 /* In drawn frames: two seconds at 20 a second. */
 #define MESSAGE_FRAMES 40
 
@@ -279,70 +391,142 @@ static void DrawCameraIcon(Gfx **dl) {
     TextRect(dl, x + 8, y + 2, x + 10, y + 3, 0xFF5050FF);    /* the light */
 }
 
+/* 1 while the level being played is not kept as a practice best time (besttimes.h). The game's own demos count as
+ * modified there, but nobody plays them. */
+static int Tainted(void) {
+    return bestTimesState.taint != 0 && autoPlayback != 2;
+}
+
+int HudStatusShown(void) {
+    return Tainted() || recording.recording || recording.playing;
+}
+
+/* The MODIFIED line: the word, and the reason for the tools that have one. */
+static void DrawModified(Gfx **dl, int setShown) {
+    char buf[48];
+    int n = 0;
+    int modified = run.moonJump | run.noclip;
+
+    n += Format(buf + n, sizeof(buf) - n, "MODIFIED");
+    if (run.noclip) {
+        n += Format(buf + n, sizeof(buf) - n, " noclip");
+    }
+    if (run.moonJump) {
+        n += Format(buf + n, sizeof(buf) - n, run.noclip ? " + moon jump" : " moon jump");
+    }
+    if (run.chaos) {
+        n += Format(buf + n, sizeof(buf) - n, modified ? " + chaos" : " chaos");
+        modified = 1;
+    }
+    if (CorruptMarker()) {
+        n += Format(buf + n, sizeof(buf) - n, modified ? " + pokes" : " pokes");
+        modified = 1;
+    }
+    if (!modified && setShown) {
+        n += Format(buf + n, sizeof(buf) - n, " set action");
+        modified = 1;
+    } else if (!modified && run.actorsMod) {
+        /* An actor was made or moved (spawn.h): the marker stays until the level changes or restarts. */
+        n += Format(buf + n, sizeof(buf) - n, " actors");
+        modified = 1;
+    }
+    /* Whatever else spoils the practice best time shows the word alone, until the level starts again. */
+    if (modified || Tainted()) {
+        boxId = HUD_BOX_MODIFIED;
+        Put(dl, RIGHT, MODIFIED_Y, RED, buf);
+    }
+}
+
+/* A recording or a playback: a dot and the menu's text (Savestate, Recording), ending at the right edge. */
+static void DrawRecording(Gfx **dl) {
+    char buf[32];
+    u32 color;
+    int x;
+
+    if (recording.recording) {
+        Format(buf, sizeof(buf), "recording %u", recording.count);
+        color = RED;
+    } else {
+        Format(buf, sizeof(buf), "playing %u/%u", recording.frame, recording.count);
+        color = 0x60E060FF;
+    }
+    x = RIGHT - 1 - TextWidth(buf, 1) - 9;
+    TextRect(dl, x, RECORDING_Y + 1, x + 6, RECORDING_Y + 7, color);
+    TextPrint(dl, x + 9, RECORDING_Y, 1, WHITE, buf);
+    NoteBox(HUD_BOX_RECORDING, x, RECORDING_Y, RIGHT, RECORDING_Y + TEXT_H);
+}
+
+/* The notes that show whatever the HUD items are: the MODIFIED line, the camera icon, the free camera, frame advance
+ * or slow motion, and a recording. Each has a row of its own. */
 void HudDrawStatus(Gfx **dl) {
     static const char *const slow[] = { "", "1/2", "1/3", "1/4" };
+    /* A set action (setaction.h) shows the marker's reason for a few seconds. */
+    int setShown = run.setMarker > 0;
 
-    if (messageFrames > 0) {
-        messageFrames--;
-        TextPrint(dl, 160 - TextWidth(hudMessageText, 1) / 2, 186, 1, 0xFFFFFFFF, hudMessageText);
+    if (setShown) {
+        run.setMarker--;
     }
-
-    /* The glove is not played as in the retail game: the marker stays on whatever else is shown. */
-    {
-        char buf[48];
-        int n = 0;
-        int modified = run.moonJump | run.noclip;
-        /* A set action (setaction.h) shows the marker for a few seconds. */
-        int setShown = run.setMarker > 0;
-
-        if (setShown) {
-            run.setMarker--;
-        }
-        n += Format(buf + n, sizeof(buf) - n, "MODIFIED");
-        if (run.noclip) {
-            n += Format(buf + n, sizeof(buf) - n, " noclip");
-        }
-        if (run.moonJump) {
-            n += Format(buf + n, sizeof(buf) - n, run.noclip ? " + moon jump" : " moon jump");
-        }
-        if (run.chaos) {
-            n += Format(buf + n, sizeof(buf) - n, modified ? " + chaos" : " chaos");
-            modified = 1;
-        }
-        if (CorruptMarker()) {
-            n += Format(buf + n, sizeof(buf) - n, modified ? " + pokes" : " pokes");
-            modified = 1;
-        }
-        if (!modified && setShown) {
-            n += Format(buf + n, sizeof(buf) - n, " set action");
-            modified = 1;
-        } else if (!modified && run.actorsMod) {
-            /* An actor was made or moved (spawn.h): the marker stays until the level changes or restarts. */
-            n += Format(buf + n, sizeof(buf) - n, " actors");
-            modified = 1;
-        }
-        if (modified) {
-            TextPrint(dl, 316 - TextWidth(buf, 1), 14, 1, 0xFF5050FF, buf);
-        }
+    /* A tool that has the menu's panel shows nothing under it. */
+    if (menuOpen && menuView != NULL) {
+        return;
     }
-
+    DrawModified(dl, setShown);
     if (run.cameraSpeed) {
         DrawCameraIcon(dl);
     }
-
     if (FreeCamOn()) {
-        /* The camera is not part of the game: a note, not the MODIFIED marker. */
-        TextPrint(dl, 308 - TextWidth("free camera", 1), 42, 1, 0x80C8FFFF, "free camera");
+        boxId = HUD_BOX_FREECAM;
+        /* The camera is not part of the game: a note, not a reason of the MODIFIED marker. */
+        Put(dl, SAFE, STATUS_Y, NOTE, "free camera");
     }
-
+    boxId = HUD_BOX_SPEED;
     if (run.frameAdvance) {
-        TextPrint(dl, 236, 28, 1, 0xFFE070FF, "frame advance");
+        Put(dl, RIGHT, STATUS_Y, YELLOW, "frame advance");
     } else if (run.slowMotion) {
-        Line(dl, 236, 28, 0xFFE070FF, "slow %s", slow[run.slowMotion % 4]);
+        Line(dl, RIGHT, STATUS_Y, YELLOW, "slow %s", slow[run.slowMotion % 4]);
+    }
+    if (recording.recording || recording.playing) {
+        DrawRecording(dl);
+    }
+}
+
+/* The message line. With the menu open it is drawn after the menu, on a solid box. */
+void HudDrawMessage(Gfx **dl) {
+    if (messageFrames == 0) {
+        return;
+    }
+    messageFrames--;
+
+    int x = SCREEN_W / 2 - TextWidth(hudMessageText, 1) / 2;
+    int y = MESSAGE_Y;
+
+    boxId = HUD_BOX_MESSAGE;
+    HudFit(&x, &y, TextWidth(hudMessageText, 1), 0, 0);
+    if (menuOpen) {
+        TextRect(dl, x - 4, y - 3, x + TextWidth(hudMessageText, 1) + 5, y + TEXT_H + 2,
+                 (MenuPanelColor(1) & ~0xFFu) | 0xFF);
+    }
+    TextPrint(dl, x, y, 1, WHITE, hudMessageText);
+}
+
+/* The watch list (memview.h): one line for each address that is set. */
+static void DrawWatch(Gfx **dl, int x, int y) {
+    int n = 0;
+
+    for (int i = 0; i < WATCH_COUNT; i++) {
+        n += watches[i] != 0;
+    }
+    if (n > 0) {
+        HudFit(&x, &y, 17 * TEXT_ADVANCE - 1, 0, (n - 1) * ROW);
+        WatchDraw(dl, x, y);
     }
 }
 
 void HudDraw(Gfx **dl, Gfx *end) {
+    /* A tool that has the menu's panel shows nothing under it. */
+    if (menuOpen && menuView != NULL) {
+        return;
+    }
     for (int i = 0; i < HUD_COUNT; i++) {
         const HudPlace *p = &settings.hud[i];
         int x = p->x * 2;
@@ -352,6 +536,7 @@ void HudDraw(Gfx **dl, Gfx *end) {
         if (!p->on || end - *dl < 400) {
             continue;
         }
+        boxId = i;
         switch (i) {
             case HUD_TIMER:
                 if (InLevel()) {
@@ -360,9 +545,6 @@ void HudDraw(Gfx **dl, Gfx *end) {
                 break;
             case HUD_INPUT:
                 DrawInput(dl, x, y);
-                if (settings.inputHistory) {
-                    DrawHistory(dl, x, y - 10);
-                }
                 break;
             case HUD_GLOVE:
                 if (InLevel()) {
@@ -393,7 +575,7 @@ void HudDraw(Gfx **dl, Gfx *end) {
                 }
                 break;
             case HUD_WATCH:
-                WatchDraw(dl, x, y);
+                DrawWatch(dl, x, y);
                 break;
             case HUD_GAME:
                 GameTimerDraw(dl, x, y);

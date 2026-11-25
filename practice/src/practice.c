@@ -108,7 +108,7 @@ void PracticePrintTimers(void) {
                                  settings.hud[HUD_WATCH].on);
     if (!menuOpen && !hud && !run.frameAdvance && !run.slowMotion && !(run.moonJump | run.noclip | run.chaos | run.freeCam | run.cameraSpeed) &&
         !run.trainers && !run.collInfo &&
-        !(run.setMarker | run.actorsMod) && !CorruptMarker() && !HudMessageShown()) {
+        !(run.setMarker | run.actorsMod) && !CorruptMarker() && !HudMessageShown() && !HudStatusShown()) {
         PerfEnd(t0);
         return;
     }
@@ -128,6 +128,8 @@ void PracticePrintTimers(void) {
     if (menuOpen) {
         MenuDraw(&g);
     }
+    /* The message line goes over everything, the menu too. */
+    HudDrawMessage(&g);
     u32 used = g - start;
     if (used > practice.overlayPeak) {
         practice.overlayPeak = used;

@@ -6,11 +6,15 @@
 2. Noclip on, the stick pushed forward: the glove flies a long way. D-pad up lifts it, and it stays where it is
    when the D-pad is let go (no gravity). The stick fully up with the D-pad does not fire a binding. The game's gravity and landscape flags are off in the meantime.
 3. A state saved in noclip, then noclip off: the flags are back, the glove falls, and with both switches off the
-   marker is gone. Loading the state gives the flags back as well."""
+   marker is gone. Loading the state gives the flags back as well.
+The HUD shows MODIFIED for the rest of the level once a run is tainted (besttimes.h). After a switch goes off, the
+test clears the taint (BestTimesState.taint) and checks that the switch itself no longer draws it."""
 import layout
 import trace
 from menunav import goto
 from tools import C_ALL, press, wait_for
+
+BT_TAINT = 0x01  # BestTimesState.taint
 
 CONT_L = 0x0020
 ACTOR_FLAGS = 0x28
@@ -91,6 +95,9 @@ def run(emu, sym, args):
     yield from game_menu("Game", "Movement and camera", "Moon jump")
     if emu.r8(run_ + RUN_MOON_JUMP):
         emu.fail("the moon jump did not turn off")
+    if not (yield from marker_drawn()):
+        emu.fail("MODIFIED went out with the moon jump off, while the level is still tainted")
+    emu.w8(sym("bestTimesState") + BT_TAINT, 0)
     if (yield from marker_drawn()):
         emu.fail("the marker is drawn with the moon jump off")
     yield 100  # on the ground again
@@ -150,6 +157,7 @@ def run(emu, sym, args):
     if pos()[1] > top - 5:
         emu.fail(f"the glove did not fall after noclip ({top:.1f} to {pos()[1]:.1f})")
     yield 240  # the "state saved" message goes out
+    emu.w8(sym("bestTimesState") + BT_TAINT, 0)
     if (yield from marker_drawn()):
         emu.fail("the marker is drawn with both switches off")
 

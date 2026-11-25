@@ -379,7 +379,7 @@ Not tested: hardware, Project64 and RMG. The Expansion Pak message has been seen
   `tests/trainerlog.py`.
 - Camera speed (Game menu, Movement and camera; `normal, fast, faster`; not saved): done. A hook on `MoveCam` raises
   the follow limits (docs/game.md, "How the camera follows"). It taints the practice best time (BT_OTHER). The HUD
-  draws a camera icon above the last digit of the score, not MODIFIED. [build.md](build.md#camera-speed).
+  draws a camera icon above the last digit of the score, and MODIFIED like every other taint. [build.md](build.md#camera-speed).
   `tests/camspeed.py`.
 
 - Show the taps that the game missed (Inspect, second last item; off by default, with a warning that the timing

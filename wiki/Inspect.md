@@ -221,7 +221,7 @@ Leave kinds of objects out of the picture, one at a time. Each item shows `shown
 | Pick-ups and garibs | Power-ups, the power-up that circles the glove or ball, garibs (also the garib that the Locate cheat shows) |
 | Debris | Debris and particles |
 | Sky | The sky behind the level |
-| HUD | The game's counters: garibs, lives, health. Text and the pause screen stay |
+| HUD | The game's counters and their numbers: garibs, lives, health, score. Text and the pause screen stay |
 | Shadows | Every shadow |
 | Footprints | Footprints and blast rings |
 | Trails | The trails behind fast things |
@@ -247,7 +247,7 @@ This changes the game's timing slightly. Use it for study and not for timed prac
 
 `"Modified game! May crash".`
 
-The HUD shows "MODIFIED pokes" until you load a state or reset the console. After "Clear all pokes" it stays until the level starts again, because the written values are still in memory
+The HUD shows "MODIFIED pokes" while pokes are on. After that, "MODIFIED" stays until the level starts again
 
 | Option | What it does |
 | --- | --- |
