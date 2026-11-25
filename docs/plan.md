@@ -156,6 +156,21 @@ Bindings. The menu combination is chosen; the rest are candidates that the owner
 
 All quick actions are bindable in the menu. Store bindings with the settings.
 
+Learned from the playtest of 2026-11-25 (built):
+
+- A stick direction counts only when one axis is past 60 and the other under 40: the corner notches of an N64 stick
+  (about 70, 70) match no binding. Once a stick binding fires, the stick is kept from the game until it is back near
+  the centre (`input.stickHidden`).
+- The menu's chord: a C button that lands one or two game frames before the others reaches the game. The chord
+  stays as chosen; when it opens the menu, the game thread puts the camera's zoom and look mode back as they were
+  before the first C button (`ActionsChordRepair`).
+- Frame advance and slow motion count game frames (`frameCount2`), not messages of the main queue (docs/game.md).
+  A held Frame step binding repeats.
+- The menu opens where it was closed. A held direction repeats slowly, then fast, stops at the ends, and starts its
+  delay again when the direction changes. Rows that forget something need A held (`MENU_HOLD`).
+- Not built, because each needs new text on the screen: a steady "saving..." before a save (waiting for the screen
+  would change the saved state), previous and next slot actions, the slot on the HUD, a help page in the menu.
+
 ## Drawing
 
 - The overlay is drawn after the game's own display list for the frame: the practice code appends commands (a

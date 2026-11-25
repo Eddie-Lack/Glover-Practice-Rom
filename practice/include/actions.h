@@ -85,6 +85,7 @@ typedef struct Run {
     u8 collBack;     /* how it draws back faces (collview.h) */
     u8 collWire;     /* it outlines every face: 0 off, 1 over the faces, 2 in place of them (collview.h) */
     u8 collInfo;     /* 1: it shows the face under Glover and the face at the screen's centre (collview.h) */
+    u32 cheatToggles; /* the cheats to toggle on the next game frame, one bit each: the menu can choose several */
 } Run;
 
 extern Run run;
@@ -94,6 +95,9 @@ void ActionRequest(int action);
 /* The game thread, at the start of each game frame (PracticeClearText). Returns after any waiting that frame
  * advance or slow motion asks for. */
 void ActionsGameFrame(void);
+/* The controller thread: the menu opened, and some of its C buttons reached the game from game frame FRAME2
+ * (frameCount2) on. The game thread puts the camera's zoom and look mode back as they were then. */
+void ActionsChordRepair(s32 frame2);
 /* The number of save, load, record and play requests that waited one frame to show "saving..." or "loading...". */
 extern u32 actionsAnnounced;
 /* Mutes the music (arg 0) or the sound effects (arg 1), or turns them back on. */

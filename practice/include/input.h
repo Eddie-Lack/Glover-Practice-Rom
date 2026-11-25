@@ -13,6 +13,7 @@ typedef struct Input {
     u16 held2;    /* controller 2 */
     u16 pressed2;
     u16 hidden;   /* buttons kept from the game until they are released */
+    u8 stickHidden; /* 1: the stick is kept from the game until it is back near the centre (a stick binding fired) */
 } Input;
 
 extern Input input;

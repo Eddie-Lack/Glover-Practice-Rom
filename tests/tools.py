@@ -11,7 +11,14 @@ import trace
 C_ALL = ("CUP", "CDOWN", "CLEFT", "CRIGHT")
 
 
-def press(emu, *buttons, x=0, y=0, frames=8):
+def press(emu, *buttons, x=0, y=0, frames=8, top=True):
+    """Holds BUTTONS for FRAMES video frames, then lets go for 8. The menu opens where it was closed; most tests
+    were written for a menu that opens on its top page, so all four C buttons on a closed menu first set the menu
+    back to its top page (TOP false: as a player sees it)."""
+    sym = getattr(emu, "sym", None)
+    if top and sym is not None and set(buttons) >= set(C_ALL) and not emu.r8(sym("menuOpen")):
+        emu.w32(sym("depth"), 0)
+        emu.w32(sym("menuView"), 0)
     emu.hold(*buttons, x=x, y=y)
     yield frames
     emu.release()
@@ -85,9 +92,12 @@ def run(emu, sym, args):
     if not 0 < timer <= 65:
         emu.fail(f"the checkpoint's restart timer is {timer}")
 
-    # 5. A cheat: Game (5th item), Cheats, Infinite lives (4th).
+    # 5. A cheat: Game (5th item), Cheats, Infinite lives (4th). The menu opens where it was closed (Warp): back to
+    # the top first.
     yield 120
     yield from press(emu, *C_ALL)
+    import menunav  # here: menunav imports this module
+    yield from menunav.top(emu, sym)
     for b in ("DOWN", "DOWN", "DOWN", "DOWN", "A", "A", "DOWN", "DOWN", "DOWN", "A"):
         yield from press(emu, b)
     yield from press(emu, *C_ALL)

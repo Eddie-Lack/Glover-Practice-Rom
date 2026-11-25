@@ -253,6 +253,7 @@ def main():
     os.environ["PULSEINPUT_RUMBLE"] = getattr(test, "RUMBLE", "")
     os.environ["PULSEINPUT_PORTS"] = "12" if "2" in getattr(test, "PAKS", "") else "1"
     emu = Emu(a.rom, a.gfx, a.out, expansion=not a.no_pak, verbose=a.verbose, save_from=a.save_from)
+    emu.sym = sym  # tools.press reads the menu's state through it
     result = {"test": a.test, "rom": a.rom, "pass": False}
     if hasattr(test, "prepare"):
         # prepare(mpk, args) may write the Controller Pak file that the core opens when emulation starts.

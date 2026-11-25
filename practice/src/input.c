@@ -24,6 +24,9 @@
 
 Input input;
 Press presses[PRESS_HISTORY];
+static s32 chordStart; /* frameCount2 when a C button was first held (Frame) */
+/* The stick counts as let go inside this range. */
+#define STICK_CENTRE 16
 
 /* The game's buttonFlag order: the bit of each pad[].button[] index. */
 const u16 padBits[14] = {
@@ -107,6 +110,11 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
         MissedTapsRead(controllerdata[0].button);
     }
     History();
+    /* The game frame on which a C button was first held after none was: the menu's chord may have let the game see
+     * C presses before its last button came (ActionsChordRepair). */
+    if ((input.held & CONT_C_ALL) && !((input.held & ~input.pressed) & CONT_C_ALL)) {
+        chordStart = frameCount2;
+    }
     if (BindingsCapturing()) {
         /* A new binding is being chosen: nothing reaches the menu or the game. */
     } else if ((input.held & CONT_C_ALL) == CONT_C_ALL && (input.pressed & CONT_C_ALL)) {
@@ -117,6 +125,10 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
                 MenuClose();
             }
         } else {
+            if ((input.held & ~input.pressed) & CONT_C_ALL) {
+                /* Some C buttons came a read early and the game acted on them. */
+                ActionsChordRepair(chordStart);
+            }
             MenuOpen();
         }
         InputHideHeld();
@@ -137,6 +149,16 @@ static void Frame(u8 cntlr, void (*read)(u8)) {
             NoclipHide(cntlr);
         }
         controllerdata[cntlr].button &= ~input.hidden;
+        if (input.stickHidden) {
+            /* A stick binding fired: the game does not walk on it until the stick is let go. */
+            if (input.stickX > -STICK_CENTRE && input.stickX < STICK_CENTRE && input.stickY > -STICK_CENTRE &&
+                input.stickY < STICK_CENTRE) {
+                input.stickHidden = 0;
+            } else {
+                controllerdata[cntlr].stickX = 0;
+                controllerdata[cntlr].stickY = 0;
+            }
+        }
         if (run.chaos) {
             ChaosInput(cntlr);
         }

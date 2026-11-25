@@ -25,12 +25,39 @@ PANEL = (2, 3, 6)  # 0x101830 in 5 bits
 BAR = (6, 9, 20)   # 0x3048A0
 
 
-def panel_geometry(emu, sym, count):
+CHAR_W = 6        # the font's advance at scale 1
+MENU_BOTTOM = 228  # menu.c: the panel moves up to end here
+
+
+def help_text(page):
+    """The help line of the selected row, as menu.c's KeyHelp chooses it."""
+    if page.count == 0:
+        return "B back"
+    i = page.cursor
+    if page.hints[i]:
+        return page.hints[i]
+    kind = page.items[i][1]
+    if kind == menunav.ITEM_INFO:
+        return "B back"
+    if kind == menunav.ITEM_BIND:
+        return "A new binding  L clear  B back"
+    if kind in (menunav.ITEM_TOGGLE, menunav.ITEM_CHOICE, menunav.ITEM_NUMBER) or (
+            kind == menunav.ITEM_ACTION and page.infos[i] and page.mins[i] != 1):
+        return "A choose  B back  </> change"
+    return "A choose  B back"
+
+
+def panel_geometry(emu, sym, page):
+    """The panel's left, top, rows shown, height and first row shown."""
     s = sym("settings")
     mx = XS[emu.r8(s + layout.SETTINGS_MENU_ACROSS) - 1]
     my = YS[emu.r8(s + layout.SETTINGS_MENU_DOWN) - 1]
-    rows = min(count, menunav.MENU_ROWS)
-    return mx, my, rows, (rows + 3) * ROW_H + 2
+    rows = 1 if page.compact else min(page.count, menunav.MENU_ROWS)
+    lines = 2 if len(help_text(page)) * CHAR_W > MENU_W - 16 else 1
+    h = (rows + 2 + lines) * ROW_H + 2
+    if my + h > MENU_BOTTOM:
+        my = MENU_BOTTOM - h
+    return mx, my, rows, h, (page.cursor if page.compact else page.scroll)
 
 
 class Shot:
@@ -62,14 +89,13 @@ class Shot:
 
 def check_page(emu, sym, name, log):
     page = Page(emu, sym)
-    mx, my, rows, h = panel_geometry(emu, sym, page.count)
+    mx, my, rows, h, first = panel_geometry(emu, sym, page)
     if my + h > H - 12:
         emu.fail(f"{name}: the panel ends at {my + h}, less than 12 pixels from the bottom")
     shot = Shot(emu, sym)
     if shot.choose(mx, my) < 8:
         emu.fail(f"{name}: no panel at {mx}, {my} in the frame buffers")
     b = shot.best
-    first = page.scroll
     for r in range(rows):
         y = my + (r + 1) * ROW_H + 8
         if shot.bright(mx + 8, y, mx + MENU_W - 8, y + 7) < 6:
@@ -181,7 +207,7 @@ def run(emu, sym, args):
     dist = {}
     # The menu is drawn into one buffer only while the game waits: the one that has the solid panel now.
     page = Page(emu, sym)
-    mx, my, rows, h = panel_geometry(emu, sym, page.count)
+    mx, my, rows, h, _ = panel_geometry(emu, sym, page)
     shot = Shot(emu, sym)
     shown = min((0, 1), key=lambda b: sample(setb(shot, b), mx, my, h))
     for _ in range(MENU_OPACITY_STEPS):
@@ -189,7 +215,7 @@ def run(emu, sym, args):
         yield 4
         step = emu.r8(settings + layout.SETTINGS_MENU_OPACITY)
         page = Page(emu, sym)
-        mx, my, rows, h = panel_geometry(emu, sym, page.count)
+        mx, my, rows, h, _ = panel_geometry(emu, sym, page)
         dist[step] = sample(setb(Shot(emu, sym), shown), mx, my, h)
     print("distance from the solid colour by step:", {k: round(v, 2) for k, v in sorted(dist.items())})
     order = [dist[k] for k in sorted(dist)]
@@ -220,7 +246,7 @@ def run(emu, sym, args):
                     emu.fail(f"{item} did not reach {want}")
             yield 6
             page = Page(emu, sym)
-            mx, my, rows, h = panel_geometry(emu, sym, page.count)
+            mx, my, rows, h, _ = panel_geometry(emu, sym, page)
             check_page(emu, sym, f"Settings at {across}, {down}", [])
             shot = Shot(emu, sym)
             shot.choose(mx, my)

@@ -1,11 +1,14 @@
 #include "game.h"
 #include "bindings.h"
+#include "menu.h"
 #include "settings.h"
 
 Settings settings;
 u8 settingsStatus;
 
 static u8 pending; /* 1 save, 2 load */
+/* The checksum of the settings as last saved or loaded: Status goes blank once they differ (SettingsService). */
+static u16 statusSum;
 
 _Static_assert(sizeof(SavedSettings) == 64, "the saved settings must fill the 8 free EEPROM blocks");
 _Static_assert(HUD_COUNT + 2 <= HUD_SLOTS, "the menu look fills the two free HUD slots of the saved settings");
@@ -165,6 +168,7 @@ void SettingsLoadAtBoot(void) {
     osEepromLongRead(mq, SETTINGS_EEPROM_BLOCK, (u8 *)&buf, sizeof(buf));
     if (Unpack(&buf)) {
         settingsStatus = 2;
+        statusSum = buf.checksum;
     }
 }
 
@@ -181,6 +185,13 @@ void SettingsRequestLoad(void) {
 void SettingsService(void) {
     static SavedSettings buf __attribute__((aligned(8)));
 
+    if (!pending && menuOpen && (settingsStatus == 1 || settingsStatus == 2)) {
+        /* "saved" or "loaded" no longer holds once a setting changed. */
+        Pack(&buf);
+        if (buf.checksum != statusSum) {
+            settingsStatus = 0;
+        }
+    }
     if (!pending || eepromMessageQueue[0] != 0) {
         return;
     }
@@ -190,10 +201,12 @@ void SettingsService(void) {
         Pack(&buf);
         osEepromLongWrite(&controllerMsgQ, SETTINGS_EEPROM_BLOCK, (u8 *)&buf, sizeof(buf));
         settingsStatus = 1;
+        statusSum = buf.checksum;
     } else {
         osEepromLongRead(&controllerMsgQ, SETTINGS_EEPROM_BLOCK, (u8 *)&buf, sizeof(buf));
         if (Unpack(&buf)) {
             settingsStatus = 2;
+            statusSum = buf.checksum;
         } else {
             settingsStatus = 4;
         }

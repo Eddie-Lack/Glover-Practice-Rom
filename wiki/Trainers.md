@@ -2,13 +2,24 @@
 
 _Back to the [Home page](Home.md) or the [Game](Game.md) page_
 
-WIP - six trainers for tricks, in the Game menu under "Trainers"
+Six trainers for tricks, in the Game menu under "Trainers". They were tested in an emulator only
 
 Trainers only read the game and draw on the screen. They don't change anything
 
 They go quiet in noclip, moon jump, free cam, a pause and an exit
 
 You can keep them on a Controller Pak _(see [Settings](Settings.md))_
+
+## The tricks
+
+| Trick | What it is |
+| --- | --- |
+| L mash | L pressed again and again while Glover is on the ball: he switches between standing on it and holding it, and the ball rolls faster than when he walks on it |
+| MBZ-L | While Glover holds the ball: B (the slap) or A (the throw's aim), cancelled with Z, then L on the right frame. The ball's speed goes from 7 to about 10.4 |
+| Line keeper | Walking with the D-pad on a diagonal, with C-left or C-right taps that keep the line straight |
+| Moon Pound | A slam (Z in the air) over a gap between the floor's faces, which falls through the floor. The best known one is at the hub's Space portal |
+| Wall clip | MAZ-R with the ball bearing: A (the throw's aim), cancelled with Z, then R on the next frame, with the ball close to a wall. The ball goes through the wall |
+| Boss windows | A boss that was hit ignores the next touch until a wait is over. The trainer counts the wait |
 
 ## Trainer log
 

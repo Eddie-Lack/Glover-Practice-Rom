@@ -4,10 +4,10 @@ _Back to the [Home page](Home.md)_
 
 | Option | What it does |
 | --- | --- |
-| Save settings | Save the settings to the cartridge |
+| Save settings | Save the settings to the cartridge. Changes you don't save are lost when the console is switched off |
 | Load settings | Load them |
-| Default settings | Go back to the defaults |
-| Status | Shows `saved, loaded, no EEPROM, none saved` |
+| Default settings | Go back to the defaults. Hold A. Your saved settings stay on the cartridge: Load settings brings them back |
+| Status | `saved` or `loaded` while the settings match the cartridge's. It goes blank once you change a setting, and is blank before the first save or load. `none saved`: Load settings found none. `no EEPROM`: see below |
 | Pause game in this menu | On (default): the game pauses while the menu is open. Off: the game keeps running |
 | Menu opacity | `clear, 25%, 50%, 75%, 85%, solid`. Default 85% |
 | Menu position across | `left, centre, right`. Default centre |
@@ -15,17 +15,28 @@ _Back to the [Home page](Home.md)_
 | Trainer log length | How many results the trainer log shows `off, 5, 6, 8, 10`. Default 5 _(see [Trainers](Trainers.md))_ |
 | Trainer result hold | How long a trainer's panel keeps an attempt's result `off, 1 s, 2 s, 3 s`. Default 1 s |
 | Hi Scores screen shows | `practice bests` or `game records` |
-| Clear practice best times | Forget every practice best time |
-| Save best times to card | Write the practice best times to the SD card file `BESTS.GRB`. WIP: SummerCart64 only |
-| Load best times from card | Replace the practice best times with that file |
+| Clear practice best times | Forget every practice best time. Hold A |
+| Save best times to card | Write the practice best times to the SD card file `BESTS.GRB`. SummerCart64 only |
+| Load best times from card | Replace the practice best times with that file. Hold A |
 | Save file | _Sub menu_, see below |
 | Controller Pak | _Sub menu_, see below |
 
 Saved settings load when the console starts. Your game save isn't touched
 
-The Game menu toggles (noclip, moon jump, camera speed, chaos, free cam, ghost and trainers) aren't saved to the cartridge. You can keep the trainer toggles on a Controller Pak, see below
+Menu opacity also sets the background of the tools' panels, like Face info in the collision view
 
-The trainer log length and result hold are saved with the other settings
+`no EEPROM`: the ROM saves to a 4 kbit EEPROM, like the original game. If your flash cart or emulator doesn't give the ROM one, set the save type to "EEPROM 4K" by hand in its settings
+
+## What is kept
+
+| What | Kept by |
+| --- | --- |
+| HUD items and their places, Text shadow, Timer in frames too, Input history, the full-game timer's splits | Save settings |
+| Bindings, Ball controls, the Reset kind (Warp), Pause game in this menu, the menu's opacity and position, the trainer log length and result hold | Save settings |
+| Controller 2: debug controls, and Controller 2: L marks all done (Game) | Save settings |
+| The trainer toggles, the Hi Scores choice, the practice best times, the input recording | A Controller Pak note, see below |
+| Savestates, the input recording, the practice best times | Card files on a SummerCart64's SD card _(see [Savestate](Savestate.md))_ |
+| Everything else: savestates in the slots, ghosts, cheats, noclip, moon jump, camera speed, chaos, free camera, fog, mute, the random numbers, the controller display, the collision view, hidden objects | Nothing: they are lost when the console is switched off |
 
 Long menus (cheats, HUD layout) scroll
 

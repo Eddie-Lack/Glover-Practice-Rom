@@ -33,7 +33,8 @@ typedef struct MenuItem {
     u8 kind;
     u8 min;
     u8 max;
-    s8 arg;                  /* ACTION, QUICK, BIND: passed on; QUICK: the action whose binding shows */
+    s8 arg;                  /* ACTION, QUICK, BIND: passed on; QUICK: the action whose binding shows; CHOICE: 1 lets
+                                Z with left or right jump to the next group of names (by their first word) */
     union {
         u8 *value;                  /* TOGGLE, CHOICE, NUMBER; INFO of a repeated row: the number of rows */
         const struct Menu *submenu; /* SUBMENU */
@@ -56,7 +57,13 @@ typedef struct Menu {
     const MenuItem *items;
     u8 count;
     u8 repeat;
+    u8 compact; /* 1: the panel shows only its title, the selected row and the help line (the HUD layout page, whose
+                   items lie behind the panel) */
 } Menu;
+
+/* An ACTION with min set to MENU_HOLD runs only after A is held for a moment: the selection bar fills meanwhile. For
+ * the rows that forget something on one press. */
+#define MENU_HOLD 1
 
 extern u8 menuOpen;
 /* The view that has the menu's panel, or NULL. */

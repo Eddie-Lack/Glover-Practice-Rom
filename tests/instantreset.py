@@ -263,7 +263,7 @@ def run(emu, sym, args):
         emu.fail(f"the saved block has hudOn {hud_on:#06x}: bit 15 (the instant reset) is clear")
     yield from press(emu, "DOWN")
     yield from press(emu, "DOWN")      # Default settings
-    yield from press(emu, "A")
+    yield from press(emu, "A", frames=80)  # it needs A held
     if emu.r8(sym("settings") + SETTINGS_INSTANT) != 0:
         emu.fail("the default settings keep the instant reset on")
     yield from press(emu, "UP")        # Load settings

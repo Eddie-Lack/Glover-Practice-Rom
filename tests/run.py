@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Runs every test: the ROM layout test, the boot test, the test without the Expansion Pak, the menu, the in-game
-timer fix, the HUD, the controller display, the tools (warp, reset, frame advance, checkpoints, cheats), the settings save and load,
+timer fix, the HUD, the controller display, the tools (warp, reset, frame advance, checkpoints, cheats), frame steps and slow motion, Reset from the pause menu, the menu's input and the quick actions' stick, recordings started with a binding, the settings save and load,
 savestates (the compressor, one level, ten slots, the instant reset), input recordings, the Game menu's tools and switches, the full-game timer, the Inspect menu, the
 collision view (its cache, its switches, face info and the wireframe), the overlay list's peak use, hiding objects, the frame log, the slap's Z cancel, noclip and moon jump, Set action, Spawn and move actors, the taps
 that the game missed, chaos inputs, memory corruption, the early title menu, the free camera, the ghost, the practice best times, the save file editor, the Controller Pak storage, the trick trainers (the L mash and MBZ-L, the line keeper, the Moon Pound aim, the boss windows, the wall clip), the hole painter, the savestates, a recording and the best times on the SD card (the FAT code on the host, then the ROM with a test mailbox for a cart), the practice code's time limits (perf.py --quick), and the faithfulness test.
@@ -23,6 +23,10 @@ TESTS = [
     ["harness.py", "timerfix", "--gfx", "angrylion"],
     ["harness.py", "hud", "--gfx", "angrylion"],
     ["harness.py", "tools", "--gfx", "angrylion"],
+    ["harness.py", "framestep", "--gfx", "angrylion"],
+    ["harness.py", "pausereset", "--gfx", "angrylion"],
+    ["harness.py", "menuinput", "--gfx", "angrylion"],
+    ["harness.py", "recordfix", "--gfx", "angrylion"],
     ["harness.py", "settings", "--gfx", "angrylion"],
     ["harness.py", "settingsload", "--save-from", "build/tests/settings/save"],
     ["harness.py", "settingsold", "--save-from", "build/tests/settings/save"],

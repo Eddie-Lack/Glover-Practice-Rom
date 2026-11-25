@@ -88,8 +88,8 @@ menu. The README links to it.
   is written to the card except by Save and Delete, and the cart is not touched until one of the items is used. A load
   checks the whole file before the game changes. Not tested on a console. There is no driver for other flash carts.
 - Input recording: Record saves its state into a slot of its own and does not touch the chosen slot. A save that does
-  not fit says "recording not started: pool full". A recording keeps up to 109 minutes (it was 3.6 hours).
-- Instant reset (Warp menu, last item, "Reset"): the state of each level's first game frame is saved on its own, and Reset
+  not fit says "recording not started: pool full". A recording keeps up to 109 minutes.
+- Instant reset (Warp menu, "Reset"): the state of each level's first game frame is saved on its own, and Reset
   loads it in 0.25 s. No fade, the same random numbers, places and timers as a real start. The music keeps playing and
   the sound effects stop; the game's save is kept as it is. It acts only in a level that runs: not in a pause, a
   cameo or while Glover dies. Off by default, and nothing is saved at a level start while it is off. Saved with
@@ -117,7 +117,8 @@ menu. The README links to it.
   would slam through the floor, and where the nearest hole is. The boss windows trainer works in the Atlantis boss,
   the Prehistoric boss and the last Space fight. It counts the game frames until a hit counts (49 for the whale, 34
   for the Prehistoric boss, 20 for each Space part), says how late each hit was and why a touch was lost, and shows
-  the boss's own timers. All five only read the game.
+  the boss's own timers. The wall clip trainer shows, for MAZ-R into a wall with the ball bearing, whether a Z cancel
+  on this game frame would clip. All six only read the game.
 - Trainer log and result hold (Settings): a list of the last 5, 6, 8 or 10 results of the active trainers at the
   side of the screen, newest first. When an attempt ends, the trainer's panel keeps its result for 1, 2 or 3 seconds.
   Both are saved with the other settings.
@@ -126,7 +127,7 @@ menu. The README links to it.
 
 ### Controller Pak storage
 
-- Settings, last item, "Controller Pak": save the full settings, the Hi Scores screen choice, the trainer
+- Settings, "Controller Pak": save the full settings, the Hi Scores screen choice, the trainer
   switches, the practice best times and the input recording (if it fits) to a Controller Pak in controller 1 or 2,
   and load them back. One note, "GLOVER PRACTICE", in the standard layout; other notes are not changed. Save,
   delete and format ask first, and a format works only on a pak that is not formatted. With the pak unused
@@ -134,7 +135,7 @@ menu. The README links to it.
 
 ### Save file editor
 
-- Settings, last item, "Save file": edit the game's save files (lives, crystals won and returned, difficulty) and
+- Settings, "Save file": edit the game's save files (lives, crystals won and returned, difficulty) and
   each level's done flag, all-garibs flag and best time. "Write to the cartridge" asks first, then writes the files
   and the best times with the game's own save requests and checksums. "Reload from the cartridge" discards the
   edits. The menu warns "Edits your real save!". With the editor unused nothing changes.
@@ -166,11 +167,11 @@ menu. The README links to it.
 - Spawn actor (Inspect): a garib, a power-up or an enemy of a type that the level has, made in front of Glover. On
   an actor's page in the actor list, Z brings that actor to Glover; a platform's collision follows it. The HUD
   shows "MODIFIED actors".
-- Show missed taps (second last item of the Inspect menu, off by default, with a warning): extra controller reads show
+- Show missed taps (Inspect menu, off by default, with a warning): extra controller reads show
   the taps that start and end between two of the game's reads, in orange on the input display. It changes the
   game's timing.
 - A memory viewer and editor.
-- Memory corruption (last item of the Inspect menu): mark words as pokes in the memory viewer (once, freeze, random
+- Memory corruption (Inspect menu): mark words as pokes in the memory viewer (once, freeze, random
   bits, flip a bit), and flip one random bit of the glove, the ball, a level actor or a range of memory. Writes
   go only to RAM, never to the practice code. The HUD shows "MODIFIED pokes".
 - The glove's and the ball's timers, counters and contacts, live.

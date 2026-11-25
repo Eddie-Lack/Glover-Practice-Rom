@@ -42,7 +42,7 @@ Note: it doesn't show in the game's demos, which have their own
 
 ## Full-game timer
 
-The full-game timer times real time for a whole run. Realtimes Realtimes Realtimes
+The full-game timer times real time for a whole run
 
 - Starts the first frame after you select the difficulty to start a new game
 - Stops when Glover enters the fountain with the last crystal
