@@ -193,6 +193,7 @@ def run(emu, sym, args):
     if not (yield from marker_drawn()):
         emu.fail("MODIFIED went out with chaos off, while the level is still tainted")
     emu.w8(sym("bestTimesState") + BT_TAINT, 0)
+    emu.w32(sym("bestTimesShown"), 0)  # the taint that the HUD shows
     if (yield from marker_drawn()):
         emu.fail("the marker is drawn with chaos off")
     if emu.r16(ch + C_PENDING) or emu.r8(ch + C_ARMED):

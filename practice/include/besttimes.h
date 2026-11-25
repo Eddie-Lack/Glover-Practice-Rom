@@ -50,6 +50,8 @@ typedef struct BestTimesState {
 } BestTimesState;
 
 extern BestTimesState bestTimesState;
+extern u32 bestTimesShown;      /* the taint bits the HUD shows (besttimes.c) */
+extern u32 bestTimesMenuCheats; /* the cheats the practice menu has turned on or off */
 
 /* The game thread, on every message of a game frame (idempotent): notes a modified run. */
 void BestTimesTick(void);

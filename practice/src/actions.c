@@ -382,6 +382,7 @@ void ActionsGameFrame(void) {
     StateRequests(r, 1);
     if (run.cheat) {
         /* ActivateCheat turns a cheat on or off, with the game's own checks and message. */
+        bestTimesMenuCheats |= 1u << (run.cheat - 1);
         ActivateCheat(run.cheat - 1, 1);
         run.cheat = 0;
     }
@@ -390,6 +391,7 @@ void ActionsGameFrame(void) {
         u32 toggles = run.cheatToggles;
         run.cheatToggles = 0;
         __osRestoreInt(mask);
+        bestTimesMenuCheats |= toggles;
         for (int i = 0; i < 32; i++) {
             if (toggles & (1u << i)) {
                 ActivateCheat(i, 1);

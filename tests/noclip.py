@@ -98,6 +98,7 @@ def run(emu, sym, args):
     if not (yield from marker_drawn()):
         emu.fail("MODIFIED went out with the moon jump off, while the level is still tainted")
     emu.w8(sym("bestTimesState") + BT_TAINT, 0)
+    emu.w32(sym("bestTimesShown"), 0)  # the taint that the HUD shows
     if (yield from marker_drawn()):
         emu.fail("the marker is drawn with the moon jump off")
     yield 100  # on the ground again
@@ -158,6 +159,7 @@ def run(emu, sym, args):
         emu.fail(f"the glove did not fall after noclip ({top:.1f} to {pos()[1]:.1f})")
     yield 240  # the "state saved" message goes out
     emu.w8(sym("bestTimesState") + BT_TAINT, 0)
+    emu.w32(sym("bestTimesShown"), 0)  # the taint that the HUD shows
     if (yield from marker_drawn()):
         emu.fail("the marker is drawn with both switches off")
 

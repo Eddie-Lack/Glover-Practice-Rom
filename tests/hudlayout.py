@@ -135,9 +135,22 @@ def run(emu, sym, args):
 
     # 3. MODIFIED with no reason word, and the lag counter.
     emu.w8(sym("bestTimesState") + BT_TAINT, 0)
+    emu.w32(sym("bestTimesShown"), 0)  # the taint that the HUD shows
     yield 10
     if "MODIFIED" in boxes():
         emu.fail("MODIFIED shows with the run not tainted")
+    # A cheat from the game's own menu stops a best time, but with the practice features off the picture is retail.
+    cheats = emu.r32(sym("cheatActivated"))
+    emu.w32(sym("bestTimesMenuCheats"), 0)
+    emu.w32(sym("cheatActivated"), cheats | 1 << 3)
+    yield 20
+    if not emu.r8(sym("bestTimesState") + BT_TAINT):
+        emu.fail("a cheat from the game's menu did not taint the run")
+    if "MODIFIED" in boxes():
+        emu.fail("a cheat from the game's menu drew MODIFIED")
+    emu.w32(sym("cheatActivated"), cheats)
+    emu.w8(sym("bestTimesState") + BT_TAINT, 0)
+    print("hudlayout: a cheat from the game's own menu taints the run and draws nothing")
     emu.w8(run_ + RUN_RNG_FROZEN, 1)
     yield 20
     if "MODIFIED" not in boxes():

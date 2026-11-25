@@ -150,6 +150,7 @@ def run(emu, sym, args):
     emu.load(base)
     yield 3
     emu.w8(bt + BT_TAINT, 0)  # what the earlier parts did to the level is not part of this
+    emu.w32(sym("bestTimesShown"), 0)  # the taint that the HUD shows
     for _ in range(6):
         yield from r.next_frame()
     if emu.r8(bt + BT_TAINT):

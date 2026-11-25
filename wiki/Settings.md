@@ -63,7 +63,7 @@ A run doesn't count if it used any of these:
 - a cheat other than level select, open portals and open levels
 - frame advance, slow motion or a savestate load
 
-From the first of these, the HUD shows MODIFIED until the level starts again
+From the first of these, the HUD shows MODIFIED until the level starts again. A cheat typed in the game's own menu doesn't show it
 
 ## Save file
 

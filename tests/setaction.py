@@ -108,6 +108,7 @@ def run(emu, sym, args):
         if not (yield from marker_drawn()):
             emu.fail(f"set action {name}: MODIFIED went out while the level is still tainted")
         emu.w8(sym("bestTimesState") + BT_TAINT, 0)
+        emu.w32(sym("bestTimesShown"), 0)  # the taint that the HUD shows
         if (yield from marker_drawn()):
             emu.fail(f"set action {name}: the marker is still drawn after the time is up")
         yield 60

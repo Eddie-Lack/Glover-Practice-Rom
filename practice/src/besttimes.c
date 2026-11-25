@@ -46,12 +46,19 @@ void BestTimesClear(void) {
     bestTimesState.lastBit = -1;
 }
 
+/* The taint that the HUD shows as MODIFIED. A cheat counts there only if the practice menu set it: a cheat typed in
+ * the game's own menu stops a practice best time, but with every practice feature off the picture stays retail. */
+u32 bestTimesShown;
+u32 bestTimesMenuCheats;
+
 void BestTimesTaint(int bits) {
     bestTimesState.taint |= bits;
+    bestTimesShown |= bits;
 }
 
 void BestTimesLevelStart(void) {
     bestTimesState.taint = 0;
+    bestTimesShown = 0;
     startCheats = cheatActivated & LOCATE_GARIBS;
 }
 
@@ -82,7 +89,14 @@ void BestTimesTick(void) {
     if (autoPlayback == 2) {
         t |= BT_OTHER; /* a demo */
     }
-    if ((cheatActivated & ~ignored) | run.rngFrozen | settings.debugPad | run.cameraSpeed | run.hide) {
+    if (run.rngFrozen | settings.debugPad | run.cameraSpeed | run.hide) {
+        t |= BT_OTHER;
+    }
+    if (cheatActivated & ~ignored & bestTimesMenuCheats) {
+        t |= BT_OTHER;
+    }
+    bestTimesShown |= t;
+    if (cheatActivated & ~ignored) {
         t |= BT_OTHER;
     }
     bestTimesState.taint |= t;

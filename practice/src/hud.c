@@ -394,7 +394,7 @@ static void DrawCameraIcon(Gfx **dl) {
 /* 1 while the level being played is not kept as a practice best time (besttimes.h). The game's own demos count as
  * modified there, but nobody plays them. */
 static int Tainted(void) {
-    return bestTimesState.taint != 0 && autoPlayback != 2;
+    return bestTimesShown != 0 && autoPlayback != 2;
 }
 
 int HudStatusShown(void) {
