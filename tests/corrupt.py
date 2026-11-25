@@ -190,7 +190,7 @@ def run(emu, sym, args):
         emu.fail("the reset of the level cleared the marker")
     # After "Clear all pokes" the marker stays (the memory is still written) until the level starts again.
     yield from open_corruption_menu()
-    for b in ("DOWN",) * 7 + ("A",):
+    for b in ("DOWN",) * 6 + ("A",):  # Clear all pokes, the last row
         yield from press(emu, b)
     yield from press(emu, *C_ALL)
     yield 30
@@ -381,7 +381,7 @@ def run(emu, sym, args):
     set_poke(3, quiet, 5, ONCE)
     emu.w8(cor + C_ACTIVE, 0)
     yield from press(emu, *C_ALL)
-    for b in ("A", "UP", "A") + ("DOWN",) * 7 + ("A",):
+    for b in ("A", "UP", "A") + ("DOWN",) * 6 + ("A",):
         yield from press(emu, b)
     yield from press(emu, *C_ALL)
     if any(emu.r32(poke(i, P_ADDRESS)) for i in range(8)):
