@@ -3,6 +3,7 @@
 #include "game.h"
 #include "fmt.h"
 #include "bindings.h"
+#include "hud.h"
 #include "menu.h"
 #include "settings.h"
 #include "text.h"
@@ -289,6 +290,8 @@ void MenuInput(u16 pressed, u16 held) {
                 BindingCapture(item->arg);
                 break;
             case ITEM_VIEW:
+                /* A message of the HUD would sit under the view's panel. */
+                HudMessage("");
                 menuView = item->view;
                 if (menuView->open != NULL) {
                     menuView->open();
@@ -317,8 +320,15 @@ static void ValueText(const MenuItem *item, int arg, char *buf, int size) {
     buf[0] = '\0';
     switch (item->kind) {
         case ITEM_SUBMENU:
-        case ITEM_VIEW:
             Format(buf, size, ">");
+            break;
+        case ITEM_VIEW:
+            /* A view can show a value of its own in place of the arrow. */
+            if (item->info != NULL) {
+                item->info(buf, size, arg);
+            } else {
+                Format(buf, size, ">");
+            }
             break;
         case ITEM_TOGGLE:
             Format(buf, size, "%s", *item->value ? "on" : "off");

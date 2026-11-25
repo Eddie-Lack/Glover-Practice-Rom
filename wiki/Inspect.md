@@ -20,15 +20,17 @@ Views of the game's state
 
 ## Actors
 
-Lists the level's actors with each actor's position, speed, rotation and state
+Lists the level's actors with each actor's position, speed, rotation and state. Each row shows its number, type, model and x, y, z. Garibs aren't actors, so they aren't in the list. Hold Z to move 10 rows. The chosen actor stays chosen when you open the list again
 
 A page for one actor has options to:
 
-- move Glover to the actor,
+- move Glover to the actor (A),
 - move the actor to Glover (Z on its page),
 - edit the actor (Start on its page)
 
-Editing: `Up` and `Down` choose a field, `Left` and `Right` change it, `C up` and `C down` change the step. Start leaves the editing
+Moving only works while a level runs, and Z not while the game is paused
+
+Editing: `Up` and `Down` choose a field, `Left` and `Right` change it, `C up` and `C down` change the step. Start or B leaves the editing
 
 | Field | Step |
 | --- | --- |
@@ -53,6 +55,21 @@ The menu has a warning - "Modified game! May crash. Edits your save"
 
 Shows and edits memory. Edits make the HUD show "MODIFIED". Z marks a word as a poke (see **Memory corruption** below). A watch list on the HUD can show chosen words
 
+| Button | What it does |
+| --- | --- |
+| Left, Right | Choose a digit of the address |
+| Up, Down | Change that digit |
+| R | Edit the value at the cursor. The value has its own digit, which starts on the lowest. R again goes back to the address |
+| C left, C right | The size of the value at the cursor: 4, 2 or 1 bytes. The top line shows it in hex and as a signed number |
+| A | Add the value at the cursor to the watch list (4 at most). This turns "Show the watch list" on |
+| L | Clear the watch list |
+| Z | Mark the value at the cursor as a poke |
+| Start | The list of pokes |
+
+In the grid, watched words are green and poked words are orange. The practice code's own memory can't be edited: its values show grey while you edit
+
+"Random numbers: set (frozen)" in the Game menu opens a small editor of the frozen seed instead: Left and Right choose a digit, Up and Down change it. It is not a poke, and it only stops the level's run from counting for a best time
+
 ## Frame log
 
 For each game frame of the glove, the log records:
@@ -63,6 +80,8 @@ For each game frame of the glove, the log records:
 - the time in which the game reads no buttons
 
 Turn on "Frame log records", do a trick, then open Frame log to see on which frame each input landed
+
+The log keeps the last 256 game frames (about 13 seconds). Each line is numbered with the level's game frame, the number the input history uses. Left and Right turn 16 lines at a time
 
 ## Collision view
 
@@ -226,16 +245,15 @@ This changes the game's timing slightly. Use it for study and not for timed prac
 
 `"Modified game! May crash".`
 
-The HUD shows "MODIFIED pokes" until you load a state, use "Clear all pokes" or reset the console
+The HUD shows "MODIFIED pokes" until you load a state or reset the console. After "Clear all pokes" it stays until the level starts again, because the written values are still in memory
 
 | Option | What it does |
 | --- | --- |
-| Pokes | The list of eight pokes. In the memory viewer, Z marks the word at the cursor as a poke, and Start lists the pokes |
+| Pokes | The list of eight pokes, with how many are set and running. In the memory viewer, Z marks the word at the cursor as a poke, and Start lists the pokes |
 | Apply once pokes | Write the pokes in mode "once" |
 | Flip region | Where "Flip one random bit" works: the glove's actor, the ball's actor, a random actor of the level, or the memory view range |
 | Range size | 16, 256, 4096 or 65536 bytes from the viewer's address |
 | Flip one random bit | Flip one bit in the chosen region |
-| Pokes (info) | How many are set and running |
 | Last flip | The address, the bit and the count of the last flip |
 | Clear all pokes | Remove every poke |
 
@@ -246,4 +264,4 @@ Each poke has a mode:
 - random: the low bits are set to random bits
 - flip: one random bit of the low bits is flipped
 
-C left and right set the poke's size. C up and down set the bits. L and R set how often it acts. Writes only go to RAM, never to the practice code and its data. The game will probably crash
+C left and right set the poke's size. C up and down set the bits. A C button counts when it is let go on its own, so the menu's four C buttons don't change a poke. L and R set how often it acts. Writes only go to RAM, never to the practice code and its data. The game will probably crash

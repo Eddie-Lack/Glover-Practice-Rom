@@ -36,8 +36,10 @@ def run(emu, sym, args):
     for b in ["DOWN", "RIGHT", "RIGHT"]:
         yield from press(emu, b)
     edited = emu.r8(shadow + 0x10)
-    for b in ["DOWN"] * 6 + ["A", "A"]:  # Reload, asked and confirmed
+    for b in ["DOWN"] * 6 + ["A"]:  # Reload, asked
         yield from press(emu, b)
+    yield 60  # the question ignores A for 10 game frames
+    yield from press(emu, "A")  # confirmed
     yield 400
     status = emu.r8(se + layout.SAVEEDIT_STATUS)
     if status != STATUS_BAD_CRC:

@@ -30,6 +30,7 @@ def run(emu, sym, args):
     yield from press(emu, "A")
     if emu.r8(c + layout.CPAK_CONFIRM):
         emu.fail("Format asked for a confirmation on a pak with good ID blocks")
+    yield from wait_idle(emu, sym)  # A on the grey row checks the pak
 
     yield from activate(emu, sym, layout.ROW_SAVE, True)
     if status(emu, sym) != layout.CPAK_SAVED:

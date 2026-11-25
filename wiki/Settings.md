@@ -11,7 +11,7 @@ _Back to the [Home page](Home.md)_
 | Pause game in this menu | On (default): the game pauses while the menu is open. Off: the game keeps running |
 | Menu opacity | `clear, 25%, 50%, 75%, 85%, solid`. Default 85% |
 | Menu position across | `left, centre, right`. Default centre |
-| Menu position down | `top, middle, low`. Default middle |
+| Menu position down | `top, middle, low`. Default middle. The position moves the list pages, not the tools that fill the panel, like Memory or Save file |
 | Trainer log length | How many results the trainer log shows `off, 5, 6, 8, 10`. Default 5 _(see [Trainers](Trainers.md))_ |
 | Trainer result hold | How long a trainer's panel keeps an attempt's result `off, 1 s, 2 s, 3 s`. Default 1 s |
 | Hi Scores screen shows | `practice bests` or `game records` |
@@ -72,6 +72,10 @@ Edit the game's own save. Edits your real save!
 
 Edits stay in the editor until you choose "Write to the cartridge", which asks once more. "Reload from the cartridge" drops your edits
 
+Values you edited but didn't write yet are orange. An empty save file's lives, crystals, difficulty and level flags are grey and can't change; the best times still can
+
+The question takes A only after half a second, so a double tap doesn't write by mistake. Any other button says no. After a write, "Waiting for the game's own save..." shows until the game's EEPROM is free
+
 Note: the editor refuses a save with bad checksums
 
 ## Controller Pak
@@ -82,7 +86,9 @@ Put a Controller Pak in controller 1 or 2, and choose the controller in the firs
 - "Load from the pak" brings them back. A recording only plays on top of the savestate it was recorded from
 - "Delete the practice note", "Repair the pak" and "Format the pak" do what they say. Format only works on an unformatted pak
 
-Save, Delete, Repair and Format ask first: A confirms, any other button cancels
+Save, Delete, Repair and Format ask first: A confirms, any other button cancels. The question takes A only after half a second
+
+A grey row can't act on this pak. A on it checks the pak, and the status line says why
 
 Other games' notes are never changed. A Rumble Pak doesn't work. Saving and loading can lag the game for a moment
 

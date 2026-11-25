@@ -30,7 +30,7 @@ Lives and health changed during a level, a frozen or changed random seed, a powe
 | Freeze random numbers | Keep the random number seed at its value now. Select again to let it run |
 | Random numbers: one call | Step the seed by one call of the game's random function, on the next game frame |
 | Random numbers: level start | Set the seed to the value of a level's start, on the next game frame |
-| Random numbers: set (frozen) | Freeze the seed and edit its value in the memory view, digit by digit |
+| Random numbers: set (frozen) | Freeze the seed and edit its value, digit by digit: Left and Right choose a digit, Up and Down change it, B leaves |
 
 ## Controller 2
 

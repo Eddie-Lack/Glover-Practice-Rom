@@ -1242,7 +1242,7 @@ second, independent reading of the layout). The driver has not run on a console.
 
 ## Memory corruption
 
-The Inspect menu's last item, "Memory corruption", and two keys of the memory viewer (`practice/src/corrupt.c`,
+The Inspect menu's "Memory corruption", and two keys of the memory viewer (`practice/src/corrupt.c`,
 `practice/src/memview.c`, `practice/include/corrupt.h`).
 
 - A poke is an address, a value, a size (1, 2 or 4 bytes), a mode, a bit count and a period. Eight pokes live in
@@ -1264,13 +1264,17 @@ The Inspect menu's last item, "Memory corruption", and two keys of the memory vi
   linker's symbol: the practice code, its data and its bss). The savestates (from 0x80480000) can be written. A word
   goes to an address that is a multiple of 4, a half word of 2. After each write the data cache is written back and
   the instruction cache is cleared for those bytes. A poke whose mode is off is
-  never written.
+  never written. An edit in place in the memory view goes through `PokeWrite`, with the same checks.
 - The random generator is a xorshift32 of its own, seeded from the CPU counter at first use. The game's `rseed` is
   not touched.
 - The HUD marker is "MODIFIED pokes" (`CorruptMarker`) while a poke runs (freeze, random or flip), and after any write
-  (`Corrupt.dirty`) until a state is loaded (the load puts back what the writes changed in the state's ranges), the
-  menu's "Clear all pokes" is used, or the console is reset. A level change or restart does not clear it, because a
-  write to a global or to the save outlives the level.
+  (`Corrupt.dirty` 1) until a state is loaded (the load puts back what the writes changed in the state's ranges) or
+  the console is reset. A level change or restart does not clear it, because a write to a global or to the save
+  outlives the level. "Clear all pokes" sets `dirty` to 2 (`CORRUPT_CLEARED`) and keeps `practice.levelStarts` in
+  `Corrupt.clearedAt`: the marker stays until the next level start. `CorruptMarker` only reads these, so both
+  threads may call it.
+- The seed editor of the Game menu ("Random numbers: set (frozen)") uses the memory view locked on
+  `run.rngValue`: no address change and no poke keys, and an edit taints only the level (`BT_OTHER`).
 - Limits: the game keeps its own copies of some values (for example the glove's position is also in other places), so
   a write to one may be overwritten at once. A freeze runs at the start of each game frame, before the game's logic.
   The writes are not part of a savestate or a recording. The bindings are full. There is no binding.

@@ -1,5 +1,5 @@
 /* The glove and ball view: the timers, counters and contacts that decide the glove's and the ball's next moves,
- * live. Left and right change the page, B goes back. The offsets are those of gloveworld's include/hand.h
+ * live. Left shows the glove's page and right the ball's, B goes back. The offsets are those of gloveworld's include/hand.h
  * (HandControl), include/ball.h (BallControl) and include/actor.h (ActorObject). */
 #include "fmt.h"
 #include "game.h"
@@ -14,7 +14,7 @@
 #define ROW_H 10
 #define ROWS 16
 
-enum FieldKind { S8, U8, S16, S32, F32 };
+enum FieldKind { S8, U8, S16, S32, F32, HEX };
 
 typedef struct Field {
     const char *label;
@@ -34,7 +34,7 @@ static const Field gloveFields[] = {
 static const Field ballFields[] = {
     { "state", 0x1E, S8 },        { "release timer", 0x16, S16 }, { "fall time", 0x18, S16 },
     { "return time", 0x1A, S16 }, { "lose timer", 0x00, S32 },     { "change time", 0x11C, S32 },
-    { "hit flags", 0x10C, S32 },
+    { "hit flags", 0x10C, HEX },
 };
 
 static u8 statePage;
@@ -47,8 +47,12 @@ static int Input(u16 pressed, u16 held) {
     if (pressed & CONT_B) {
         return 0;
     }
-    if (pressed & (CONT_LEFT | CONT_RIGHT)) {
-        statePage ^= 1;
+    /* One page for each direction: a held direction that repeats stays on its page. */
+    if (pressed & CONT_LEFT) {
+        statePage = 0;
+    }
+    if (pressed & CONT_RIGHT) {
+        statePage = 1;
     }
     return 1;
 }
@@ -79,6 +83,9 @@ static void DrawField(Gfx **dl, int col, int row, const u8 *base, const Field *f
         case S32:
             Line(dl, col, row, 0xFFFFFFFF, "%-15s %d", f->label, *(const s32 *)p);
             break;
+        case HEX:
+            Line(dl, col, row, 0xFFFFFFFF, "%-15s %08X", f->label, *(const u32 *)p);
+            break;
         case F32:
             if (SafeFloat((const f32 *)p)) {
                 Line(dl, col, row, 0xFFFFFFFF, "%-15s %.2f", f->label, (double)*(const f32 *)p);
@@ -97,7 +104,10 @@ static void DrawContacts(Gfx **dl, int row, const char *name, const Actor *a) {
     if (!SafePointer(o)) {
         return;
     }
+    int start;
+
     n += Format(buf + n, sizeof(buf) - n, "%s %s:", name, o->onGround ? "ground" : "air");
+    start = n;
     for (int k = 0; k < 4; k++) {
         const CollFace *f = o->planes[k];
         const char *kind = "?";
@@ -109,6 +119,9 @@ static void DrawContacts(Gfx **dl, int row, const char *name, const Actor *a) {
             kind = y >= 0.75f ? "floor" : y >= 0.3f ? "slope" : y > -0.3f ? "wall" : "ceiling";
         }
         n += Format(buf + n, sizeof(buf) - n, " %s", kind);
+    }
+    if (n == start) {
+        Format(buf + n, sizeof(buf) - n, " %s", "none");
     }
     Line(dl, 0, row, 0xFFE070FF, "%s", buf);
 }

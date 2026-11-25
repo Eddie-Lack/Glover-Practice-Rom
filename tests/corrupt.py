@@ -5,7 +5,8 @@
    right changes the mode to freeze. B and the second B go back.
 3. Freeze: a word that the game never reads (titleMenuSelected) is written again after the test clears it, the
    marker is drawn, the write count rises. Off: it stays as the test leaves it. The marker stays (something was
-   written), also after a reset of the level, until "Clear all pokes" is used or a state is loaded.
+   written), also after a reset of the level. After "Clear all pokes" it stays until the level starts again; a
+   state load also clears it.
 4. Once: "Apply once pokes" in the menu writes each once poke in order (a word, then a byte over it); the writes
    count, an unaligned address is aligned, and a poke on the practice segment, below RDRAM or past it is not
    written.
@@ -187,14 +188,19 @@ def run(emu, sym, args):
     yield from wait_for(emu, lambda: level() == trace.ATLANTIS1 and mode() == 4 and fc() >= 60, 3000, "Atlantis 1")
     if not emu.r8(cor + C_DIRTY) or not (yield from marker_drawn()):
         emu.fail("the reset of the level cleared the marker")
-    # "Clear all pokes" clears it.
+    # After "Clear all pokes" the marker stays (the memory is still written) until the level starts again.
     yield from open_corruption_menu()
     for b in ("DOWN",) * 7 + ("A",):
         yield from press(emu, b)
     yield from press(emu, *C_ALL)
     yield 30
-    if emu.r8(cor + C_DIRTY) or (yield from marker_drawn()):
-        emu.fail("the marker stays after Clear all pokes")
+    if not (yield from marker_drawn()):
+        emu.fail("the marker went out at Clear all pokes, while the level still holds the write")
+    yield from press(emu, "UP", x=0, y=80)
+    yield from wait_for(emu, lambda: fc() < 20, 2000, "the level to restart")
+    yield from wait_for(emu, lambda: level() == trace.ATLANTIS1 and mode() == 4 and fc() >= 60, 3000, "Atlantis 1")
+    if (yield from marker_drawn()):
+        emu.fail("the marker stays after Clear all pokes and a reset of the level")
 
     # 4. Once pokes, through the menu's "Apply once pokes".
     emu.w32(quiet, 0)

@@ -23,6 +23,7 @@ def run(emu, sym, args):
     yield from press(emu, "A")
     if emu.r8(c + layout.CPAK_CONFIRM):
         emu.fail("Format asked for a confirmation on a Rumble Pak")
+    yield from wait_idle(emu, sym)  # A on the grey row checks the pak
     # Even a format that is asked for by the program finds the device out first.
     emu.w8(c + layout.CPAK_REQUEST, layout.CPAK_REQ_FORMAT)
     emu.w8(c + layout.CPAK_WORKING, 1)

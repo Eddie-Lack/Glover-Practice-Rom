@@ -4,7 +4,8 @@
    returned, the first level's done flag, all-garibs flag and best time. The game's copy in RAM and the EEPROM file
    stay as they were until "Write". Lives start at 3, crystals returned stay at or below crystals won, and the
    difficulty of the file in play (currentSaveSlot) does not change, in the editor or at Write.
-2. A is asked twice: the first A only asks (a confirmation), another button cancels it and writes nothing.
+2. A is asked twice: the first A only asks (a confirmation), another button cancels it and writes nothing. An A
+   in the first 10 game frames after the question does nothing: a double tap does not write.
 3. Write: the game's copy gets the edits, the EEPROM file (the game's blocks 31 to 51 for the files, 7 to 30 for
    the best times, 52 to 55 for the CRCs) holds them, and every CRC is valid, decoded as the game does (CRC-32 with
    the polynomial 0x04C11DB7, no inversion; docs/game.md).
@@ -14,19 +15,28 @@
    The run also writes a copy of its save folder with one byte of file 2 changed (build/tests/saveedit/save_bad),
    for saveeditbad.py.
 The merge keeps the game's change to bits and counts that were not edited (levels 0x7, crystals 1 and 1 at the end).
-saveeditload.py then starts a new emulator from this run's save folder."""
+The fields of an empty file do not change (file 1 is empty on a fresh EEPROM). The test then gives file 1 a name and
+lets the game save it. saveeditload.py then starts a new emulator from this run's save folder."""
 import glob
 import os
 import shutil
 
 import layout
 import trace
-from menunav import goto
+from menunav import goto, top
 from tools import C_ALL, press, wait_for
 
 SLOT_SIZE = 0x1C
 SLOTS_ADDR, TIMES_ADDR, CRC_ADDR = 0x1F * 8, 0x07 * 8, 0x34 * 8
 SLOTS_LEN, TIMES_LEN, HISCORE_ADDR, HISCORE_LEN = 0xA8, 0xC0, 8, 0x30
+GUARD_WAIT = 60  # video frames: more than the 10 game frames in which the question ignores A
+
+
+def confirm(emu):
+    """A asks, and A after the guard answers."""
+    yield from press(emu, "A")
+    yield GUARD_WAIT
+    yield from press(emu, "A")
 
 
 def crc(data):
@@ -85,9 +95,36 @@ def run(emu, sym, args):
     if emu.r32(levels) != 0 or emu.r8(lives) != 0:
         emu.fail("file 1 of a fresh EEPROM is not blank")
 
+    # An empty file: its lives do not change.
     yield from press(emu, *C_ALL)
     if not emu.r8(sym("menuOpen")):
         emu.fail("the menu did not open")
+    yield from goto(emu, sym, "Settings", "Save file")
+    yield from press(emu, "DOWN")
+    yield from press(emu, "RIGHT")
+    yield 10
+    shot("empty_file")
+    if emu.r8(s_lives) != 0:
+        emu.fail(f"the lives of an empty file changed to {emu.r8(s_lives)}")
+    yield from press(emu, "UP")
+    yield from press(emu, "B")
+    yield from press(emu, *C_ALL)
+    # File 1 gets a name, and the game saves it (UpdateSaveSlot posts requests 6 and 11).
+    for i, c in enumerate(b"ABC"):
+        emu.w8(slot0 + i, c)
+    queue = sym("eepromMessageQueue")
+    emu.w8(queue + 1, 11)
+    emu.w8(sym("eepromMessageNum"), 2)
+    emu.w8(queue, 6)
+    yield 200
+    initial = eeprom()
+    if not all(check_crcs(initial)) or initial[SLOTS_ADDR:SLOTS_ADDR + 3] != b"ABC":
+        emu.fail(f"the game's save of the named file 1: CRCs {check_crcs(initial)}")
+
+    yield from press(emu, *C_ALL)
+    if not emu.r8(sym("menuOpen")):
+        emu.fail("the menu did not open")
+    yield from top(emu, sym)
     yield from goto(emu, sym, "Settings", "Save file")
     shot("file_page")
     # Lives 5 (the first step goes from 0 to 3), crystals won 2, returned 1.
@@ -144,7 +181,6 @@ def run(emu, sym, args):
     # A save by the game itself with the edits pending (UpdateSaveSlot posts requests 6 and 11, without 4): the
     # cartridge gets none of the edits and every CRC stays valid. The two writes make the same request queue as the
     # game's, in one step of the harness.
-    queue = sym("eepromMessageQueue")
     emu.w8(queue + 1, 11)
     emu.w8(sym("eepromMessageNum"), 2)
     emu.w8(queue, 6)
@@ -173,7 +209,13 @@ def run(emu, sym, args):
     if eeprom() != initial:
         emu.fail("the EEPROM changed after a cancelled write")
 
+    # A double tap: the second A comes about 3 game frames after the first and does nothing.
     yield from press(emu, "A")
+    yield from press(emu, "A")
+    yield 10
+    if emu.r8(se + layout.SAVEEDIT_CONFIRM) != 1 or emu.r8(se + layout.SAVEEDIT_REQUEST):
+        emu.fail("a double tap of A answered the question")
+    yield GUARD_WAIT
     yield from press(emu, "A")
     yield 400
     if emu.r8(se + layout.SAVEEDIT_STATUS) != 1:
@@ -202,8 +244,9 @@ def run(emu, sym, args):
     if emu.r8(s_diff) != (want + 1) % 3:
         emu.fail(f"difficulty is {emu.r8(s_diff)}, not {(want + 1) % 3}")
     emu.w16(cur, 0)
-    for b in ["DOWN"] * 2 + ["A", "A"]:
+    for b in ["DOWN"] * 2:
         yield from press(emu, b)
+    yield from confirm(emu)
     yield 400
     if emu.r8(slot0 + 0x11) != want or emu.r8(s_diff) != want or eeprom()[SLOTS_ADDR + 0x11] != want:
         emu.fail(f"the write changed the difficulty of the file in play: game {emu.r8(slot0 + 0x11)}, editor "
@@ -227,8 +270,9 @@ def run(emu, sym, args):
     if (emu.r8(s_won), emu.r8(s_returned)) != (1, 1):
         emu.fail(f"won {emu.r8(s_won)} and returned {emu.r8(s_returned)}, not 1 and 1")
     emu.w8(returned, 2)  # the game returns another crystal while the editor is closed
-    for b in ["DOWN"] * 4 + ["A", "A"]:
+    for b in ["DOWN"] * 4:
         yield from press(emu, b)
+    yield from confirm(emu)
     yield 400
     if (emu.r32(levels), emu.r8(won), emu.r8(returned)) != (7, 1, 1):
         emu.fail(f"after the write the game's copy has levels {emu.r32(levels):#x}, won {emu.r8(won)}, returned "
@@ -256,8 +300,7 @@ def run(emu, sym, args):
     if emu.r8(se + layout.SAVEEDIT_CONFIRM) or emu.r8(se + layout.SAVEEDIT_REQUEST) or emu.r8(s_lives) != 8 or \
             emu.r8(lives) != 9:
         emu.fail("B did not cancel the reload question")
-    yield from press(emu, "A")
-    yield from press(emu, "A")
+    yield from confirm(emu)
     yield 400
     if emu.r8(s_lives) != 5 or emu.r8(se + layout.SAVEEDIT_STATUS) != 2:
         emu.fail(f"reload: lives {emu.r8(s_lives)}, status {emu.r8(se + layout.SAVEEDIT_STATUS)}")
@@ -269,8 +312,7 @@ def run(emu, sym, args):
     # the game look busy: the service waits, and nothing takes the count back.
     num = sym("eepromMessageNum")
     emu.w8(num, 1)
-    for b in ["A", "A"]:  # the cursor is on Reload
-        yield from press(emu, b)
+    yield from confirm(emu)  # the cursor is on Reload
     yield 60
     if emu.r8(se + layout.SAVEEDIT_REQUEST) != 2:
         emu.fail("a reload did not wait while the game had an EEPROM request")

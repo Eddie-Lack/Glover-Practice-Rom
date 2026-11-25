@@ -7,7 +7,9 @@
  *
  * Up and down choose a row. Left and right change a value (Z: steps of 10, R: steps of 60 for times). A on the
  * file page opens the levels or asks for the write or the reload; on the levels page it chooses the next column.
- * B goes back. */
+ * B goes back. The answer to the question takes an A pressed after CONFIRM_GUARD inputs: a double tap of A does
+ * not write. Edited values that are not written yet are orange. The fields of an empty file (the game shows it as
+ * EMPTY) are grey and do not change: the game does not read them. The best times belong to no file and change. */
 #include "fmt.h"
 #include "game.h"
 #include "hud.h"
@@ -30,7 +32,12 @@
 #define EEPROM_SLOTS_BLOCK 0x1F
 #define EEPROM_CRC_BLOCK 0x34
 enum { CONFIRM_NONE, CONFIRM_WRITE, CONFIRM_RELOAD };
-enum { REQUEST_NONE, REQUEST_WRITE, REQUEST_RELOAD };
+/* REQUEST_WAIT: the write is posted, and the game's EEPROM requests still run. */
+enum { REQUEST_NONE, REQUEST_WRITE, REQUEST_RELOAD, REQUEST_WAIT };
+/* The inputs (one a game frame) after the question in which A does nothing: half a second on a console. */
+#define CONFIRM_GUARD 10
+#define EDITED 0xFF9060FF
+#define OFF 0x707888FF
 enum { STATUS_NONE, STATUS_WRITTEN, STATUS_RELOADED, STATUS_NO_EEPROM, STATUS_BAD_CRC };
 
 enum { ROW_SLOT, ROW_LIVES, ROW_WON, ROW_RETURNED, ROW_DIFFICULTY, ROW_LEVELS, ROW_WRITE, ROW_RELOAD, ROW_COUNT };
@@ -49,6 +56,7 @@ static u32 loadedCRCs[8] __attribute__((aligned(8)));
 
 static u8 holdFrames;
 static u16 lastHeld;
+static u8 confirmAge; /* inputs since the question appeared */
 
 static const char *const difficultyNames[] = { "Easy", "Medium", "Hard" };
 
@@ -187,6 +195,8 @@ static void Open(void) {
     saveEdit.column = 0;
     saveEdit.confirm = CONFIRM_NONE;
     holdFrames = 0;
+    /* A message of another screen does not belong here. */
+    HudMessage("");
 }
 
 static void SetTime(int bit, int seconds) {
@@ -205,6 +215,9 @@ static void SetTime(int bit, int seconds) {
 static void ChangeFile(int step) {
     SaveSlot *s = Slot();
 
+    if (saveEdit.cursor != ROW_SLOT && !NamePrintable(s)) {
+        return;
+    }
     switch (saveEdit.cursor) {
         case ROW_SLOT:
             saveEdit.slot = (u8)Wrap(saveEdit.slot + step, 0, SAVE_FILES - 1);
@@ -235,6 +248,9 @@ static void ChangeLevel(int step, u16 held) {
     int bit = saveEdit.cursor;
     SaveSlot *s = Slot();
 
+    if (saveEdit.column != COL_TIME && !NamePrintable(s)) {
+        return;
+    }
     switch (saveEdit.column) {
         case COL_DONE:
             s->levels ^= 1 << bit;
@@ -268,6 +284,10 @@ static int Input(u16 pressed, u16 held) {
     }
     lastHeld = held;
     if (saveEdit.confirm) {
+        if (confirmAge < CONFIRM_GUARD) {
+            confirmAge++;
+            pressed &= ~CONT_A;
+        }
         if (pressed & CONT_A) {
             int reload = saveEdit.confirm == CONFIRM_RELOAD;
 
@@ -327,6 +347,7 @@ static int Input(u16 pressed, u16 held) {
                     HudMessage("the last request is still running");
                 } else {
                     saveEdit.confirm = saveEdit.cursor == ROW_WRITE ? CONFIRM_WRITE : CONFIRM_RELOAD;
+                    confirmAge = 0;
                 }
                 break;
         }
@@ -362,9 +383,14 @@ static void DrawFile(Gfx **dl) {
     SlotName(name, s);
     Format(buf, sizeof(buf), "%s  score %d%s", name, s->score, saveEdit.slot == currentSaveSlot ? "  (in play)" : "");
     TextPrint(dl, x, y, 1, 0xB0B8C8FF, buf);
+    const SaveSlot *o = &originalSlots[saveEdit.slot];
+    int empty = !NamePrintable(s);
+
     for (int r = 0; r < ROW_COUNT; r++) {
         int row = y + (r + 1) * ROW_H + 2;
         int selected = r == saveEdit.cursor;
+        int edited = 0;
+        u32 color;
 
         buf[0] = '\0';
         switch (r) {
@@ -373,25 +399,41 @@ static void DrawFile(Gfx **dl) {
                 break;
             case ROW_LIVES:
                 Format(buf, sizeof(buf), "%d", s->lives);
+                edited = s->lives != o->lives;
                 break;
             case ROW_WON:
                 Format(buf, sizeof(buf), "%d", s->hubTarget);
+                edited = s->hubTarget != o->hubTarget;
                 break;
             case ROW_RETURNED:
                 Format(buf, sizeof(buf), "%d", s->hubLevel);
+                edited = s->hubLevel != o->hubLevel;
                 break;
             case ROW_DIFFICULTY:
                 Format(buf, sizeof(buf), "%s", difficultyNames[s->difficultyLevel % 3]);
+                edited = s->difficultyLevel != o->difficultyLevel;
                 break;
             case ROW_LEVELS:
                 Format(buf, sizeof(buf), ">");
+                edited = s->levels != o->levels || s->allGaribs != o->allGaribs;
                 break;
         }
         if (selected) {
             TextRect(dl, VIEW_X + 2, row - 1, VIEW_X + VIEW_W - 2, row + ROW_H - 2, 0x5070D060);
         }
-        TextPrint(dl, x, row, 1, selected ? 0xFFFFFFFF : 0xB0B8C8FF, rowNames[r]);
-        TextPrint(dl, VIEW_X + VIEW_W - 8 - TextWidth(buf, 1), row, 1, selected ? 0xFFE070FF : 0xC0A860FF, buf);
+        /* The fields of an empty file are grey: they cannot change. */
+        if (empty && r >= ROW_LIVES && r < ROW_LEVELS) {
+            color = OFF;
+        } else {
+            color = selected ? 0xFFFFFFFF : 0xB0B8C8FF;
+        }
+        TextPrint(dl, x, row, 1, color, rowNames[r]);
+        if (empty && r >= ROW_LIVES && r < ROW_LEVELS) {
+            color = OFF;
+        } else {
+            color = edited ? EDITED : selected ? 0xFFE070FF : 0xC0A860FF;
+        }
+        TextPrint(dl, VIEW_X + VIEW_W - 8 - TextWidth(buf, 1), row, 1, color, buf);
     }
     y += (ROW_COUNT + 2) * ROW_H;
     if (saveEdit.confirm == CONFIRM_WRITE) {
@@ -407,12 +449,13 @@ static void DrawFile(Gfx **dl) {
     } else {
         TextPrint(dl, x, y, 1, 0x8090A8FF, "</> change  A choose  B back");
     }
-    TextPrint(dl, x, y + ROW_H, 1, 0x8090A8FF, saveEdit.bestsEdited ? "Best times edited (all files)" : "");
+    TextPrint(dl, x, y + ROW_H, 1, EDITED, saveEdit.bestsEdited ? "Best times edited (all files)" : "");
 }
 
 static void DrawLevels(Gfx **dl) {
     char buf[48];
     const SaveSlot *s = Slot();
+    const SaveSlot *o = &originalSlots[saveEdit.slot];
     int x = VIEW_X + 6;
     int y = VIEW_Y + 16;
     int first = saveEdit.cursor < ROWS / 2 ? 0 : saveEdit.cursor - ROWS / 2;
@@ -441,15 +484,22 @@ static void DrawLevels(Gfx **dl) {
         TextPrint(dl, x, row, 1, white, buf);
         for (int c = 0; c < COL_COUNT; c++) {
             u32 color = selected && c == saveEdit.column ? 0xFFE070FF : white;
+            int edited;
 
             if (c == COL_DONE) {
                 Format(buf, sizeof(buf), "%s", (s->levels >> bit) & 1 ? "yes" : "no");
+                edited = ((s->levels ^ o->levels) >> bit) & 1;
             } else if (c == COL_GARIBS) {
                 Format(buf, sizeof(buf), "%s", (s->allGaribs >> bit) & 1 ? "yes" : "no");
+                edited = ((s->allGaribs ^ o->allGaribs) >> bit) & 1;
             } else {
                 Time(buf, sizeof(buf), saveEditBests[bit].time);
+                edited = Differ(&saveEditBests[bit], &originalBests[bit], sizeof(BestTime));
             }
-            TextPrint(dl, VIEW_X + colX[c], row, 1, color, buf);
+            if (c != COL_TIME && !NamePrintable(s)) {
+                color = OFF;
+            }
+            TextPrint(dl, VIEW_X + colX[c], row, 1, edited ? EDITED : color, buf);
         }
     }
     y += (ROWS + 2) * ROW_H;
@@ -557,6 +607,12 @@ void SaveEditService(void) {
     if (EepromBusy()) {
         return;
     }
+    if (saveEdit.request == REQUEST_WAIT) {
+        /* The game's EEPROM requests of the write have run. */
+        saveEdit.status = STATUS_WRITTEN;
+        saveEdit.request = REQUEST_NONE;
+        return;
+    }
     if (saveEdit.request == REQUEST_RELOAD) {
         ReloadSave();
         return;
@@ -567,7 +623,7 @@ void SaveEditService(void) {
         return;
     }
     WriteEdits();
+    saveEdit.status = STATUS_NONE;
+    saveEdit.request = REQUEST_WAIT;
     __osRestoreInt(mask);
-    saveEdit.status = STATUS_WRITTEN;
-    saveEdit.request = REQUEST_NONE;
 }

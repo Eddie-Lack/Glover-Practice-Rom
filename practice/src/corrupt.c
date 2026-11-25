@@ -95,8 +95,16 @@ static int Write(u32 address, u32 value, int size) {
 
 /* The taint is set at the write: the menu can clear the dirty flag before the next game frame samples it. */
 static void Mark(void) {
-    corrupt.dirty = 1;
+    corrupt.dirty = CORRUPT_WRITTEN;
     BestTimesTaint(BT_POKES);
+}
+
+int PokeWrite(u32 address, u32 value, int size) {
+    if (!Write(address, value, size)) {
+        return 0;
+    }
+    Mark();
+    return 1;
 }
 
 void PokeFix(Poke *p) {
@@ -140,14 +148,20 @@ void PokesClearAll(void) {
     for (int i = 0; i < POKE_COUNT; i++) {
         PokeClear(&corrupt.pokes[i]);
     }
-    /* The writes stay, but the user has said that the tools are done. */
-    corrupt.dirty = 0;
+    /* The writes stay: the marker stays until the level starts again (corrupt.h). */
+    if (corrupt.dirty) {
+        corrupt.clearedAt = practice.levelStarts;
+        corrupt.dirty = CORRUPT_CLEARED;
+    }
 }
 
-void PokeMark(u32 address, u32 value) {
+void PokeMark(u32 address, u32 value, int size) {
     Poke *p = NULL;
 
-    address &= ~3u;
+    if (size != 1 && size != 2) {
+        size = 4;
+    }
+    address &= ~(u32)(size - 1);
     for (int i = 0; i < POKE_COUNT && p == NULL; i++) {
         if (corrupt.pokes[i].address == address) {
             p = &corrupt.pokes[i];
@@ -169,11 +183,14 @@ void PokeMark(u32 address, u32 value) {
         PokeClear(p);
         p->mode = POKE_ONCE;
     }
+    if (p->size != size) {
+        p->bits = size * 8;
+    }
     p->address = address;
     p->value = value;
-    p->size = 4;
-    if (p->bits < 1 || p->bits > 32) {
-        p->bits = 32;
+    p->size = size;
+    if (p->bits < 1 || p->bits > size * 8) {
+        p->bits = size * 8;
     }
     PokeFix(p);
     PokeRecount();

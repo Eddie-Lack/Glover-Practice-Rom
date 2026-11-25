@@ -615,12 +615,13 @@ static void FlipText(char *buf, int size, int arg) {
 }
 
 static const MenuItem corruptItems[] = {
-    WARN_VIEW("Pokes", pokeView, "Modified game! May crash. Memory view: Z marks"),
+    /* The pokes page, with the count of pokes set and running as its value. */
+    ITEM("Pokes", ITEM_VIEW, 0, 0, 0, NULL, .view = &pokeView, .info = PokesText,
+         .hint = "Modified game! May crash. Memory view: Z marks"),
     WARN_ACTION("Apply once pokes", CorruptAction, CORRUPT_APPLY, "Modified game! May crash"),
     CHOICE("Flip region", &corrupt.region, regionNames, REGION_COUNT),
     CHOICE("Range size", &corrupt.rangeSize, rangeNames, 4),
     WARN_ACTION("Flip one random bit", CorruptAction, CORRUPT_FLIP, "Modified game! May crash"),
-    INFO("Pokes", PokesText),
     INFO("Last flip", FlipText),
     ACTION("Clear all pokes", PokesClearAction, 0),
 };

@@ -45,6 +45,7 @@ TESTS = [
     ["harness.py", "paddisplay", "--gfx", "angrylion"],
     ["harness.py", "gametimer"],
     ["harness.py", "inspectview", "--gfx", "angrylion"],
+    ["harness.py", "views", "--gfx", "angrylion"],
     ["harness.py", "collview", "--gfx", "angrylion"],
     ["harness.py", "collview2", "--gfx", "angrylion"],
     ["harness.py", "collinfo", "--gfx", "angrylion"],

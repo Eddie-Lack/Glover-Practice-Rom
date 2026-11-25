@@ -1,5 +1,5 @@
 /* The frame log and its view (Inspect, Frame log): the last game frames of the glove, newest at the bottom. Up
- * and down scroll, Z clears, B goes back. */
+ * and down scroll by one entry, left and right by a page. L turns the log on or off, Z clears it, B goes back. */
 #include "actions.h"
 #include "fmt.h"
 #include "framelog.h"
@@ -10,16 +10,17 @@
 #include "safe.h"
 #include "text.h"
 
-#define VIEW_X 8
+/* The text starts 16 pixels in from the screen's edge, out of the band that a TV hides. */
+#define VIEW_X 10
 #define VIEW_Y 24
-#define VIEW_W 304
+#define VIEW_W 300
 #define ROW_H 10
 #define ROWS 16
 
 FrameLog frameLog;
 volatile u8 frameLogReads;
 
-static u8 scrollBack; /* entries above the newest */
+static u16 scrollBack; /* entries above the newest */
 
 void FrameLogClear(void) {
     frameLog.count = 0;
@@ -41,7 +42,7 @@ void FrameLogTick(void) {
     const Pad *p = &pad[ActiveController];
     FrameLogEntry *e = &frameLog.entries[frameLog.count % FRAME_LOG_SIZE];
 
-    e->frame = frameLog.count;
+    e->frame = frameCount;
     e->held = Bits14(p->button);
     e->pressed = Bits14(p->pressed);
     e->latched = Bits14(p->latch);
@@ -60,6 +61,8 @@ static void LogOpen(void) {
 
 static int LogInput(u16 pressed, u16 held) {
     u32 kept = frameLog.count < FRAME_LOG_SIZE ? frameLog.count : FRAME_LOG_SIZE;
+    u32 most = kept > ROWS ? kept - ROWS : 0;
+    u32 back = scrollBack;
     (void)held;
 
     if (pressed & CONT_B) {
@@ -67,13 +70,21 @@ static int LogInput(u16 pressed, u16 held) {
     }
     if (pressed & CONT_Z) {
         FrameLogClear();
+        return 1;
     }
-    if ((pressed & CONT_UP) && (u32)(scrollBack + ROWS) < kept) {
-        scrollBack++;
+    if (pressed & CONT_UP) {
+        back++;
     }
-    if ((pressed & CONT_DOWN) && scrollBack > 0) {
-        scrollBack--;
+    if (pressed & CONT_LEFT) {
+        back += ROWS;
     }
+    if (pressed & CONT_DOWN) {
+        back = back > 0 ? back - 1 : 0;
+    }
+    if (pressed & CONT_RIGHT) {
+        back = back > ROWS ? back - ROWS : 0;
+    }
+    scrollBack = (u16)(back < most ? back : most);
     if (pressed & CONT_L) {
         run.frameLog ^= 1;
     }

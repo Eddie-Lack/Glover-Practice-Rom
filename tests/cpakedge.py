@@ -79,11 +79,14 @@ def run(emu, sym, args):
     if len(notes) != 1 or pakfile.decode_name(next(iter(notes.values()))[4]) != pakfile.NOTE_NAME:
         emu.fail("the saved note is not on the formatted pak")
     pakfile.decode_practice(pakfile.note_data(p, next(iter(notes.values()))[2]))
-    # Format asks only for a pak that is not valid: with a valid one the row does nothing.
+    # Format asks only for a pak that is not valid: with a valid one the row is grey, and A checks the pak.
     yield from cursor_to(emu, sym, layout.ROW_FORMAT)
     yield from press(emu, "A")
     if emu.r8(c + layout.CPAK_CONFIRM):
         emu.fail("Format asked for a confirmation on a valid pak")
+    yield from wait_idle(emu, sym)
+    if status(emu, sym) != layout.CPAK_FOUND:
+        emu.fail(f"A on the grey Format row gave status {status(emu, sym)}, not the check's {layout.CPAK_FOUND}")
 
     # Controller 2: every note is used.
     yield from cursor_to(emu, sym, layout.ROW_PORT)
