@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.41 (2026-11-26)
+
+- Actors: the details page no longer shows "Only while a level runs".
+
 ## 0.9.40 (2026-11-25)
 
 - Fixed: Pause works after a warp from the title. Reset from the pause menu closes the pause first.

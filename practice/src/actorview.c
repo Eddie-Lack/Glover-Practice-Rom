@@ -306,9 +306,7 @@ static void Draw(Gfx **dl) {
             Line(dl, ROWS, 0x8090A8FF, "^v field  </> change  C^v step  Start done");
             return;
         }
-        if (!CanGo()) {
-            Line(dl, ROWS - 1, 0xFF9060FF, "Only while a level runs");
-        } else if (CanBring(a)) {
+        if (CanBring(a)) {
             Line(dl, ROWS - 1, 0xFF9060FF, "Z brings it to Glover: modified game");
         }
         Line(dl, ROWS, 0x8090A8FF, "</> other  A go  Z bring  Start edit  B back");
