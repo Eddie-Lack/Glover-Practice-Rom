@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Glover Practice Patcher</title>
 <style>
-/* Styled after a 1998 game web site: a tiled star background, a ridge-framed table in the middle, a
-   WordArt-style logo, red title bars, grey bevelled boxes and buttons, pixel bullets and system fonts only.
-   Everything is drawn here with CSS and SVG; nothing comes from the ROM. */
 :root {
   --navy: #000080;
   --deep: #000040;
@@ -26,28 +23,24 @@ body {
   color: #ffffff; font: 13px/1.5 Verdana, Tahoma, Arial, Helvetica, sans-serif;
   padding: 20px 12px 40px;
   background-color: #0000a8;
-  /* A tiled background of little yellow stars, as many 1998 sites had. */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72' shape-rendering='crispEdges'%3E%3Crect width='72' height='72' fill='%230000a8'/%3E%3Cpath d='M18 6l3 7h7l-6 4 2 8-6-5-6 5 2-8-6-4h7z' fill='%23ffff00' stroke='%23c08000'/%3E%3Cpath d='M54 42l2 5h5l-4 3 2 6-5-4-5 4 2-6-4-3h5z' fill='%23ffffff' opacity='.55'/%3E%3Crect x='44' y='12' width='2' height='2' fill='%23ffffff'/%3E%3Crect x='10' y='52' width='2' height='2' fill='%23ffffff'/%3E%3Crect x='64' y='26' width='2' height='2' fill='%23ffff80'/%3E%3C/svg%3E");
 }
 main {
   max-width: 620px; margin: 0 auto; background: var(--navy);
   border: 6px ridge var(--grey); padding: 0 0 14px;
 }
-/* The logo: thick yellow letters with a red and black hard shadow, as from a 1998 paint program. */
 h1 {
   margin: 0; padding: 16px 8px 12px; text-align: center; background: var(--deep);
   font: italic 900 clamp(26px, 7vw, 44px)/1 "Arial Black", "Arial Bold", Gadget, Impact, sans-serif;
   color: var(--yellow); letter-spacing: 1px; text-transform: uppercase;
   text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #000000, -1px -1px 0 #ff8000;
 }
-/* The version under the logo, like a site's "last updated" line. */
 .version { margin: 0; padding: 0 8px 10px; text-align: center; background: var(--deep);
   font: bold 13px/1.2 Verdana, Tahoma, Arial, sans-serif; color: #c0c0ff; letter-spacing: 2px; text-transform: uppercase; }
 h1 .glove { display: inline-block; width: 40px; height: 32px; vertical-align: -4px; margin: 0 8px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 16' shape-rendering='crispEdges'%3E%3Cpath d='M1 5h4V4h2V3h4v2h8v3h-8v2h-1v2h-1v2H4v-2H3v-2H1z' fill='%23ffffff' stroke='%23000000' stroke-width='1'/%3E%3C/svg%3E") no-repeat center / contain; }
 h1 .glove.left { transform: scaleX(1); }
 h1 .glove.right { transform: scaleX(-1); }
-/* A rainbow divider, a classic of the time. */
 .rainbow { height: 6px; border: 0; margin: 0;
   background: linear-gradient(90deg, #ff0000, #ff8000, #ffff00, #00c000, #0080ff, #8000ff, #ff00ff); }
 h2 {
@@ -61,7 +54,6 @@ a { color: var(--yellow); text-decoration: underline; }
 a:visited { color: #ff99ff; }
 a:hover { color: #ffffff; }
 
-/* The drop box: grey and sunken, like a 1998 form. */
 .drop {
   display: block; margin: 14px 14px 0; padding: 18px 12px; text-align: center; cursor: pointer;
   background: var(--grey); color: #000000;
@@ -75,7 +67,6 @@ a:hover { color: #ffffff; }
 
 ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
 .steps li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; }
-/* Pixel bullets: a grey ball, green with a tick when done, red with a cross when it failed. */
 .steps .dot { width: 14px; height: 14px; margin-top: 2px; background: var(--grey); border: 2px outset var(--grey); image-rendering: pixelated; }
 .steps li[data-state="ok"] .dot { background: var(--good); border-color: #80ff80 #006000 #006000 #80ff80; border-style: solid; }
 .steps li[data-state="ok"] .dot::after { content: ""; display: block; width: 4px; height: 7px; margin: 0 auto; border: solid #000000; border-width: 0 2px 2px 0; transform: rotate(45deg); }
@@ -89,7 +80,6 @@ ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
 .steps li[data-state="fail"] .detail { color: var(--bad); font-family: Verdana, Arial, sans-serif; font-weight: bold; }
 
 .save { text-align: center; padding-top: 12px; }
-/* A Windows 98 style push button. */
 button {
   font: bold 13px Arial, Helvetica, sans-serif; color: #000000; background: var(--grey); cursor: pointer;
   border: 2px solid; border-color: var(--grey-light) #404040 #404040 var(--grey-light);
@@ -102,19 +92,18 @@ button:focus-visible { outline: 1px dotted #000000; outline-offset: -5px; }
 .note.bad { color: var(--bad); font-weight: bold; }
 
 ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
-/* A little pixel star for each bullet. */
 .know li { padding-left: 18px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h2v3h3v2H7v2h1v3H6V8H4v2H2V7h1V5H1V3h3z' fill='%23ffff00'/%3E%3C/svg%3E") no-repeat 0 4px / 10px 10px; }
 </style>
 </head>
 <body>
 <main>
-  <h1><span class="glove left" aria-hidden="true"></span>Glover Practice Patcher<span class="glove right" aria-hidden="true"></span></h1>
+  <h1><span class="glove left" aria-hidden="true"></span>Glover Practice ROM Patcher<span class="glove right" aria-hidden="true"></span></h1>
   <p class="version" id="version" hidden></p>
   <hr class="rainbow">
 
   <label class="drop" id="drop">
-    <strong>Drop the Glover ROM here</strong>
-    <span>or click to choose a file: .z64, .v64 or .n64</span>
+    <strong>Drop your Glover ROM here</strong>
+    <span>or click here to choose a file</span>
     <input type="file" id="file" accept=".z64,.v64,.n64,.rom,.bin,.bps">
   </label>
 
@@ -122,10 +111,10 @@ ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
     <h2 id="steps-h">Patch</h2>
     <div class="inner">
       <ol class="steps" id="steps">
-        <li id="s-patchfile"><span class="dot"></span><div><div class="what">Find the patch</div><div class="detail"></div></div></li>
-        <li id="s-read"><span class="dot"></span><div><div class="what">Read the ROM and put it in .z64 byte order</div><div class="detail">waiting for a file</div></div></li>
-        <li id="s-sha"><span class="dot"></span><div><div class="what">Check that it is Glover (USA)</div><div class="detail">SHA-1 270be17b3c8da9b88a7b99c2a545b0bce16837f4</div></div></li>
-        <li id="s-apply"><span class="dot"></span><div><div class="what">Apply the patch and check the result</div><div class="detail"></div></div></li>
+        <li id="s-patchfile"><span class="dot"></span><div><div class="what">Find patch</div><div class="detail"></div></div></li>
+        <li id="s-read"><span class="dot"></span><div><div class="what">Read ROM and put it in .z64 byte order</div><div class="detail">waiting for file</div></div></li>
+        <li id="s-sha"><span class="dot"></span><div><div class="what">Check that it's Glover (USA)</div><div class="detail">SHA-1 270be17b3c8da9b88a7b99c2a545b0bce16837f4</div></div></li>
+        <li id="s-apply"><span class="dot"></span><div><div class="what">Apply patch</div><div class="detail"></div></div></li>
       </ol>
       <div class="save">
         <button class="primary" id="save-rom" disabled>Save practice ROM</button>
@@ -138,8 +127,8 @@ ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
     <h2 id="know-h">Good to know</h2>
     <div class="inner">
       <ul class="know">
-        <li>The practice ROM needs the Expansion Pak</li>
-        <li>Features can be found in the <a href="https://github.com/Eddie-Lack/Glover-Practice-Rom/blob/main/wiki/Home.md">wiki</a></li>
+        <li>The Expansion Pak is required</li>
+        <li><a href="https://github.com/Eddie-Lack/Glover-Practice-Rom/blob/main/wiki/Home.md">Practice rom wiki</a></li>
       </ul>
     </div>
   </section>
@@ -166,7 +155,6 @@ function step(id, state, detail) {
   li.dataset.state = state;
   if (detail !== undefined) li.querySelector(".detail").textContent = detail;
 }
-// Each step's starting text, restored before the next file
 const STEP_TEXT = {};
 document.querySelectorAll("#steps li").forEach((li) => { STEP_TEXT[li.id] = li.querySelector(".detail").textContent; });
 function resetSteps() {
@@ -178,7 +166,7 @@ function note(text, bad) { $("note").textContent = text; $("note").className = b
 
 function showPatch(where) {
   if (patch) step("s-patchfile", "ok", (patch.length / 1024).toFixed(1) + " KB BPS patch" + where);
-  else step("s-patchfile", "", "This page has no patch built in. Drop glover-practice.bps here first");
+  else step("s-patchfile", "", "Drop glover-practice.bps here first");
 }
 showPatch("");
 
@@ -206,12 +194,12 @@ const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 2
 function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
 const u32le = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
 
-// BPS: the patch format
+// BPS patch
 function applyBps(source, p) {
   const magic = String.fromCharCode(p[0], p[1], p[2], p[3]);
   if (magic !== "BPS1") throw new Error("The patch file is not a BPS patch");
   if (crc32(p.subarray(0, p.length - 4)) !== u32le(p, p.length - 4)) throw new Error("The patch file is damaged");
-  if (crc32(source) !== u32le(p, p.length - 12)) throw new Error("The patch does not fit this ROM");
+  if (crc32(source) !== u32le(p, p.length - 12)) throw new Error("The patch doesn't fit this ROM");
   let pos = 4;
   const num = () => {
     let n = 0, shift = 1;
@@ -252,7 +240,7 @@ async function patchRom(file) {
   await pause();
   const raw = new Uint8Array(await file.arrayBuffer());
   const conv = toZ64(raw);
-  if (!conv) { step("s-read", "fail", "This file is not an N64 ROM: its first bytes match no known byte order"); return; }
+  if (!conv) { step("s-read", "fail", "This file isn't an N64 ROM: its first bytes match no known byte order"); return; }
   const rom = conv.rom;
   step("s-read", "ok", (raw.length / 1048576).toFixed(0) + " MiB, " + conv.order);
 
@@ -260,7 +248,7 @@ async function patchRom(file) {
   let sum = "";
   try { sum = await sha1(rom); } catch (e) { sum = ""; }
   if (sum && sum !== ROM_SHA1) {
-    step("s-sha", "fail", "SHA-1 " + sum + ". This is not the original Glover ROM. The patch only works with that ROM");
+    step("s-sha", "fail", "SHA-1 " + sum + ". This isn't the original Glover ROM. The patch only works with that ROM");
     return;
   }
   step("s-sha", "ok", sum ? "SHA-1 " + sum + ", the original ROM" : "This browser cannot compute SHA-1 here; the patch checks the ROM's CRC32 instead");
@@ -303,7 +291,7 @@ const drop = $("drop");
 ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
 drop.addEventListener("drop", (ev) => { ev.preventDefault(); ev.stopPropagation(); const f = ev.dataTransfer.files[0]; if (f) useFile(f); });
-// A file dropped anywhere else on the page should not open in the browser instead
+// Make sure files dropped on the page don't open in the browser instead
 window.addEventListener("dragover", (ev) => ev.preventDefault());
 window.addEventListener("drop", (ev) => { ev.preventDefault(); const f = ev.dataTransfer && ev.dataTransfer.files[0]; if (f) useFile(f); });
 </script>
